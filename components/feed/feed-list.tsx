@@ -1,13 +1,14 @@
-import Link from "next/link";
-
 import type { FeedRow } from "@/lib/repositories/players.repo";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
+import { format } from "@/lib/i18n/format";
+import { getT } from "@/lib/i18n/server";
 
-const DATE_FMT = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const dateLocales: Record<Locale, string> = {
+  en: "en-US",
+  ru: "ru-RU",
+  uk: "uk-UA",
+};
 
 function payloadOf(entry: FeedRow): Record<string, unknown> {
   if (entry.payload && typeof entry.payload === "object") {
@@ -31,54 +32,61 @@ function diceStr(payload: Record<string, unknown>): string | null {
   return nums.length > 0 ? nums.join("+") : null;
 }
 
-function PlayerName({ entry }: { entry: FeedRow }) {
-  const name = entry.displayName ?? entry.username ?? "Игрок";
-  if (entry.username) {
-    return (
-      <Link
-        href={`/players/${entry.username}`}
-        className="text-amber hover:underline"
-      >
-        {name}
-      </Link>
-    );
-  }
+function PlayerName({
+  entry,
+  fallback,
+}: {
+  entry: FeedRow;
+  fallback: string;
+}) {
+  const name = entry.displayName ?? entry.username ?? fallback;
   return <span className="text-amber">{name}</span>;
 }
 
-/** Человекочитаемая строка события. */
-export function EventLine({ entry }: { entry: FeedRow }) {
+/** Человекочитаемая строка события. Словарь и локаль приходят из FeedList. */
+function EventLine({
+  entry,
+  t,
+}: {
+  entry: FeedRow;
+  t: Dictionary["feed"];
+}) {
   const p = payloadOf(entry);
   const dice = diceStr(p);
+  const diceSuffix = dice ? ` ${format(t.diceSuffix, { dice })}` : null;
   switch (entry.eventType) {
     case "game_rolled": {
-      const title = str(p.title) ?? "???";
+      const title = str(p.title) ?? t.unknownTitle;
       return (
         <>
-          <PlayerName entry={entry} /> выбросил игру: «{title}»
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {format(t.actions.rolled, { title })}
         </>
       );
     }
     case "game_rerolled": {
-      const title = str(p.title) ?? "???";
+      const title = str(p.title) ?? t.unknownTitle;
       return (
         <>
-          <PlayerName entry={entry} /> перебросил игру → «{title}»
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {format(t.actions.rerolled, { title })}
         </>
       );
     }
     case "game_passed":
       return (
         <>
-          <PlayerName entry={entry} /> прошёл игру
-          {dice ? ` (кубики ${dice})` : null}
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.passed}
+          {diceSuffix}
         </>
       );
     case "game_dropped":
       return (
         <>
-          <PlayerName entry={entry} /> дропнул игру
-          {dice ? ` (кубики ${dice})` : null}
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.dropped}
+          {diceSuffix}
         </>
       );
     case "moved": {
@@ -86,60 +94,64 @@ export function EventLine({ entry }: { entry: FeedRow }) {
       const to = num(p.to);
       return (
         <>
-          <PlayerName entry={entry} />: клетка {from ?? "?"} →{" "}
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {format(t.actions.movedFrom, { from: from ?? "?" })}
           <span className="ammo-counter text-amber">{to ?? "?"}</span>
-          {dice ? ` (кубики ${dice})` : null}
+          {diceSuffix}
         </>
       );
     }
     case "season_started":
-      return <>Сезон начался. Всем удачи!</>;
+      return <>{t.seasonStarted}</>;
     case "player_joined":
       return (
         <>
-          <PlayerName entry={entry} /> присоединился к сезону
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.joined}
         </>
       );
     case "admin_adjustment": {
       const reason = str(p.reason);
       return (
         <>
-          Административная корректировка для <PlayerName entry={entry} />
-          {reason ? `: ${reason}` : null}
+          {t.adminAdjustmentPrefix}
+          <PlayerName entry={entry} fallback={t.fallbackPlayer} />
+          {reason ? format(t.adminAdjustmentReason, { reason }) : null}
         </>
       );
     }
     default:
-      return <>Событие: {entry.eventType}</>;
+      return <>{format(t.defaultEvent, { type: entry.eventType })}</>;
   }
 }
 
-export function EventTime({ date }: { date: Date }) {
-  return (
-    <time
-      dateTime={date.toISOString()}
-      className="shrink-0 font-mono text-xs text-dim"
-    >
-      {DATE_FMT.format(date)}
-    </time>
-  );
-}
-
-export function FeedList({ rows }: { rows: FeedRow[] }) {
+export async function FeedList({ rows }: { rows: FeedRow[] }) {
+  const { t, locale } = await getT();
   if (rows.length === 0) {
     return (
       <p className="font-mono text-sm uppercase tracking-widest text-dim">
-        Событий пока нет — сезон только начинается.
+        {t.feed.empty}
       </p>
     );
   }
+  const dateFmt = new Intl.DateTimeFormat(dateLocales[locale], {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return (
     <ul className="divide-y divide-dim/20">
       {rows.map((entry) => (
         <li key={entry.id} className="flex items-baseline gap-3 py-2 first:pt-0 last:pb-0">
-          <EventTime date={entry.createdAt} />
+          <time
+            dateTime={entry.createdAt.toISOString()}
+            className="shrink-0 font-mono text-xs text-dim"
+          >
+            {dateFmt.format(entry.createdAt)}
+          </time>
           <p className="min-w-0 flex-1 text-sm leading-snug">
-            <EventLine entry={entry} />
+            <EventLine entry={entry} t={t.feed} />
           </p>
         </li>
       ))}

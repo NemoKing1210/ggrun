@@ -1,22 +1,23 @@
 import Link from "next/link";
 
 import { FeedList } from "@/components/feed/feed-list";
-import { StatusBadge, SEASON_STATUS_RU } from "@/components/ui/status";
+import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import {
   getEventFeed,
   getLeaderboard,
 } from "@/lib/repositories/players.repo";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
-const SECTIONS = [
-  { href: "/board", label: "Поле", hint: "карта сезона и позиции игроков" },
-  { href: "/leaderboard", label: "Лидерборд", hint: "полная таблица standings" },
-  { href: "/feed", label: "Лента", hint: "все события сезона" },
-  { href: "/rules", label: "Правила", hint: "как играть" },
-];
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.landing.metaTitle };
+}
 
 export default async function HomePage() {
+  const { t, locale } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
 
@@ -25,13 +26,20 @@ export default async function HomePage() {
     getEventFeed(season.id, 5),
   ]);
 
+  const sections = [
+    { href: "/board", ...t.landing.sections.board },
+    { href: "/leaderboard", ...t.landing.sections.leaderboard },
+    { href: "/feed", ...t.landing.sections.feed },
+    { href: "/rules", ...t.landing.sections.rules },
+  ];
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       <section className="hud-card overflow-hidden">
         <div className="hazard-tape h-2 w-full" />
         <div className="p-6 sm:p-8">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-dim">
-            {"// текущий сезон"}
+            {t.landing.currentSeason}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-4">
             <h1 className="font-display text-4xl uppercase tracking-wide text-amber sm:text-5xl">
@@ -39,13 +47,13 @@ export default async function HomePage() {
             </h1>
             <StatusBadge
               status={season.status}
-              labels={SEASON_STATUS_RU}
+              label={t.core.seasonStatuses[season.status]}
             />
           </div>
           {season.startedAt ? (
             <p className="mt-2 font-mono text-sm text-dim">
-              Старт:{" "}
-              {new Intl.DateTimeFormat("ru-RU", {
+              {t.landing.startedAt}{" "}
+              {new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -59,18 +67,18 @@ export default async function HomePage() {
         <section className="hud-card p-6">
           <header className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
-              Топ-5
+              {t.landing.topHeading}
             </h2>
             <Link
               href="/leaderboard"
               className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
             >
-              вся таблица →
+              {t.landing.fullTableLink}
             </Link>
           </header>
           {top.length === 0 ? (
             <p className="font-mono text-sm uppercase tracking-widest text-dim">
-              Участников ещё нет.
+              {t.landing.emptyTop}
             </p>
           ) : (
             <ol>
@@ -89,7 +97,7 @@ export default async function HomePage() {
                     {row.displayName ?? row.username}
                   </Link>
                   <span className="font-mono text-xs text-dim">
-                    кл.{row.position}
+                    {format(t.landing.cellShort, { position: row.position })}
                   </span>
                   <span className="w-14 shrink-0 text-right font-mono text-sm text-amber">
                     {row.balancePoints}
@@ -103,13 +111,13 @@ export default async function HomePage() {
         <section className="hud-card p-6">
           <header className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
-              Последние события
+              {t.landing.latestHeading}
             </h2>
             <Link
               href="/feed"
               className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
             >
-              вся лента →
+              {t.landing.fullFeedLink}
             </Link>
           </header>
           <FeedList rows={feed} />
@@ -117,7 +125,7 @@ export default async function HomePage() {
       </div>
 
       <nav className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <Link key={s.href} href={s.href} className="hud-btn justify-start">
             <span>
               {s.label}
@@ -132,7 +140,3 @@ export default async function HomePage() {
     </div>
   );
 }
-
-export const metadata = {
-  title: "GGRun — игровой забег",
-};

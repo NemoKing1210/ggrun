@@ -13,11 +13,19 @@ import {
 import { logAdminAction, logEvent } from "@/lib/repositories/events.repo";
 import { SeasonConfigSchema } from "@/game-engine";
 
-export class AdminError extends Error {}
+export class AdminError extends Error {
+  /** Код ошибки + параметры интерполяции; текст подбирается словарём i18n в экшенах. */
+  constructor(
+    public readonly code: string,
+    public readonly params: Record<string, string> = {},
+  ) {
+    super(code);
+  }
+}
 
 async function requireStaff(): Promise<NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>> {
   const user = await getCurrentUser();
-  if (!user || !isStaff(user)) throw new AdminError("Требуются права staff");
+  if (!user || !isStaff(user)) throw new AdminError("adminStaffRequired");
   return user;
 }
 
@@ -123,11 +131,12 @@ export async function changeSeasonStatus(
 ): Promise<void> {
   const actor = await requireStaff();
   const season = await getSeasonById(seasonId);
-  if (!season) throw new AdminError("Сезон не найден");
+  if (!season) throw new AdminError("adminSeasonNotFound");
   if (!statusTransitions[season.status]!.includes(newStatus)) {
-    throw new AdminError(
-      `Недопустимый переход ${season.status} → ${newStatus}`,
-    );
+    throw new AdminError("adminInvalidTransition", {
+      from: season.status,
+      to: newStatus,
+    });
   }
   await db.transaction(async (tx) => {
     const patch: Record<string, unknown> = { status: newStatus };
@@ -231,7 +240,7 @@ export async function adminAdjustPlayer(input: {
 }): Promise<void> {
   const actor = await requireStaff();
   const sp = await getSeasonPlayerById(input.seasonPlayerId);
-  if (!sp) throw new AdminError("Участник не найден");
+  if (!sp) throw new AdminError("adminPlayerNotFound");
   const patch: Parameters<typeof updateSeasonPlayer>[1] = {};
   if (input.position !== undefined) patch.position = input.position;
   if (input.balancePoints !== undefined) patch.balancePoints = input.balancePoints;

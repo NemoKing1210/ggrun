@@ -24,7 +24,15 @@ import {
   type SeasonConfig,
 } from "@/game-engine";
 
-export class GameLoopError extends Error {}
+export class GameLoopError extends Error {
+  /**
+   * Код ошибки; текст подбирается словарём i18n (t.core.errors) в серверных
+   * экшенах — домен не знает о языках интерфейса.
+   */
+  constructor(public readonly code: string) {
+    super(code);
+  }
+}
 
 function parseSeasonConfig(raw: unknown): SeasonConfig {
   const parsed = SeasonConfigSchema.safeParse(raw);
@@ -39,7 +47,7 @@ async function assertActorAllowed(
   const actor = await getCurrentUser();
   if (actor && actor.id === playerId) return;
   if (actor && isStaff(actor)) return;
-  throw new GameLoopError("Недостаточно прав для этого действия");
+  throw new GameLoopError("gameNotAllowed");
 }
 
 /**
@@ -48,15 +56,15 @@ async function assertActorAllowed(
  */
 export async function rollNewGame(seasonPlayerId: string): Promise<string> {
   const sp = await getSeasonPlayerById(seasonPlayerId);
-  if (!sp) throw new GameLoopError("Участник не найден");
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
   await assertActorAllowed(sp.id, sp.playerId);
 
   const season = await getSeasonById(sp.seasonId);
   if (!season || season.status !== "active") {
-    throw new GameLoopError("Сезон не активен");
+    throw new GameLoopError("gameSeasonNotActive");
   }
   const open = await getOpenRollRow(sp.id);
-  if (open) throw new GameLoopError("У вас уже есть наролленная игра");
+  if (open) throw new GameLoopError("gameAlreadyHaveRoll");
 
   const game = await rollRandomGame(sp.id);
   const roll = await createRoll(sp.id, game?.id ?? null);
@@ -84,7 +92,7 @@ export async function resolveGameRoll(params: {
   newBalancePoints: number;
 }> {
   const actor = await getCurrentUser();
-  if (!actor) throw new GameLoopError("Требуется вход");
+  if (!actor) throw new GameLoopError("gameLoginRequired");
 
   const rollRows = await db
     .select()
@@ -92,13 +100,13 @@ export async function resolveGameRoll(params: {
     .where(eq(gameRolls.id, params.rollId))
     .limit(1);
   const roll = rollRows[0];
-  if (!roll) throw new GameLoopError("Ролл не найден");
+  if (!roll) throw new GameLoopError("gameRollNotFound");
   if (
     roll.status === "passed" ||
     roll.status === "dropped" ||
     roll.status === "rerolled"
   ) {
-    throw new GameLoopError("Ролл уже разрешён");
+    throw new GameLoopError("gameRollAlreadyResolved");
   }
 
   const spRows = await db
@@ -107,12 +115,12 @@ export async function resolveGameRoll(params: {
     .where(eq(seasonPlayers.id, roll.seasonPlayerId))
     .limit(1);
   const sp = spRows[0];
-  if (!sp) throw new GameLoopError("Участник не найден");
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
   await assertActorAllowed(sp.id, sp.playerId);
 
   const season = await getSeasonById(sp.seasonId);
-  if (!season) throw new GameLoopError("Сезон не найден");
-  if (season.status !== "active") throw new GameLoopError("Сезон не активен");
+  if (!season) throw new GameLoopError("gameSeasonNotFound");
+  if (season.status !== "active") throw new GameLoopError("gameSeasonNotActive");
 
   const config = parseSeasonConfig(season.config);
 
@@ -124,11 +132,11 @@ export async function resolveGameRoll(params: {
   // --- rerolled: новый ролл игры без движения ------------------------------
   if (params.outcome === "rerolled") {
     if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
-      throw new GameLoopError("Лимит рероллов исчерпан");
+      throw new GameLoopError("gameRerollLimit");
     }
     const rerollsThisGame = await countRerollsForGame(sp.id, roll.gameId);
     if (rerollsThisGame >= config.rerolls.limitPerGame) {
-      throw new GameLoopError("Лимит рероллов для этой игры исчерпан");
+      throw new GameLoopError("gameRerollLimitForGame");
     }
     const game = await rollRandomGame(sp.id);
     await db.transaction(async (tx) => {

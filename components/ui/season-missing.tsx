@@ -1,26 +1,25 @@
 import Link from "next/link";
 
-const SECTIONS = [
-  { href: "/board", label: "Поле", hint: "карта забега" },
-  { href: "/leaderboard", label: "Лидерборд", hint: "кто где стоит" },
-  { href: "/feed", label: "Лента", hint: "что произошло" },
-  { href: "/rules", label: "Правила", hint: "как играть" },
-];
+import { getT } from "@/lib/i18n/server";
 
-export function SeasonMissing() {
+export async function SeasonMissing() {
+  const { t } = await getT();
+  const sections = [
+    { href: "/board", ...t.board.missing.sections.board },
+    { href: "/leaderboard", ...t.board.missing.sections.leaderboard },
+    { href: "/feed", ...t.board.missing.sections.feed },
+    { href: "/rules", ...t.board.missing.sections.rules },
+  ];
   return (
     <div className="mx-auto max-w-xl">
       <div className="hud-card p-8 text-center">
         <div className="hazard-tape mb-6 h-2 w-full" />
         <h1 className="font-display text-3xl uppercase tracking-wide text-amber">
-          Сезон не объявлен
+          {t.board.missing.title}
         </h1>
-        <p className="mt-3 text-sm text-dim">
-          Ведущие ещё не запустили новый сезон. Заглядывай позже или изучи
-          прошлые разделы платформы.
-        </p>
+        <p className="mt-3 text-sm text-dim">{t.board.missing.text}</p>
         <nav className="mt-6 grid grid-cols-2 gap-2">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <Link
               key={s.href}
               href={s.href}

@@ -4,11 +4,7 @@ import { notFound } from "next/navigation";
 import { count, desc, eq } from "drizzle-orm";
 
 import { EmptyState } from "@/components/ui/page-header";
-import {
-  PLAYER_STATUS_RU,
-  SEASON_STATUS_RU,
-  StatusBadge,
-} from "@/components/ui/status";
+import { StatusBadge } from "@/components/ui/status";
 import { db } from "@/lib/db";
 import {
   gameRolls,
@@ -19,6 +15,8 @@ import {
 } from "@/db/schema";
 import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/repositories/players.repo";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
 type Params = { params: Promise<{ username: string }> };
 
@@ -26,20 +24,13 @@ export async function generateMetadata({
   params,
 }: Params): Promise<Metadata> {
   const { username } = await params;
-  return { title: `@${username} — GGRun` };
+  const { t } = await getT();
+  return { title: format(t.profile.metaTitle, { username }) };
 }
-
-const ROLL_STATUS_RU: Record<(typeof rollStatusEnum.enumValues)[number], string> =
-  {
-    rolled: "Выброшено игр",
-    in_progress: "В процессе",
-    passed: "Пройдено",
-    dropped: "Дропнуто",
-    rerolled: "Перебросов",
-  };
 
 export default async function PlayerProfilePage({ params }: Params) {
   const { username } = await params;
+  const { t, locale } = await getT();
 
   const [user] = await db
     .select()
@@ -99,7 +90,7 @@ export default async function PlayerProfilePage({ params }: Params) {
         {activeParticipation ? (
           <div className="ml-auto flex gap-6 font-mono text-sm">
             <span className="text-dim">
-              стрик{" "}
+              {t.profile.streak}{" "}
               <span className="ammo-counter text-lg text-military">
                 +{activeParticipation.streakPass}
               </span>
@@ -109,7 +100,7 @@ export default async function PlayerProfilePage({ params }: Params) {
               </span>
             </span>
             <span className="text-dim">
-              баланс{" "}
+              {t.profile.balance}{" "}
               <span className="ammo-counter text-lg text-amber">
                 {activeParticipation.balancePoints}
               </span>
@@ -125,7 +116,7 @@ export default async function PlayerProfilePage({ params }: Params) {
               {rollsByStatus.get(status) ?? 0}
             </p>
             <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim">
-              {ROLL_STATUS_RU[status]}
+              {t.profile.rollStats[status]}
             </p>
           </div>
         ))}
@@ -133,10 +124,10 @@ export default async function PlayerProfilePage({ params }: Params) {
 
       <section className="mb-8">
         <h2 className="font-display mb-3 text-xl uppercase tracking-wide text-amber">
-          Сезоны
+          {t.profile.seasonsHeading}
         </h2>
         {participations.length === 0 ? (
-          <EmptyState>Игрок пока не участвовал в сезонах.</EmptyState>
+          <EmptyState>{t.profile.emptySeasons}</EmptyState>
         ) : (
           <ul className="hud-card divide-y divide-dim/20 p-4">
             {participations.map(({ sp, season }) => (
@@ -150,14 +141,21 @@ export default async function PlayerProfilePage({ params }: Params) {
                 >
                   {season.title}
                 </Link>
-                <StatusBadge status={season.status} labels={SEASON_STATUS_RU} />
+                <StatusBadge
+                  status={season.status}
+                  label={t.core.seasonStatuses[season.status]}
+                />
                 <span className="font-mono text-xs text-dim">
-                  клетка <span className="ammo-counter">{sp.position}</span>
+                  {t.profile.cell}{" "}
+                  <span className="ammo-counter">{sp.position}</span>
                 </span>
                 <span className="w-14 text-right font-mono text-sm text-amber">
                   {sp.balancePoints}
                 </span>
-                <StatusBadge status={sp.status} labels={PLAYER_STATUS_RU} />
+                <StatusBadge
+                  status={sp.status}
+                  label={t.core.playerStatuses[sp.status]}
+                />
               </li>
             ))}
           </ul>
@@ -167,10 +165,10 @@ export default async function PlayerProfilePage({ params }: Params) {
       {activeParticipation ? (
         <section>
           <h2 className="font-display mb-3 text-xl uppercase tracking-wide text-amber">
-            Последние ходы
+            {t.profile.movesHeading}
           </h2>
           {recentMoves.length === 0 ? (
-            <EmptyState>Ходов в текущем сезоне ещё не было.</EmptyState>
+            <EmptyState>{t.profile.emptyMoves}</EmptyState>
           ) : (
             <ul className="hud-card divide-y divide-dim/20 p-4 font-mono text-sm">
               {recentMoves.map((move) => (
@@ -182,12 +180,15 @@ export default async function PlayerProfilePage({ params }: Params) {
                     dateTime={move.createdAt.toISOString()}
                     className="shrink-0 text-xs text-dim"
                   >
-                    {new Intl.DateTimeFormat("ru-RU", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(move.createdAt)}
+                    {new Intl.DateTimeFormat(
+                      locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU",
+                      {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    ).format(move.createdAt)}
                   </time>
                   <span className="flex-1">
                     {move.fromPosition} → {move.toPosition}

@@ -1,18 +1,17 @@
 import Link from "next/link";
 
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
-import {
-  PLAYER_STATUS_RU,
-  SEASON_STATUS_RU,
-  StatusBadge,
-} from "@/components/ui/status";
+import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard } from "@/lib/repositories/players.repo";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
-export const metadata = {
-  title: "Лидерборд — GGRun",
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.leaderboard.metaTitle };
+}
 
 function PlayerAvatar({
   username,
@@ -41,43 +40,50 @@ function PlayerAvatar({
 }
 
 export default async function LeaderboardPage() {
+  const { t } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
+  const kicker = format(t.core.common.seasonKicker, { season: season.title });
 
   const rows = await getLeaderboard(season.id);
 
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        kicker={`сезон «${season.title}»`}
-        title="Лидерборд"
-        right={<StatusBadge status={season.status} labels={SEASON_STATUS_RU} />}
+        kicker={kicker}
+        title={t.leaderboard.pageTitle}
+        right={
+          <StatusBadge
+            status={season.status}
+            label={t.core.seasonStatuses[season.status]}
+          />
+        }
       />
 
       {rows.length === 0 ? (
-        <EmptyState>В сезоне пока нет участников.</EmptyState>
+        <EmptyState>{t.leaderboard.empty}</EmptyState>
       ) : (
         <div className="hud-card overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-dim/30 font-mono text-xs uppercase tracking-widest text-dim">
                 <th scope="col" className="px-4 py-3 font-normal">
-                  Место
+                  {t.leaderboard.columns.place}
                 </th>
                 <th scope="col" className="px-4 py-3 font-normal">
-                  Игрок
+                  {t.leaderboard.columns.player}
                 </th>
                 <th scope="col" className="px-4 py-3 font-normal">
-                  Клетка
+                  {t.leaderboard.columns.cell}
                 </th>
                 <th scope="col" className="px-4 py-3 text-right font-normal">
-                  Баланс
+                  {t.leaderboard.columns.balance}
                 </th>
                 <th scope="col" className="px-4 py-3 font-normal">
-                  Стрики
+                  {t.leaderboard.columns.streaks}
                 </th>
                 <th scope="col" className="px-4 py-3 font-normal">
-                  Статус
+                  {t.leaderboard.columns.status}
                 </th>
               </tr>
             </thead>
@@ -124,7 +130,7 @@ export default async function LeaderboardPage() {
                   <td className="px-4 py-2.5">
                     <StatusBadge
                       status={row.status}
-                      labels={PLAYER_STATUS_RU}
+                      label={t.core.playerStatuses[row.status]}
                     />
                   </td>
                 </tr>

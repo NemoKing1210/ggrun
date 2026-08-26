@@ -11,6 +11,8 @@ import {
   adjustPlayerAction,
 } from "@/lib/use-cases/admin-actions";
 import { FormShell } from "@/components/admin/FormShell";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
 const playerStatuses = ["active", "finished", "eliminated", "withdrawn"] as const;
 
@@ -19,6 +21,7 @@ export default async function SeasonPlayersPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t } = await getT();
   const actor = await getCurrentUser();
   if (!actor || !isStaff(actor)) redirect("/login");
   const { id: seasonId } = await params;
@@ -43,21 +46,21 @@ export default async function SeasonPlayersPage({
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">
-        Игроки · {season.title}
+        {format(t.admin.players.heading, { season: season.title })}
       </h1>
       <div className="hazard-tape" aria-hidden />
 
       <section className="hud-card p-4">
         <h2 className="font-display text-xl uppercase tracking-wider mb-3">
-          Добавить участника
+          {t.admin.players.addHeading}
         </h2>
-        <FormShell action={addPlayerToSeasonAction} submitLabel="Добавить" className="flex gap-3 items-end">
+        <FormShell action={addPlayerToSeasonAction} submitLabel={t.core.common.add} className="flex gap-3 items-end">
           <input type="hidden" name="seasonId" value={seasonId} />
           <label className="text-dim text-sm grow">
-            Пользователь
+            {t.admin.players.userLabel}
             <select name="userId" required defaultValue="">
               <option value="" disabled>
-                — выберите —
+                {t.admin.players.pickUserOption}
               </option>
               {candidates.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -75,42 +78,50 @@ export default async function SeasonPlayersPage({
             <div className="flex flex-wrap items-baseline gap-x-4 mb-2">
               <span className="font-display text-lg">{p.displayName ?? p.username}</span>
               <span className="ammo-counter text-amber">
-                поз. {p.position} · бал. {p.balancePoints}
+                {format(t.admin.players.statsFormat, {
+                  position: p.position,
+                  balance: p.balancePoints,
+                })}
               </span>
               <span className="text-dim text-xs">
-                стрики +{p.streakPass}/-{p.streakDrop} · рероллы {p.rerollsUsed} · {p.status}
+                {format(t.admin.players.metaFormat, {
+                  pass: p.streakPass,
+                  drop: p.streakDrop,
+                  rerolls: p.rerollsUsed,
+                  status: t.core.playerStatuses[p.status],
+                })}
               </span>
             </div>
             <FormShell
               action={adjustPlayerAction}
-              submitLabel="Применить"
+              submitLabel={t.core.common.apply}
               submitClassName="hud-btn !py-1 !px-3 text-xs"
               className="grid grid-cols-2 gap-2 sm:grid-cols-5"
             >
               <input type="hidden" name="seasonPlayerId" value={p.id} />
               <input type="hidden" name="seasonId" value={seasonId} />
               <label className="text-dim text-xs">
-                Позиция
+                {t.core.common.position}
                 <input name="position" type="number" placeholder={String(p.position)} />
               </label>
               <label className="text-dim text-xs">
-                Баланс
+                {t.core.common.balance}
                 <input name="balancePoints" type="number" placeholder={String(p.balancePoints)} />
               </label>
               <label className="text-dim text-xs">
-                Статус
+                {t.core.common.status}
                 <select name="status" defaultValue="">
-                  <option value="">— не менять —</option>
+                  <option value="">{t.admin.players.keepStatusOption}</option>
                   {playerStatuses.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {t.core.playerStatuses[s]}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="text-dim text-xs sm:col-span-2">
-                Причина (обязательно, попадает в аудит и ленту)
-                <input name="reason" required placeholder="Ручная корректировка судьи" />
+                {t.admin.players.reasonLabel}
+                <input name="reason" required placeholder={t.admin.players.reasonPlaceholder} />
               </label>
             </FormShell>
           </div>

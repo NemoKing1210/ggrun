@@ -8,6 +8,8 @@ import {
   rollAction,
   type PlayerActionState,
 } from "@/lib/use-cases/player-actions";
+import { useI18n } from "@/lib/i18n/client";
+import { format } from "@/lib/i18n/format";
 
 export interface OpenRollView {
   id: string;
@@ -36,6 +38,8 @@ export default function RollCard({
   rerollsUsed,
   lastDice,
 }: RollCardProps) {
+  const { t } = useI18n();
+  const d = t.core.dashboard;
   const [rollState, rollFormAction, rollPending] = useActionState(
     rollAction,
     initialState,
@@ -52,7 +56,7 @@ export default function RollCard({
   return (
     <section className="hud-card p-5">
       <h2 className="font-display text-xl uppercase tracking-widest text-amber">
-        Текущая игра
+        {d.currentGame}
       </h2>
 
       {openRoll ? (
@@ -62,7 +66,7 @@ export default function RollCard({
               // eslint-disable-next-line @next/next/no-img-element -- обложки из внешних источников
               <img
                 src={openRoll.game.coverUrl}
-                alt={`Обложка: ${openRoll.game.title}`}
+                alt={format(d.coverAlt, { title: openRoll.game.title })}
                 className="h-40 w-full max-w-[160px] border border-[#3d3d34] object-cover"
               />
             )}
@@ -79,9 +83,7 @@ export default function RollCard({
                   )}
                 </>
               ) : (
-                <p className="text-dim">
-                  Игра выпала, но запись в каталоге недоступна.
-                </p>
+                <p className="text-dim">{d.missingCatalogEntry}</p>
               )}
             </div>
           </div>
@@ -95,9 +97,9 @@ export default function RollCard({
               value="passed"
               className="hud-btn hud-btn-primary"
               disabled={busy}
-              onClick={confirmGuard("Отметить игру пройденной?")}
+              onClick={confirmGuard(d.markPassedConfirm)}
             >
-              Пройдено
+              {d.passedButton}
             </button>
             <button
               type="submit"
@@ -105,9 +107,9 @@ export default function RollCard({
               value="dropped"
               className="hud-btn hud-btn-danger"
               disabled={busy}
-              onClick={confirmGuard("Дропнуть игру? Серия дропов растёт.")}
+              onClick={confirmGuard(d.dropConfirm)}
             >
-              Дроп
+              {d.dropButton}
             </button>
             <button
               type="submit"
@@ -115,12 +117,10 @@ export default function RollCard({
               value="rerolled"
               className="hud-btn"
               disabled={busy || rerollLocked}
-              title={
-                rerollLocked ? "Лимит рероллов исчерпан" : "Перероллить игру"
-              }
-              onClick={confirmGuard("Перероллить игру? Выпадет другая.")}
+              title={rerollLocked ? d.rerollLockedTitle : d.rerollButton}
+              onClick={confirmGuard(d.rerollConfirm)}
             >
-              Реролл
+              {d.rerollButton}
             </button>
           </form>
         </>
@@ -132,7 +132,7 @@ export default function RollCard({
             className="hud-btn hud-btn-primary"
             disabled={busy}
           >
-            {rollPending ? "Бросаем…" : "Ролл игры"}
+            {rollPending ? d.rolling : d.rollButton}
           </button>
         </form>
       )}
@@ -146,7 +146,7 @@ export default function RollCard({
       {!openRoll && (lastDice?.length ?? 0) > 0 && (
         <div className="mt-5 border-t border-[#3d3d34] pt-4">
           <p className="text-xs uppercase tracking-widest text-dim">
-            Последний бросок
+            {d.lastRoll}
           </p>
           <div className="mt-2">
             <DiceRoller values={lastDice} />

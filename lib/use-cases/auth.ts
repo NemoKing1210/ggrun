@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 
-export class AuthError extends Error {}
+export class AuthError extends Error {
+  /** Код ошибки; текст подбирается словарём i18n в серверных экшенах. */
+  constructor(public readonly code: string) {
+    super(code);
+  }
+}
 
 function deriveUsername(email: string): string {
   const base = email.split("@")[0]!.toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -22,7 +27,7 @@ async function uniqueUsername(base: string): Promise<string> {
     if (existing.length === 0) return candidate;
     candidate = `${base}${Math.floor(Math.random() * 10000)}`;
   }
-  throw new AuthError("Не удалось подобрать уникальный username");
+  throw new AuthError("authUsernameFailed");
 }
 
 export async function registerUser(params: {
@@ -31,16 +36,16 @@ export async function registerUser(params: {
   displayName?: string;
 }): Promise<{ id: string }> {
   const email = params.email.trim().toLowerCase();
-  if (!email.includes("@")) throw new AuthError("Некорректный email");
+  if (!email.includes("@")) throw new AuthError("authInvalidEmail");
   if (params.password.length < 8)
-    throw new AuthError("Пароль должен быть не короче 8 символов");
+    throw new AuthError("authPasswordTooShort");
 
   const existing = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
-  if (existing.length > 0) throw new AuthError("Пользователь уже существует");
+  if (existing.length > 0) throw new AuthError("authUserExists");
 
   const username = await uniqueUsername(deriveUsername(email));
   const passwordHash = await hashPassword(params.password);
@@ -69,7 +74,7 @@ export async function authenticate(
     .limit(1);
   const user = rows[0];
   if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
-    throw new AuthError("Неверный логин или пароль");
+    throw new AuthError("authInvalidCredentials");
   }
   return { id: user.id };
 }

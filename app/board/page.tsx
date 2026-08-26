@@ -2,7 +2,7 @@ import { SnakeBoard } from "@/components/board/snake-board";
 import type { BoardMarker } from "@/components/board/snake-board";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
-import { StatusBadge, SEASON_STATUS_RU } from "@/components/ui/status";
+import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard } from "@/lib/repositories/players.repo";
 import {
@@ -10,14 +10,20 @@ import {
   getBoardCells,
   getMainBoard,
 } from "@/lib/repositories/seasons.repo";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
-export const metadata = {
-  title: "Поле — GGRun",
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.board.metaTitle };
+}
 
 export default async function BoardPage() {
+  const { t } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
+
+  const kicker = format(t.core.common.seasonKicker, { season: season.title });
 
   const [board, leaderboard] = await Promise.all([
     getMainBoard(season.id),
@@ -27,8 +33,8 @@ export default async function BoardPage() {
   if (!board) {
     return (
       <>
-        <PageHeader kicker={`сезон «${season.title}»`} title="Поле" />
-        <EmptyState>Поле сезона ещё не создано.</EmptyState>
+        <PageHeader kicker={kicker} title={t.board.pageTitle} />
+        <EmptyState>{t.board.emptyNoBoard}</EmptyState>
       </>
     );
   }
@@ -37,8 +43,8 @@ export default async function BoardPage() {
   if (cells.length === 0) {
     return (
       <>
-        <PageHeader kicker={`сезон «${season.title}»`} title="Поле" />
-        <EmptyState>Поле пока не размечено — клетки появятся позже.</EmptyState>
+        <PageHeader kicker={kicker} title={t.board.pageTitle} />
+        <EmptyState>{t.board.emptyNoCells}</EmptyState>
       </>
     );
   }
@@ -52,9 +58,14 @@ export default async function BoardPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
-        kicker={`сезон «${season.title}»`}
-        title="Поле"
-        right={<StatusBadge status={season.status} labels={SEASON_STATUS_RU} />}
+        kicker={kicker}
+        title={t.board.pageTitle}
+        right={
+          <StatusBadge
+            status={season.status}
+            label={t.core.seasonStatuses[season.status]}
+          />
+        }
       />
 
       <SnakeBoard cells={cells} markers={markers} />
@@ -69,7 +80,7 @@ export default async function BoardPage() {
                 aria-hidden
               />
               <span className="font-mono text-xs uppercase tracking-widest text-dim">
-                {CELL_THEME[type].name}
+                {t.core.cellTypes[type]}
               </span>
             </li>
           ))}

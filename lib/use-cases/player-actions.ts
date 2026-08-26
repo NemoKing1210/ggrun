@@ -8,6 +8,8 @@ import {
   resolveGameRoll,
   rollNewGame,
 } from "@/lib/use-cases/resolve-game-roll";
+import { getT } from "@/lib/i18n/server";
+import { errorText } from "@/lib/i18n/errors";
 
 export type PlayerActionState = { error?: string };
 
@@ -18,18 +20,27 @@ function requireString(formData: FormData, key: string): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+async function loopError(e: unknown): Promise<PlayerActionState> {
+  const { t } = await getT();
+  if (e instanceof GameLoopError) {
+    return { error: errorText(t.core.errors, e.code) };
+  }
+  throw e;
+}
+
 export async function rollAction(
   _prev: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
+  const { t } = await getT();
   const seasonPlayerId = requireString(formData, "seasonPlayerId");
-  if (!seasonPlayerId) return { error: "Не найдена запись участника" };
-
+  if (!seasonPlayerId) {
+    return { error: errorText(t.core.errors, "gameParticipantNotFound") };
+  }
   try {
     await rollNewGame(seasonPlayerId);
   } catch (e) {
-    if (e instanceof GameLoopError) return { error: e.message };
-    throw e;
+    return await loopError(e);
   }
   revalidatePath("/dashboard");
   return {};
@@ -39,22 +50,24 @@ export async function resolveAction(
   _prev: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
+  const { t } = await getT();
   const seasonPlayerId = requireString(formData, "seasonPlayerId");
-  if (!seasonPlayerId) return { error: "Не найдена запись участника" };
+  if (!seasonPlayerId) {
+    return { error: errorText(t.core.errors, "gameParticipantNotFound") };
+  }
 
   const rollId = requireString(formData, "rollId");
-  if (!rollId) return { error: "Открытый ролл не найден" };
+  if (!rollId) return { error: errorText(t.core.errors, "gameRollNotFound") };
 
   const outcome = requireString(formData, "outcome");
   if (!outcome || !outcomes.includes(outcome as RollOutcome)) {
-    return { error: "Неизвестное действие" };
+    return { error: errorText(t.core.errors, "formUnknown") };
   }
 
   try {
     await resolveGameRoll({ rollId, outcome: outcome as RollOutcome });
   } catch (e) {
-    if (e instanceof GameLoopError) return { error: e.message };
-    throw e;
+    return await loopError(e);
   }
   revalidatePath("/dashboard");
   return {};

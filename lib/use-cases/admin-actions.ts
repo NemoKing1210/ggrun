@@ -12,13 +12,18 @@ import {
   AdminError,
 } from "@/lib/use-cases/admin";
 import { addCatalogGame, deleteCatalogGame, setGameBlacklisted } from "@/lib/repositories/games.repo";
+import { getT } from "@/lib/i18n/server";
+import { errorText } from "@/lib/i18n/errors";
 
 export type AdminFormState = { error?: string; ok?: string };
 
-function toError(e: unknown): AdminFormState {
-  if (e instanceof AdminError) return { error: e.message };
-  if (e instanceof Error) return { error: e.message };
-  return { error: "Неизвестная ошибка" };
+async function toError(e: unknown): Promise<AdminFormState> {
+  const { t } = await getT();
+  if (e instanceof AdminError) {
+    return { error: errorText(t.core.errors, e.code, e.params) };
+  }
+  if (e instanceof Error) return { error: errorText(t.core.errors, e.message) };
+  return { error: errorText(t.core.errors, "formUnknown") };
 }
 
 function revalidateAdmin(seasonId?: string): void {
@@ -40,7 +45,7 @@ export async function createSeasonAction(
     revalidateAdmin();
     return { ok: `Сезон создан (${id})` };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -60,7 +65,7 @@ export async function changeStatusAction(
     revalidateAdmin(seasonId);
     return { ok: `Статус изменён на ${newStatus}` };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -76,14 +81,14 @@ export async function updateSeasonSettingsAction(
     try {
       config = JSON.parse(configRaw);
     } catch {
-      return { error: "config — некорректный JSON" };
+      return { error: errorText((await getT()).t.core.errors, "formConfigInvalidJson") };
     }
     await updateSeasonSettings({ seasonId, config, rulesMd });
     revalidateAdmin(seasonId);
     revalidatePath("/rules");
     return { ok: "Настройки сохранены" };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -106,7 +111,7 @@ export async function setBoardCellAction(
     revalidatePath("/board");
     return { ok: `Клетка ${position} обновлена` };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -120,7 +125,7 @@ export async function addPlayerToSeasonAction(
     revalidateAdmin(seasonId);
     return { ok: "Участник добавлен" };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -148,7 +153,7 @@ export async function adjustPlayerAction(
     revalidateAdmin(seasonId);
     return { ok: "Корректировка применена" };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 
@@ -160,7 +165,7 @@ export async function addCatalogGameAction(
 ): Promise<AdminFormState> {
   try {
     const title = String(formData.get("title") || "").trim();
-    if (!title) return { error: "Укажите название игры" };
+    if (!title) return { error: errorText((await getT()).t.core.errors, "formTitleRequired") };
     const genres = String(formData.get("genres") || "")
       .split(",")
       .map((g) => g.trim())
@@ -174,7 +179,7 @@ export async function addCatalogGameAction(
     revalidatePath("/admin/games-catalog");
     return { ok: `Игра «${title}» добавлена` };
   } catch (e) {
-    return toError(e);
+    return await toError(e);
   }
 }
 

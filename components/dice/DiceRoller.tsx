@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useI18n } from "@/lib/i18n/client";
+import { format } from "@/lib/i18n/format";
+
 const SPIN_MS = 1000;
 const TICK_MS = 80;
 
@@ -17,6 +20,7 @@ export default function DiceRoller({
   values: number[] | null;
   sides?: number;
 }) {
+  const { t } = useI18n();
   const [display, setDisplay] = useState<number[]>(() => values ?? []);
   const [spinning, setSpinning] = useState(false);
   // Ключ по значениям: референс массива меняется при каждом ререндере сервера.
@@ -72,8 +76,10 @@ export default function DiceRoller({
       ))}
       <span role="status" className="sr-only">
         {spinning
-          ? "Бросок кубика"
-          : `Результат кубика: ${display.join(" + ")}`}
+          ? t.core.dashboard.diceRolling
+          : format(t.core.dashboard.diceResult, {
+              values: display.join(" + "),
+            })}
       </span>
     </div>
   );

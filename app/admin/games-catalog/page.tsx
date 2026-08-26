@@ -8,38 +8,41 @@ import {
   toggleBlacklistAction,
 } from "@/lib/use-cases/admin-actions";
 import { FormShell } from "@/components/admin/FormShell";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
 export default async function GamesCatalogPage() {
   const user = await getCurrentUser();
   if (!user || !isStaff(user)) redirect("/login");
+  const { t } = await getT();
   const games = await listCatalogGames();
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">
-        Каталог игр
+        {t.admin.catalog.heading}
       </h1>
       <div className="hazard-tape" aria-hidden />
 
       <section className="hud-card p-4">
         <h2 className="font-display text-xl uppercase tracking-wider mb-3">
-          Добавить игру вручную
+          {t.admin.catalog.addHeading}
         </h2>
-        <FormShell action={addCatalogGameAction} submitLabel="Добавить" className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <FormShell action={addCatalogGameAction} submitLabel={t.core.common.add} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <label className="text-dim text-sm">
-            Название *
+            {t.admin.catalog.titleLabel}
             <input name="title" required />
           </label>
           <label className="text-dim text-sm">
-            Платформа
+            {t.admin.catalog.platformLabel}
             <input name="platform" placeholder="steam / nes / custom" />
           </label>
           <label className="text-dim text-sm">
-            Обложка (URL)
+            {t.admin.catalog.coverLabel}
             <input name="coverUrl" type="url" />
           </label>
           <label className="text-dim text-sm">
-            Жанры (через запятую)
+            {t.admin.catalog.genresLabel}
             <input name="genres" placeholder="rpg, indie" />
           </label>
         </FormShell>
@@ -47,16 +50,16 @@ export default async function GamesCatalogPage() {
 
       <section className="hud-card p-4 overflow-x-auto">
         <h2 className="font-display text-xl uppercase tracking-wider mb-3">
-          Пул игр ({games.length})
+          {format(t.admin.catalog.poolHeading, { count: games.length })}
         </h2>
         <table className="w-full text-sm">
           <thead className="text-dim text-left border-b border-[#3d3d34]">
             <tr>
-              <th className="p-2">Название</th>
-              <th className="p-2">Платформа</th>
-              <th className="p-2">Жанры</th>
-              <th className="p-2">Статус</th>
-              <th className="p-2">Действия</th>
+              <th className="p-2">{t.core.common.title}</th>
+              <th className="p-2">{t.admin.catalog.colPlatform}</th>
+              <th className="p-2">{t.admin.catalog.colGenres}</th>
+              <th className="p-2">{t.core.common.status}</th>
+              <th className="p-2">{t.core.common.actions}</th>
             </tr>
           </thead>
           <tbody>
@@ -67,9 +70,9 @@ export default async function GamesCatalogPage() {
                 <td className="p-2 text-xs text-dim">{g.genres.join(", ") || "—"}</td>
                 <td className="p-2">
                   {g.isBlacklisted ? (
-                    <span className="text-danger">блэклист</span>
+                    <span className="text-danger">{t.admin.catalog.blacklisted}</span>
                   ) : (
-                    <span className="text-military">активна</span>
+                    <span className="text-military">{t.admin.catalog.active}</span>
                   )}
                 </td>
                 <td className="p-2">
@@ -82,7 +85,9 @@ export default async function GamesCatalogPage() {
                         value={String(!g.isBlacklisted)}
                       />
                       <button type="submit" className="hud-btn !py-1 !px-3 text-xs">
-                        {g.isBlacklisted ? "Разблокировать" : "В блэклист"}
+                        {g.isBlacklisted
+                          ? t.admin.catalog.unblockButton
+                          : t.admin.catalog.blockButton}
                       </button>
                     </form>
                     <form action={deleteGameAction}>
@@ -91,7 +96,7 @@ export default async function GamesCatalogPage() {
                         type="submit"
                         className="hud-btn hud-btn-danger !py-1 !px-3 text-xs"
                       >
-                        Удалить
+                        {t.core.common.delete}
                       </button>
                     </form>
                   </div>

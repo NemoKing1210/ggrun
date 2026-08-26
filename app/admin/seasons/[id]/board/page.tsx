@@ -8,6 +8,8 @@ import {
 } from "@/lib/repositories/seasons.repo";
 import { setBoardCellAction } from "@/lib/use-cases/admin-actions";
 import { FormShell } from "@/components/admin/FormShell";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
 const cellTypes = [
   "normal",
@@ -33,53 +35,51 @@ export default async function BoardEditorPage({
 }) {
   const user = await getCurrentUser();
   if (!user || !isStaff(user)) redirect("/login");
+  const { t } = await getT();
   const { id: seasonId } = await params;
   const season = await getSeasonById(seasonId);
   if (!season) notFound();
   const board = await getMainBoard(seasonId);
   if (!board) {
-    return <p className="text-dim">У сезона нет поля.</p>;
+    return <p className="text-dim">{t.admin.boardEditor.noBoard}</p>;
   }
   const cells = await getBoardCells(board.id);
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">
-        Поле · {season.title}
+        {format(t.admin.boardEditor.heading, { season: season.title })}
       </h1>
       <div className="hazard-tape" aria-hidden />
-      <p className="text-dim text-sm">
-        Клетки редактируются по позиции. Для penalty/bonus укажите amount (очки),
-        для teleport — не поддерживается в этой форме, используйте config напрямую.
-      </p>
+      <p className="text-dim text-sm">{t.admin.boardEditor.hint}</p>
 
       <section className="hud-card p-4">
         <h2 className="font-display text-xl uppercase tracking-wider mb-3">
-          Новая / изменённая клетка
+          {t.admin.boardEditor.formHeading}
         </h2>
-        <FormShell action={setBoardCellAction} submitLabel="Сохранить клетку" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <FormShell action={setBoardCellAction} submitLabel={t.admin.boardEditor.saveCell} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <input type="hidden" name="boardId" value={board.id} />
           <input type="hidden" name="seasonId" value={seasonId} />
           <label className="text-dim text-sm">
-            Позиция
+            {t.admin.boardEditor.positionLabel}
             <input name="position" type="number" min={0} required />
           </label>
           <label className="text-dim text-sm">
-            Тип
+            {t.admin.boardEditor.typeLabel}
             <select name="cellType" defaultValue="normal">
-              {cellTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+              {cellTypes.map((ct) => (
+                <option key={ct} value={ct}>
+                  {t.core.cellTypes[ct]}
                 </option>
               ))}
             </select>
           </label>
           <label className="text-dim text-sm">
-            Название
-            <input name="label" placeholder="Штрафной сектор" />
+            {t.core.common.label}
+            <input name="label" placeholder={t.admin.boardEditor.labelPlaceholder} />
           </label>
           <label className="text-dim text-sm">
-            Amount (penalty/bonus)
+            {t.admin.boardEditor.amountLabel}
             <input name="amount" type="number" placeholder="-5" />
           </label>
         </FormShell>
@@ -90,8 +90,8 @@ export default async function BoardEditorPage({
           <thead className="text-dim text-left border-b border-[#3d3d34]">
             <tr>
               <th className="p-2">#</th>
-              <th className="p-2">Тип</th>
-              <th className="p-2">Название</th>
+              <th className="p-2">{t.core.common.type}</th>
+              <th className="p-2">{t.core.common.label}</th>
               <th className="p-2">Config</th>
             </tr>
           </thead>

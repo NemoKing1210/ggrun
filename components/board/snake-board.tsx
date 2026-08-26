@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BoardCell } from "@/db/schema";
 
 import { CELL_THEME } from "./cell-theme";
+import { useI18n } from "@/lib/i18n/client";
 
 export type BoardMarker = {
   username: string;
@@ -25,6 +26,7 @@ export function SnakeBoard({
   cells: BoardCell[];
   markers: BoardMarker[];
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDivElement | null>(null);
   const [cols, setCols] = useState(6);
 
@@ -71,7 +73,9 @@ export function SnakeBoard({
                   key={cell.id}
                   className="min-w-0 flex-1"
                   title={
-                    cell.label ? `${theme.name}: ${cell.label}` : theme.name
+                    cell.label
+                      ? `${t.core.cellTypes[cell.cellType]}: ${cell.label}`
+                      : t.core.cellTypes[cell.cellType]
                   }
                 >
                   <ul className="mb-1 flex h-5 flex-row-reverse justify-end gap-0.5">
@@ -94,7 +98,7 @@ export function SnakeBoard({
                     className={`flex aspect-square flex-col items-start justify-between border p-1.5 sm:p-2 ${theme.box}`}
                   >
                     <span className="font-mono text-[10px] uppercase tracking-widest opacity-80">
-                      {theme.name}
+                      {t.core.cellTypes[cell.cellType]}
                     </span>
                     <span className="ammo-counter self-end text-lg leading-none sm:text-xl">
                       {cell.position}

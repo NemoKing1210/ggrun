@@ -3,21 +3,6 @@ import type { Season, SeasonPlayer } from "@/db/schema";
 type SeasonStatus = Season["status"];
 type PlayerStatus = SeasonPlayer["status"];
 
-export const SEASON_STATUS_RU: Record<SeasonStatus, string> = {
-  draft: "Черновик",
-  active: "Идёт",
-  paused: "Пауза",
-  finished: "Завершён",
-  archived: "Архив",
-};
-
-export const PLAYER_STATUS_RU: Record<PlayerStatus, string> = {
-  active: "В игре",
-  finished: "Финиш",
-  eliminated: "Выбыл",
-  withdrawn: "Снялся",
-};
-
 const BADGE_STYLES: Record<string, string> = {
   active: "border-military text-military",
   finished: "border-amber text-amber",
@@ -28,12 +13,13 @@ const BADGE_STYLES: Record<string, string> = {
   archived: "border-dim text-dim",
 };
 
+/** Подпись передаётся извне из словаря i18n (t.core.seasonStatuses/playerStatuses). */
 export function StatusBadge({
   status,
-  labels,
+  label,
 }: {
   status: SeasonStatus | PlayerStatus;
-  labels: Record<string, string>;
+  label: string;
 }) {
   return (
     <span
@@ -41,7 +27,7 @@ export function StatusBadge({
         BADGE_STYLES[status] ?? "border-dim text-dim"
       }`}
     >
-      {labels[status]}
+      {label}
     </span>
   );
 }

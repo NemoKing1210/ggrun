@@ -3,12 +3,16 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getEventFeed } from "@/lib/repositories/players.repo";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 
-export const metadata = {
-  title: "Лента — GGRun",
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.feed.metaTitle };
+}
 
 export default async function FeedPage() {
+  const { t } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
 
@@ -16,7 +20,10 @@ export default async function FeedPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader kicker={`сезон «${season.title}»`} title="Лента событий" />
+      <PageHeader
+        kicker={format(t.core.common.seasonKicker, { season: season.title })}
+        title={t.feed.pageTitle}
+      />
       <div className="hud-card p-6">
         <FeedList rows={rows} />
       </div>
