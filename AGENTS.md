@@ -61,6 +61,13 @@ pnpm exec tsx scripts/bootstrap-admin.ts  # первый админ из BOOTSTR
 - **Confirm в серверных формах**: клиентский `components/admin/ConfirmButton.tsx` (onClick → `window.confirm` → `preventDefault` при отмене). Серверный компонент не может передать `onSubmit` — не пытайся.
 - **Гварды**: `app/admin/layout.tsx` редиректит не-staff; `requireAdmin` (`lib/use-cases/users.ts`) строже `requireStaff` — судья не управляет пользователями. Самоблок/самоудаление/саморазжалование запрещены (коды `adminSelf*`).
 - **Статусы сезона**: явная карта переходов `draft→active→paused→finished→archived` (`lib/use-cases/admin.ts`); переход в `active` сбрасывает позиции/балансы участников. Ролл-FSM `rolled→in_progress→passed|dropped|rerolled`; use-case считает `rolled` → `in_progress` в момент отметки исхода (`effectiveStatus`).
+- **Версионирование и changelog**: версия ведётся в `package.json` (`version`) и
+  `CHANGELOG.md` (формат Keep a Changelog), обновляются в одном релизном коммите
+  `chore(release): vX.Y.Z`. Правила semver: PATCH — фиксы/стили/доки без изменения
+  поведения; MINOR — новые функции и аддитивные миграции схемы; MAJOR — ломающие
+  изменения (удаление функций, формат конфига/схемы с ручными действиями). В 0.x
+  ломающие изменения повышают MINOR и помечаются **BREAKING**. Новые записи
+  добавляются в секцию `[Unreleased]` и выносятся в версию при релизе.
 - **Форматирование**: Prettier (double quotes, semi, 100 cols), ESLint `next/core-web-vitals` + `next/typescript` + prettier. Коммиты — conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
 
 ## Important Files
