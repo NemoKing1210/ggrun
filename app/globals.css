@@ -131,6 +131,40 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Скроллбары под HUD-тему.
+ * Firefox: тонкий, тёмный трек, янтарный бегунок.
+ * Chromium/WebKit: плоский прямоугольный бегунок с bevel-границей,
+ * без скруглений — консольная эстетика.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #55554a var(--hud-bg);
+}
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+*::-webkit-scrollbar-track {
+  background: #151514;
+  border-left: 1px solid #2a2a22;
+}
+*::-webkit-scrollbar-thumb {
+  background: #3d3d34;
+  border: 1px solid #55554a;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #4c4c40;
+  border-color: var(--hud-green);
+}
+*::-webkit-scrollbar-thumb:active {
+  background: var(--hud-amber);
+  border-color: #c98f00;
+}
+*::-webkit-scrollbar-corner {
+  background: #151514;
+}
+
 input,
 textarea,
 select {
