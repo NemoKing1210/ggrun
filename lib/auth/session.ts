@@ -61,3 +61,8 @@ export async function destroySession(): Promise<void> {
   }
   jar.delete(SESSION_COOKIE);
 }
+
+/** staff = admin или judge — доступ в админку и судейские действия. */
+export function isStaff(user: User | null): boolean {
+  return user !== null && (user.role === "admin" || user.role === "judge");
+}

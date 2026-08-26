@@ -38,6 +38,23 @@ export async function loginAction(
   redirect("/dashboard");
 }
 
+export async function registerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const displayName = String(formData.get("displayName") ?? "");
+  try {
+    const user = await registerUser({ email, password, displayName });
+    await createSession(user.id);
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+  redirect("/dashboard");
+}
+
 export async function logoutAction(): Promise<void> {
   await destroySession();
   redirect("/login");

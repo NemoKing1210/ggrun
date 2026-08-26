@@ -5,10 +5,8 @@
  */
 import "dotenv/config";
 
-import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 
-import { users } from "../db/schema";
 import { hashPassword } from "../lib/auth/password";
 
 async function main() {

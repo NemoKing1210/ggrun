@@ -43,14 +43,23 @@ export const BoardConfigSchema = z.object({
   loop: z.boolean().default(DEFAULT_SEASON_CONFIG.board.loop),
 });
 
-/**
- * Parses partial/admin-supplied JSON into a full SeasonConfig: every field
- * carries a default, so omitted keys are filled in. Throws a ZodError on
- * invalid values — intended for admin-panel validation of season configs.
- */
-export const SeasonConfigSchema = z.object({
-  dice: DiceConfigSchema.partial().default({}),
-  points: PointsConfigSchema.partial().default({}),
-  board: BoardConfigSchema.partial().default({}),
-  rerolls: RerollsConfigSchema.partial().default({}),
+export const RerollsConfigSchema = z.object({
+  allowed: z.boolean().default(DEFAULT_SEASON_CONFIG.rerolls.allowed),
+  limitPerGame: int(0).default(DEFAULT_SEASON_CONFIG.rerolls.limitPerGame),
 });
+
+/**
+ * Parses partial/admin-supplied JSON into a full SeasonConfig: every nested
+ * object is optional (falling back to its defaults) and every field carries
+ * a default too. Throws a ZodError on invalid values — intended for
+ * admin-panel validation of season configs.
+ */
+export const SeasonConfigSchema = z
+  .object({
+    dice: DiceConfigSchema.default(DEFAULT_SEASON_CONFIG.dice),
+    points: PointsConfigSchema.default(DEFAULT_SEASON_CONFIG.points),
+    board: BoardConfigSchema.default(DEFAULT_SEASON_CONFIG.board),
+    rerolls: RerollsConfigSchema.default(DEFAULT_SEASON_CONFIG.rerolls),
+  })
+  // Compile-time assertion: the parsed shape must satisfy the domain contract.
+  .transform((parsed): SeasonConfig => parsed);

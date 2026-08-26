@@ -16,6 +16,7 @@ import {
   applyCellEffect,
   canReroll,
   DEFAULT_SEASON_CONFIG,
+  normalizePosition,
   nextRollStatus,
   resolveMovement,
   SeasonConfigSchema,
@@ -181,8 +182,12 @@ export async function resolveGameRoll(params: {
     const landed = cells.find((c) => c.position === finalPosition);
     if (landed) {
       landedType = landed.cellType;
-      const effect = applyCellEffect(landed, finalPosition, finalBalance);
-      finalPosition = effect.position;
+      const effect = applyCellEffect(
+        { ...landed, config: (landed.config ?? {}) as Record<string, unknown> },
+        finalPosition,
+        finalBalance,
+      );
+      finalPosition = normalizePosition(effect.position, config.board);
       finalBalance = effect.balancePoints;
       ledgerDelta += effect.ledgerDelta;
       if (effect.reason) ledgerReason = effect.reason;
