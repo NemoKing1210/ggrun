@@ -14,6 +14,7 @@ export const board: Widen<typeof BoardEn.board> = {
       leaderboard: { label: "Лідерборд", hint: "хто де стоїть" },
       feed: { label: "Стрічка", hint: "що сталося" },
       rules: { label: "Правила", hint: "як грати" },
+      seasons: { label: "Сезони", hint: "архів" },
     },
   },
   view: {

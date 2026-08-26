@@ -1,5 +1,4 @@
-import { desc, eq } from "drizzle-orm";
-
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   boardCells,
@@ -22,6 +21,24 @@ export async function getActiveSeason(): Promise<Season | null> {
 
 export async function listSeasons(): Promise<Season[]> {
   return db.select().from(seasons).orderBy(desc(seasons.createdAt));
+}
+
+/** Public archive: active / paused / finished / archived, ordered by most recent first. */
+export async function listPublicSeasons(): Promise<Season[]> {
+  return db
+    .select()
+    .from(seasons)
+    .where(inArray(seasons.status, ["active", "paused", "finished", "archived"]))
+    .orderBy(desc(seasons.startedAt), desc(seasons.createdAt));
+}
+
+/** Finished seasons only (finished + archived) for the archive highlight. */
+export async function listArchivedSeasons(): Promise<Season[]> {
+  return db
+    .select()
+    .from(seasons)
+    .where(inArray(seasons.status, ["finished", "archived"]))
+    .orderBy(desc(seasons.finishedAt), desc(seasons.startedAt));
 }
 
 export async function getSeasonBySlug(slug: string): Promise<Season | null> {

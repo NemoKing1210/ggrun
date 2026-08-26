@@ -9,6 +9,7 @@ export async function SeasonMissing() {
     { href: "/leaderboard", ...t.board.missing.sections.leaderboard },
     { href: "/feed", ...t.board.missing.sections.feed },
     { href: "/rules", ...t.board.missing.sections.rules },
+    { href: "/seasons", ...t.board.missing.sections.seasons },
   ];
   return (
     <div className="mx-auto max-w-xl">

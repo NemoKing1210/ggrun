@@ -3,11 +3,8 @@ import Link from "next/link";
 import { FeedList } from "@/components/feed/feed-list";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
-import {
-  getEventFeed,
-  getLeaderboard,
-} from "@/lib/repositories/players.repo";
-import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getEventFeed, getLeaderboard } from "@/lib/repositories/players.repo";
+import { getActiveSeason, listArchivedSeasons } from "@/lib/repositories/seasons.repo";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 
@@ -21,9 +18,10 @@ export default async function HomePage() {
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
 
-  const [top, feed] = await Promise.all([
+  const [top, feed, archived] = await Promise.all([
     getLeaderboard(season.id),
     getEventFeed(season.id, 5),
+    listArchivedSeasons(),
   ]);
 
   const sections = [
@@ -45,10 +43,7 @@ export default async function HomePage() {
             <h1 className="font-display text-4xl uppercase tracking-wide text-amber sm:text-5xl">
               {season.title}
             </h1>
-            <StatusBadge
-              status={season.status}
-              label={t.core.seasonStatuses[season.status]}
-            />
+            <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
           </div>
           {season.startedAt ? (
             <p className="mt-2 font-mono text-sm text-dim">
@@ -77,9 +72,7 @@ export default async function HomePage() {
             </Link>
           </header>
           {top.length === 0 ? (
-            <p className="font-mono text-sm uppercase tracking-widest text-dim">
-              {t.landing.emptyTop}
-            </p>
+            <p className="font-mono text-sm uppercase tracking-widest text-dim">{t.landing.emptyTop}</p>
           ) : (
             <ol>
               {top.slice(0, 5).map((row, i) => (
@@ -87,21 +80,14 @@ export default async function HomePage() {
                   key={row.id}
                   className="flex items-baseline gap-3 border-b border-dim/20 py-2 first:pt-0 last:border-b-0 last:pb-0"
                 >
-                  <span className="ammo-counter w-6 shrink-0 text-right text-lg leading-none">
-                    {i + 1}
-                  </span>
-                  <Link
-                    href={`/players/${row.username}`}
-                    className="min-w-0 flex-1 truncate font-semibold hover:text-amber"
-                  >
+                  <span className="ammo-counter w-6 shrink-0 text-right text-lg leading-none">{i + 1}</span>
+                  <Link href={`/players/${row.username}`} className="min-w-0 flex-1 truncate font-semibold hover:text-amber">
                     {row.displayName ?? row.username}
                   </Link>
                   <span className="font-mono text-xs text-dim">
                     {format(t.landing.cellShort, { position: row.position })}
                   </span>
-                  <span className="w-14 shrink-0 text-right font-mono text-sm text-amber">
-                    {row.balancePoints}
-                  </span>
+                  <span className="w-14 shrink-0 text-right font-mono text-sm text-amber">{row.balancePoints}</span>
                 </li>
               ))}
             </ol>
@@ -113,10 +99,7 @@ export default async function HomePage() {
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
               {t.landing.latestHeading}
             </h2>
-            <Link
-              href="/feed"
-              className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
-            >
+            <Link href="/feed" className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
               {t.landing.fullFeedLink}
             </Link>
           </header>
@@ -130,13 +113,41 @@ export default async function HomePage() {
             <span>
               {s.label}
               <br />
-              <span className="font-mono text-xs font-normal normal-case tracking-normal text-dim">
-                {s.hint}
-              </span>
+              <span className="font-mono text-xs font-normal normal-case tracking-normal text-dim">{s.hint}</span>
             </span>
           </Link>
         ))}
       </nav>
+
+      <section className="hud-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl uppercase tracking-wide text-amber">{t.seasons.archiveTitle}</h2>
+            <p className="mt-1 font-mono text-xs text-dim">{t.seasons.archiveDescription}</p>
+          </div>
+          <Link href="/seasons" className="hud-btn hud-btn-primary">
+            {t.core.nav.seasons} →
+          </Link>
+        </div>
+        {archived.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {archived.slice(0, 6).map((s) => (
+              <Link
+                key={s.id}
+                href={`/seasons/${s.slug}`}
+                className="border border-dim/40 bg-raised px-3 py-1 font-mono text-xs hover:border-amber hover:text-amber"
+              >
+                {s.title} <span className="text-dim">/{s.slug}</span>
+              </Link>
+            ))}
+            {archived.length > 6 ? (
+              <span className="px-2 py-1 font-mono text-xs text-dim">+{archived.length - 6}</span>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-3 font-mono text-xs text-dim">{t.seasons.archiveEmpty}</p>
+        )}
+      </section>
     </div>
   );
 }

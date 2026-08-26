@@ -31,6 +31,7 @@ export const nav: Widen<typeof CoreEn.nav> = {
   leaderboard: "Таблиця лідерів",
   feed: "Стрічка",
   rules: "Правила",
+  seasons: "Сезони",
   admin: "Адмінка",
   login: "Увійти",
   logout: "Вийти",

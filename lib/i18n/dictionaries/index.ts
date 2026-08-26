@@ -9,6 +9,7 @@ import { leaderboard as leaderboardEn } from "./en/leaderboard";
 import { profile as profileEn } from "./en/profile";
 import { rules as rulesEn } from "./en/rules";
 import { admin as adminEn } from "./en/admin";
+import { seasons as seasonsEn } from "./en/seasons";
 import * as coreRu from "./ru/core";
 import { landing as landingRu } from "./ru/landing";
 import { board as boardRu } from "./ru/board";
@@ -17,6 +18,7 @@ import { leaderboard as leaderboardRu } from "./ru/leaderboard";
 import { profile as profileRu } from "./ru/profile";
 import { rules as rulesRu } from "./ru/rules";
 import { admin as adminRu } from "./ru/admin";
+import { seasons as seasonsRu } from "./ru/seasons";
 import * as coreUk from "./uk/core";
 import { landing as landingUk } from "./uk/landing";
 import { board as boardUk } from "./uk/board";
@@ -25,7 +27,7 @@ import { leaderboard as leaderboardUk } from "./uk/leaderboard";
 import { profile as profileUk } from "./uk/profile";
 import { rules as rulesUk } from "./uk/rules";
 import { admin as adminUk } from "./uk/admin";
-
+import { seasons as seasonsUk } from "./uk/seasons";
 
 /** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
@@ -58,6 +60,7 @@ export type Dictionary = {
   profile: Widen<typeof profileEn>;
   rules: Widen<typeof rulesEn>;
   admin: Widen<typeof adminEn>;
+  seasons: Widen<typeof seasonsEn>;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -70,6 +73,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     profile: profileEn,
     rules: rulesEn,
     admin: adminEn,
+    seasons: seasonsEn,
   },
   ru: {
     core: coreRuDict,
@@ -80,6 +84,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     profile: profileRu,
     rules: rulesRu,
     admin: adminRu,
+    seasons: seasonsRu,
   },
   uk: {
     core: coreUkDict,
@@ -90,6 +95,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     profile: profileUk,
     rules: rulesUk,
     admin: adminUk,
+    seasons: seasonsUk,
   },
 };
 

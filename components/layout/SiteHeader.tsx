@@ -34,6 +34,7 @@ export function SiteHeader({
     { href: "/leaderboard", label: t.core.nav.leaderboard },
     { href: "/feed", label: t.core.nav.feed },
     { href: "/rules", label: t.core.nav.rules },
+    { href: "/seasons", label: t.core.nav.seasons },
   ];
 
   const close = () => setOpen(false);

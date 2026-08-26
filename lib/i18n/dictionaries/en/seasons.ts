@@ -1,0 +1,44 @@
+/** Seasons archive (/seasons and /seasons/[slug]/*). */
+export const seasons = {
+  metaTitle: "Seasons — GGRun",
+  archiveTitle: "Seasons",
+  archiveDescription: "Browse current and finished seasons — boards, standings and history.",
+  archiveEmpty: "No finished seasons yet — the first run is still ahead.",
+  card: {
+    participants: "{count} players",
+    duration: "Duration",
+    cells: "{count} cells",
+    startedAt: "Started",
+    finishedAt: "Finished",
+    statusLabel: "Status",
+  },
+  tabs: {
+    overview: "Overview",
+    board: "Board",
+    leaderboard: "Leaderboard",
+    feed: "Feed",
+    rules: "Rules",
+  },
+  overview: {
+    seasonInfoTitle: "Season info",
+    statsTitle: "Stats",
+    topPlayersTitle: "Top players",
+    noPlayers: "No participants in this season.",
+    boardPreviewTitle: "Board preview",
+    noBoard: "This season has no board.",
+    viewBoard: "Open board →",
+    viewLeaderboard: "Full leaderboard →",
+    viewFeed: "View feed →",
+    viewRules: "Read rules →",
+  },
+  detail: {
+    notFound: "Season not found",
+    backToArchive: "← All seasons",
+    currentBadge: "Current",
+  },
+  statusFilter: {
+    all: "All",
+    finished: "Finished",
+    archived: "Archived",
+  },
+} as const;

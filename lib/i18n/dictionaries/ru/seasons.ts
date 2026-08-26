@@ -1,0 +1,44 @@
+/** Seasons archive (/seasons and /seasons/[slug]/*). */
+export const seasons = {
+  metaTitle: "Сезоны — GGRun",
+  archiveTitle: "Сезоны",
+  archiveDescription: "Текущие и завершённые сезоны — поля, таблицы и история.",
+  archiveEmpty: "Завершённых сезонов пока нет — первый забег ещё впереди.",
+  card: {
+    participants: "{count} игроков",
+    duration: "Длительность",
+    cells: "{count} клеток",
+    startedAt: "Старт",
+    finishedAt: "Финиш",
+    statusLabel: "Статус",
+  },
+  tabs: {
+    overview: "Обзор",
+    board: "Поле",
+    leaderboard: "Лидерборд",
+    feed: "Лента",
+    rules: "Правила",
+  },
+  overview: {
+    seasonInfoTitle: "О сезоне",
+    statsTitle: "Статистика",
+    topPlayersTitle: "Лидеры",
+    noPlayers: "В этом сезоне нет участников.",
+    boardPreviewTitle: "Превью поля",
+    noBoard: "У этого сезона нет поля.",
+    viewBoard: "Открыть поле →",
+    viewLeaderboard: "Весь лидерборд →",
+    viewFeed: "Открыть ленту →",
+    viewRules: "Читать правила →",
+  },
+  detail: {
+    notFound: "Сезон не найден",
+    backToArchive: "← Все сезоны",
+    currentBadge: "Текущий",
+  },
+  statusFilter: {
+    all: "Все",
+    finished: "Завершённые",
+    archived: "Архив",
+  },
+} as const;

@@ -3,6 +3,7 @@ import { Big_Shoulders_Stencil, Share_Tech_Mono, Barlow_Condensed } from "next/f
 
 import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
+import { TopLoader } from "@/components/ui/top-loader";
 import "./globals.css";
 
 const stencil = Big_Shoulders_Stencil({
@@ -40,7 +41,10 @@ export default async function RootLayout({
       <body
         className={`${stencil.variable} ${techMono.variable} ${body.variable} antialiased`}
       >
-        <I18nProvider locale={locale} t={t}>{children}</I18nProvider>
+        <I18nProvider locale={locale} t={t}>
+          <TopLoader />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

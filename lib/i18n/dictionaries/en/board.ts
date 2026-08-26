@@ -12,6 +12,7 @@ export const board = {
       leaderboard: { label: "Leaderboard", hint: "who stands where" },
       feed: { label: "Feed", hint: "what happened" },
       rules: { label: "Rules", hint: "how to play" },
+      seasons: { label: "Seasons", hint: "archive" },
     },
   },
   view: {

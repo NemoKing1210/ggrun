@@ -28,6 +28,7 @@ export const nav = {
   leaderboard: "Leaderboard",
   feed: "Feed",
   rules: "Rules",
+  seasons: "Seasons",
   admin: "Admin",
   login: "Log in",
   logout: "Log out",
