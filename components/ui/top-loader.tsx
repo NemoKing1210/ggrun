@@ -6,14 +6,13 @@ import { usePathname } from "next/navigation";
 /**
  * Top loading bar for page navigation.
  * Shows a thin amber bar at the very top during route transitions.
- * Triggered on internal link clicks and on pathname changes (including
- * programmatic router.push and back/forward).
  */
 export function TopLoader() {
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
   const [width, setWidth] = useState(0);
   const timeoutRef = useRef<number | null>(null);
+  const hideTimeoutRef = useRef<number | null>(null);
   const firstRender = useRef(true);
 
   // Start loader on click of internal links
@@ -46,6 +45,8 @@ export function TopLoader() {
       requestAnimationFrame(() => {
         window.setTimeout(() => setWidth(70), 30);
       });
+      clearTimeout(timeoutRef.current as unknown as number);
+      clearTimeout(hideTimeoutRef.current as unknown as number);
     };
 
     document.addEventListener("click", handleClick, true);
@@ -59,36 +60,20 @@ export function TopLoader() {
       return;
     }
 
-    if (loading) {
-      setWidth(100);
-    } else {
-      setLoading(true);
-      setWidth(70);
-      window.setTimeout(() => setWidth(100), 50);
-    }
-
+    // Ensure bar is visible then animate to 100% and hide
+    setWidth(100);
     clearTimeout(timeoutRef.current as unknown as number);
+    clearTimeout(hideTimeoutRef.current as unknown as number);
     timeoutRef.current = window.setTimeout(() => {
       setLoading(false);
-      window.setTimeout(() => setWidth(0), 300);
-    }, 400);
+      hideTimeoutRef.current = window.setTimeout(() => setWidth(0), 300);
+    }, 300);
 
     return () => {
       clearTimeout(timeoutRef.current as unknown as number);
+      clearTimeout(hideTimeoutRef.current as unknown as number);
     };
-  }, [pathname, loading]);
-
-  // Handle back/forward that might not trigger click
-  useEffect(() => {
-    const handlePop = () => {
-      if (!loading) {
-        setLoading(true);
-        setWidth(70);
-      }
-    };
-    window.addEventListener("popstate", handlePop);
-    return () => window.removeEventListener("popstate", handlePop);
-  }, [loading]);
+  }, [pathname]);
 
   if (!loading && width === 0) return null;
 
