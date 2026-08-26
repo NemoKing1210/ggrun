@@ -5,8 +5,6 @@ A web platform for a team/competitive gaming event in the HPG genre: seasons
 dice rolls and movement across the board, a leaderboard, an event feed, and an
 admin console.
 
-The specification and plan: [PLAN.md](./PLAN.md).
-
 ## Stack
 
 - **Next.js 15** (App Router, Server Actions, RSC), TypeScript strict
@@ -95,4 +93,4 @@ New mechanics are added via the cell-effect plugin registry
 (`game-engine/cell-effects.ts`, key — the cell type or
 `cell.config.effectKey`), via the season config (`seasons.config` JSONB,
 validated by Zod), and via separate modules — without rewriting the core.
-See PLAN.md §6.4.
+See the cell-effect plugin registry description above.

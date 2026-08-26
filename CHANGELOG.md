@@ -11,6 +11,10 @@ of this file and in `AGENTS.md` (section "Versioning & Changelog").
 ### Added
 - MIT license (`LICENSE`), `license` field in `package.json`.
 
+### Removed
+- `PLAN.md` (the original Russian spec, later translated) — the MVP is
+  implemented; the historical version remains in git history.
+
 ### Changed
 - All markdown documentation (PLAN/README/RUNBOOK/CHANGELOG/AGENTS) and code
   comments translated to English; only site translations (i18n dictionaries)
