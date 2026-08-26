@@ -40,6 +40,7 @@ function pickCore(core: Widen<typeof coreEn>) {
     cellTypes: core.cellTypes,
     seasonStatuses: core.seasonStatuses,
     playerStatuses: core.playerStatuses,
+    breadcrumbs: core.breadcrumbs,
     errors: core.errors,
   };
 }

@@ -151,6 +151,13 @@ export const cellTypes: Widen<typeof CoreEn.cellTypes> = {
   custom: "Особая",
 };
 
+/** Breadcrumbs — shown on every page. */
+export const breadcrumbs: Widen<typeof CoreEn.breadcrumbs> = {
+  ariaLabel: "Хлебные крошки",
+  dashboard: "Штаб игрока",
+  players: "Игроки",
+};
+
 /**
  * Server use-case error texts (keys are error codes).
  */

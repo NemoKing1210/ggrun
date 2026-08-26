@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { AdminHeader } from "@/components/layout/AdminHeader";
-
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 /**
  * Admin shell: its own console-style header with admin sections
  * and a switch back to the public site. Access limited to staff.
@@ -37,6 +37,9 @@ export default async function AdminLayout({
         userName={user.displayName ?? user.username}
         t={t}
       />
+      <div className="mx-auto max-w-7xl px-4 pt-4">
+        <Breadcrumbs />
+      </div>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:py-8">{children}</main>
       <footer className="mt-16 border-t border-[#3d3d34] py-4 text-center text-xs text-dim">
         {t.core.footer.tagline}

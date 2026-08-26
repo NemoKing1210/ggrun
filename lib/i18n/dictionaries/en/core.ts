@@ -147,6 +147,13 @@ export const cellTypes = {
   custom: "Special",
 } as const;
 
+/** Breadcrumbs — shown on every page. */
+export const breadcrumbs = {
+  ariaLabel: "Breadcrumb",
+  dashboard: "Dashboard",
+  players: "Players",
+} as const;
+
 /**
  * Server use-case error texts.
  * Keys are error codes (GameLoopError/AdminError/AuthError throw a code;
