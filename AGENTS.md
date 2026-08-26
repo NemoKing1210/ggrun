@@ -8,6 +8,22 @@ dice rolls and movement across the board, a leaderboard, an event feed, and an
 admin console. The specification lives in `PLAN.md` (the requirements source
 for agents).
 
+## Language Policy (always applies)
+
+This is an international project. **English is the only language for:**
+
+- all markdown documentation (`PLAN.md`, `README.md`, `RUNBOOK.md`,
+  `CHANGELOG.md`, `AGENTS.md`) — including future edits to them;
+- all code comments and JSDoc in every `.ts`/`.tsx`/`.css` file;
+- commit messages, CLI output of `scripts/*`, zod validation messages,
+  DB default values, demo/seed content.
+
+**The only multilingual text is site translations** — string values inside
+`lib/i18n/dictionaries/{en,ru,uk}/` (and the native locale display names in
+`lib/i18n/config.ts`). Never write UI strings, comments, or docs in Russian or
+Ukrainian outside those places. When editing files that already contain
+Russian/Ukrainian comments, translate them to English in the same change.
+
 ## Architecture & Data Flow
 
 Four layers; imports point strictly downward:
