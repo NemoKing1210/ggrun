@@ -32,6 +32,7 @@ export const nav = {
   login: "Log in",
   logout: "Log out",
   language: "Language",
+  menu: "Menu",
 } as const;
 
 export const footer = {

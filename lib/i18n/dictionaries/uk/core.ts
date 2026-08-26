@@ -35,6 +35,7 @@ export const nav: Widen<typeof CoreEn.nav> = {
   login: "Увійти",
   logout: "Вийти",
   language: "Мова",
+  menu: "Меню",
 };
 
 export const footer: Widen<typeof CoreEn.footer> = {
