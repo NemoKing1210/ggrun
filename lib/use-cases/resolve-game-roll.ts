@@ -116,6 +116,11 @@ export async function resolveGameRoll(params: {
 
   const config = parseSeasonConfig(season.config);
 
+  // FSM движка требует rolled → in_progress до исхода: игрок, отмечающий
+  // результат, фактически переводит ролл в in_progress в тот же момент.
+  const effectiveStatus =
+    roll.status === "rolled" ? "in_progress" : roll.status;
+
   // --- rerolled: новый ролл игры без движения ------------------------------
   if (params.outcome === "rerolled") {
     if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
@@ -194,7 +199,7 @@ export async function resolveGameRoll(params: {
     }
   }
 
-  const newStatus = nextRollStatus(roll.status, params.outcome);
+  const newStatus = nextRollStatus(effectiveStatus, params.outcome);
 
   await db.transaction(async (tx) => {
     await tx
