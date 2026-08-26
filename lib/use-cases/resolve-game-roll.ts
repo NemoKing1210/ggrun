@@ -1,12 +1,15 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { eventLog, gameRolls, moves, ledgerEntries, seasonPlayers } from "@/db/schema";
+import { eventLog, gameRolls, ledgerEntries, moves, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/repositories/seasons.repo";
 import {
   countRerollsForGame,
   createRoll,
+  createRerollRequest,
+  getPendingRerollForRoll,
+  getRerollRequestById,
   rollRandomGame,
   updateRollStatus,
 } from "@/lib/repositories/games.repo";
@@ -79,12 +82,21 @@ export async function rollNewGame(seasonPlayerId: string): Promise<string> {
 }
 
 /**
- * Resolves a roll by the player: passed / dropped / rerolled.
+ * Resolves a roll by the player: passed / dropped / rerolled (request).
+ * - dropped requires `reason` (why the game was not liked)
+ * - passed accepts optional `comment` + 1-10 `rating`
+ * - rerolled creates a pending reroll request that requires admin approval
  * Random numbers are generated on the server only.
  */
 export async function resolveGameRoll(params: {
   rollId: string;
   outcome: RollOutcome;
+  /** Required for dropped (reason) and rerolled (request reason). */
+  reason?: string;
+  /** Optional for passed — player comment. */
+  comment?: string;
+  /** Optional for passed — 1-10 rating. */
+  rating?: number;
 }): Promise<{
   diceResults?: number[];
   fromPosition: number;
@@ -124,13 +136,14 @@ export async function resolveGameRoll(params: {
 
   const config = parseSeasonConfig(season.config);
 
-  // The engine FSM requires rolled → in_progress before the outcome: a player
-  // marking the result effectively moves the roll to in_progress at that moment.
-  const effectiveStatus =
-    roll.status === "rolled" ? "in_progress" : roll.status;
+  // Block concurrent pending reroll requests for this roll.
+  const pendingReroll = await getPendingRerollForRoll(roll.id);
+  if (pendingReroll) throw new GameLoopError("gameRerollPending");
 
-  // --- rerolled: new game roll without movement ------------------------------
+  // --- rerolled: create a pending request (admin approval required) ----------
   if (params.outcome === "rerolled") {
+    const reason = params.reason?.trim() ?? "";
+    if (reason.length < 5) throw new GameLoopError("formReasonRequired");
     if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
       throw new GameLoopError("gameRerollLimit");
     }
@@ -138,31 +151,12 @@ export async function resolveGameRoll(params: {
     if (rerollsThisGame >= config.rerolls.limitPerGame) {
       throw new GameLoopError("gameRerollLimitForGame");
     }
-    const game = await rollRandomGame(sp.id);
-    await db.transaction(async (tx) => {
-      await tx
-        .update(gameRolls)
-        .set({ status: "rerolled", resolvedAt: new Date() })
-        .where(eq(gameRolls.id, roll.id));
-      await tx.insert(gameRolls).values({
-        seasonPlayerId: sp.id,
-        gameId: game?.id ?? null,
-        status: "rolled",
-      });
-      await tx
-        .update(seasonPlayers)
-        .set({ rerollsUsed: sp.rerollsUsed + 1 })
-        .where(eq(seasonPlayers.id, sp.id));
-      await tx.insert(eventLog).values({
-        seasonId: sp.seasonId,
-        seasonPlayerId: sp.id,
-        eventType: "game_rerolled",
-        payload: {
-          oldGameId: roll.gameId,
-          newGameId: game?.id ?? null,
-          title: game?.title ?? null,
-        },
-      });
+    await createRerollRequest(sp.id, roll.id, reason);
+    await db.insert(eventLog).values({
+      seasonId: sp.seasonId,
+      seasonPlayerId: sp.id,
+      eventType: "reroll_requested",
+      payload: { gameId: roll.gameId, reason },
     });
     return {
       fromPosition: sp.position,
@@ -170,6 +164,28 @@ export async function resolveGameRoll(params: {
       newBalancePoints: sp.balancePoints,
     };
   }
+
+  // --- dropped: reason required --------------------------------------------
+  let notesToSave: string | null = null;
+  let ratingToSave: number | null = null;
+  if (params.outcome === "dropped") {
+    const reason = params.reason?.trim() ?? params.comment?.trim() ?? "";
+    if (reason.length < 5) throw new GameLoopError("formReasonRequired");
+    notesToSave = reason;
+  }
+  if (params.outcome === "passed") {
+    if (params.comment !== undefined) notesToSave = params.comment.trim() || null;
+    if (params.rating !== undefined && params.rating !== null) {
+      const r = Number(params.rating);
+      if (!Number.isInteger(r) || r < 1 || r > 10) throw new GameLoopError("formRatingInvalid");
+      ratingToSave = r;
+    }
+  }
+
+  // The engine FSM requires rolled → in_progress before the outcome: a player
+  // marking the result effectively moves the roll to in_progress at that moment.
+  const effectiveStatus =
+    roll.status === "rolled" ? "in_progress" : roll.status;
 
   // --- passed / dropped: movement via the pure domain engine ------------------
   const result = resolveMovement({
@@ -212,7 +228,12 @@ export async function resolveGameRoll(params: {
   await db.transaction(async (tx) => {
     await tx
       .update(gameRolls)
-      .set({ status: newStatus, resolvedAt: new Date() })
+      .set({
+        status: newStatus,
+        resolvedAt: new Date(),
+        notes: notesToSave,
+        rating: ratingToSave,
+      })
       .where(eq(gameRolls.id, roll.id));
     const [move] = await tx
       .insert(moves)
@@ -269,6 +290,83 @@ export async function resolveGameRoll(params: {
     toPosition: finalPosition,
     newBalancePoints: finalBalance,
   };
+}
+
+// --- Admin moderation of reroll requests -----------------------------------
+
+async function requireStaffActor() {
+  const actor = await getCurrentUser();
+  if (!actor || !isStaff(actor)) throw new GameLoopError("adminStaffRequired");
+  return actor;
+}
+
+export async function approveRerollRequest(requestId: string): Promise<void> {
+  const actor = await requireStaffActor();
+  const req = await getRerollRequestById(requestId);
+  if (!req || req.status !== "pending") throw new GameLoopError("gameRerollRequestNotFound");
+
+  const rollRows = await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1);
+  const roll = rollRows[0];
+  if (!roll) throw new GameLoopError("gameRollNotFound");
+
+  const spRows = await db.select().from(seasonPlayers).where(eq(seasonPlayers.id, req.seasonPlayerId)).limit(1);
+  const sp = spRows[0];
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
+
+  const season = await getSeasonById(sp.seasonId);
+  if (!season) throw new GameLoopError("gameSeasonNotFound");
+  const config = parseSeasonConfig(season.config);
+  if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
+    throw new GameLoopError("gameRerollLimit");
+  }
+  const rerollsThisGame = await countRerollsForGame(sp.id, roll.gameId);
+  if (rerollsThisGame >= config.rerolls.limitPerGame) {
+    throw new GameLoopError("gameRerollLimitForGame");
+  }
+
+  const game = await rollRandomGame(sp.id);
+  await db.transaction(async (tx) => {
+    await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
+    await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game?.id ?? null, status: "rolled" });
+    await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
+    await tx
+      .update(rerollRequests)
+      .set({ status: "approved", resolvedAt: new Date(), resolvedBy: actor.id })
+      .where(eq(rerollRequests.id, req.id));
+    await tx.insert(eventLog).values({
+      seasonId: sp.seasonId,
+      seasonPlayerId: sp.id,
+      eventType: "game_rerolled",
+      payload: { oldGameId: roll.gameId, newGameId: game?.id ?? null, title: game?.title ?? null, requestId: req.id },
+    });
+  });
+}
+
+export async function rejectRerollRequest(requestId: string, adminNote: string): Promise<void> {
+  const actor = await requireStaffActor();
+  const reason = adminNote?.trim() ?? "";
+  if (reason.length < 5) throw new GameLoopError("formReasonRequired");
+  const req = await getRerollRequestById(requestId);
+  if (!req || req.status !== "pending") throw new GameLoopError("gameRerollRequestNotFound");
+
+  const spRows = await db.select().from(seasonPlayers).where(eq(seasonPlayers.id, req.seasonPlayerId)).limit(1);
+  const sp = spRows[0];
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
+
+  await db
+    .update(rerollRequests)
+    .set({ status: "rejected", adminNote: reason, resolvedAt: new Date(), resolvedBy: actor.id })
+    .where(eq(rerollRequests.id, req.id));
+  await db.insert(eventLog).values({
+    seasonId: sp.seasonId,
+    seasonPlayerId: sp.id,
+    eventType: "reroll_rejected",
+    payload: {
+      gameId: (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0]?.gameId ?? null,
+      reason,
+      requestId: req.id,
+    },
+  });
 }
 
 /** The participant's unfinished roll (rolled/in_progress), if any. */

@@ -47,6 +47,11 @@ export const rollStatusEnum = pgEnum("roll_status", [
   "dropped",
   "rerolled",
 ]);
+export const rerollRequestStatusEnum = pgEnum("reroll_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 export const playerStatusEnum = pgEnum("player_status", [
   "active",
   "finished",
@@ -196,6 +201,8 @@ export const gameRolls = pgTable(
     hoursSpent: numeric("hours_spent"),
     difficultyLevel: integer("difficulty_level"),
     notes: text("notes"),
+    /** Player rating 1-10 when the roll is marked as passed. */
+    rating: integer("rating"),
     rolledAt: timestamp("rolled_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -203,6 +210,34 @@ export const gameRolls = pgTable(
   },
   (t) => [index("game_rolls_sp_status_idx").on(t.seasonPlayerId, t.status)],
 );
+export const rerollRequests = pgTable(
+  "reroll_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonPlayerId: uuid("season_player_id")
+      .notNull()
+      .references(() => seasonPlayers.id, { onDelete: "cascade" }),
+    gameRollId: uuid("game_roll_id")
+      .notNull()
+      .references(() => gameRolls.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    status: rerollRequestStatusEnum("status").notNull().default("pending"),
+    adminNote: text("admin_note"),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    index("reroll_requests_sp_idx").on(t.seasonPlayerId),
+    index("reroll_requests_game_roll_idx").on(t.gameRollId),
+    index("reroll_requests_status_idx").on(t.status),
+  ],
+);
+
 
 export const moves = pgTable("moves", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -297,6 +332,7 @@ export type BoardCell = typeof boardCells.$inferSelect;
 export type SeasonPlayer = typeof seasonPlayers.$inferSelect;
 export type CatalogGame = typeof gamesCatalog.$inferSelect;
 export type GameRoll = typeof gameRolls.$inferSelect;
+export type RerollRequest = typeof rerollRequests.$inferSelect;
 export type Move = typeof moves.$inferSelect;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 export type EventLogEntry = typeof eventLog.$inferSelect;

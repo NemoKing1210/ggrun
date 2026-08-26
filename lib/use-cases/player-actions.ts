@@ -20,6 +20,11 @@ function requireString(formData: FormData, key: string): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function optionalString(formData: FormData, key: string): string | undefined {
+  const v = formData.get(key);
+  return typeof v === "string" ? v : undefined;
+}
+
 async function loopError(e: unknown): Promise<PlayerActionState> {
   const { t } = await getT();
   if (e instanceof GameLoopError) {
@@ -64,11 +69,23 @@ export async function resolveAction(
     return { error: errorText(t.core.errors, "formUnknown") };
   }
 
+  const reason = optionalString(formData, "reason");
+  const comment = optionalString(formData, "comment");
+  const ratingRaw = optionalString(formData, "rating");
+  const rating = ratingRaw !== undefined && ratingRaw !== "" ? Number(ratingRaw) : undefined;
+
   try {
-    await resolveGameRoll({ rollId, outcome: outcome as RollOutcome });
+    await resolveGameRoll({
+      rollId,
+      outcome: outcome as RollOutcome,
+      reason: reason ?? comment,
+      comment,
+      rating,
+    });
   } catch (e) {
     return await loopError(e);
   }
   revalidatePath("/dashboard");
+  revalidatePath("/board");
   return {};
 }

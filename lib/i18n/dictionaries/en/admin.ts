@@ -22,6 +22,7 @@ export const admin = {
     users: "Users",
     catalog: "Games catalog",
     audit: "Audit log",
+    rerolls: "Rerolls",
     backToSite: "← Site",
   },
 
@@ -167,5 +168,21 @@ export const admin = {
     colAction: "Action",
     colTarget: "Target",
     colPayload: "Payload",
+  },
+
+  /** Reroll requests (/admin/rerolls). */
+  rerolls: {
+    heading: "Reroll requests",
+    empty: "No pending requests.",
+    colPlayer: "Player",
+    colGame: "Game",
+    colReason: "Reason",
+    colRequested: "Requested",
+    approve: "Approve",
+    reject: "Reject",
+    approveConfirm: "Approve reroll for {player}? A new game will be rolled.",
+    rejectPlaceholder: "Reason for rejection…",
+    approved: "Approved",
+    rejected: "Rejected",
   },
 } as const;

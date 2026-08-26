@@ -1,17 +1,24 @@
-import { SnakeBoard } from "@/components/board/snake-board";
-import type { BoardMarker } from "@/components/board/snake-board";
 import { CELL_THEME } from "@/components/board/cell-theme";
+import {
+  BoardView,
+  type BoardPlayer,
+  type BoardRoll,
+} from "@/components/board/board-view";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
-import { getLeaderboard } from "@/lib/repositories/players.repo";
+import { format } from "@/lib/i18n/format";
+import { getT } from "@/lib/i18n/server";
+import {
+  getActiveRolls,
+  getLeaderboard,
+  getSeasonStats,
+} from "@/lib/repositories/players.repo";
 import {
   getActiveSeason,
   getBoardCells,
   getMainBoard,
 } from "@/lib/repositories/seasons.repo";
-import { getT } from "@/lib/i18n/server";
-import { format } from "@/lib/i18n/format";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -25,9 +32,11 @@ export default async function BoardPage() {
 
   const kicker = format(t.core.common.seasonKicker, { season: season.title });
 
-  const [board, leaderboard] = await Promise.all([
+  const [board, leaderboard, rolls, stats] = await Promise.all([
     getMainBoard(season.id),
     getLeaderboard(season.id),
+    getActiveRolls(season.id),
+    getSeasonStats(season.id),
   ]);
 
   if (!board) {
@@ -49,10 +58,25 @@ export default async function BoardPage() {
     );
   }
 
-  const markers: BoardMarker[] = leaderboard.map((row) => ({
+  const players: BoardPlayer[] = leaderboard.map((row) => ({
     username: row.username,
     displayName: row.displayName,
+    avatarUrl: row.avatarUrl,
     position: row.position,
+    balancePoints: row.balancePoints,
+    status: row.status,
+    streakPass: row.streakPass,
+    streakDrop: row.streakDrop,
+    rerollsUsed: row.rerollsUsed,
+  }));
+
+  const boardRolls: BoardRoll[] = rolls.map((r) => ({
+    username: r.username,
+    displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
+    gameTitle: r.gameTitle,
+    platform: r.platform,
+    rolledAt: r.rolledAt.toISOString(),
   }));
 
   return (
@@ -68,9 +92,15 @@ export default async function BoardPage() {
         }
       />
 
-      <SnakeBoard cells={cells} markers={markers} />
+      <BoardView
+        cells={cells}
+        players={players}
+        rolls={boardRolls}
+        stats={stats}
+        seasonStartedAt={season.startedAt?.toISOString() ?? null}
+      />
 
-      <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
+      <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
         {(Object.keys(CELL_THEME) as Array<keyof typeof CELL_THEME>)
           .filter((type) => type !== "normal")
           .map((type) => (

@@ -1,12 +1,15 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
   eventLog,
+  gameRolls,
+  gamesCatalog,
   ledgerEntries,
   moves,
   seasonPlayers,
   users,
+  type GameRoll,
   type SeasonPlayer,
 } from "@/db/schema";
 
@@ -165,4 +168,72 @@ export async function getEventFeed(
     username: r.username,
     displayName: r.displayName,
   }));
+}
+
+
+// --- Board page live data --------------------------------------------------
+
+export type ActiveRollRow = {
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  gameTitle: string | null;
+  platform: string | null;
+  rolledAt: Date;
+};
+
+/** Rolls that are currently being played (rolled / in_progress). */
+export async function getActiveRolls(seasonId: string): Promise<ActiveRollRow[]> {
+  return db
+    .select({
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      gameTitle: gamesCatalog.title,
+      platform: gamesCatalog.platform,
+      rolledAt: gameRolls.rolledAt,
+    })
+    .from(gameRolls)
+    .innerJoin(seasonPlayers, eq(gameRolls.seasonPlayerId, seasonPlayers.id))
+    .innerJoin(users, eq(users.id, seasonPlayers.playerId))
+    .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+    .where(
+      and(
+        eq(seasonPlayers.seasonId, seasonId),
+        inArray(gameRolls.status, ["rolled", "in_progress"]),
+      ),
+    )
+    .orderBy(asc(gameRolls.rolledAt));
+}
+
+export type SeasonStats = {
+  totalMoves: number;
+  passedRolls: number;
+  droppedRolls: number;
+  rerolls: number;
+};
+
+/** Aggregate activity counters for the board page stats bar. */
+export async function getSeasonStats(seasonId: string): Promise<SeasonStats> {
+  const [moveRow] = await db
+    .select({ n: count() })
+    .from(moves)
+    .innerJoin(seasonPlayers, eq(moves.seasonPlayerId, seasonPlayers.id))
+    .where(eq(seasonPlayers.seasonId, seasonId));
+
+  const rollRows = await db
+    .select({ status: gameRolls.status, n: count() })
+    .from(gameRolls)
+    .innerJoin(seasonPlayers, eq(gameRolls.seasonPlayerId, seasonPlayers.id))
+    .where(eq(seasonPlayers.seasonId, seasonId))
+    .groupBy(gameRolls.status);
+
+  const rollCount = (status: GameRoll["status"]) =>
+    rollRows.find((r) => r.status === status)?.n ?? 0;
+  return {
+    totalMoves: Number(moveRow?.n ?? 0),
+    passedRolls: rollCount("passed"),
+    droppedRolls: rollCount("dropped"),
+    rerolls: rollCount("rerolled"),
+  };
 }

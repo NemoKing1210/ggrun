@@ -26,6 +26,7 @@ export default async function AdminLayout({
       : []),
     { href: "/admin/games-catalog", label: t.admin.nav.catalog },
     { href: "/admin/audit", label: t.admin.nav.audit },
+    { href: "/admin/rerolls", label: t.admin.nav.rerolls },
   ];
 
   return (

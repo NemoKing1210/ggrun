@@ -25,6 +25,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     users: "Користувачі",
     catalog: "Каталог ігор",
     audit: "Журнал аудиту",
+    rerolls: "Рероли",
     backToSite: "← На сайт",
   },
 
@@ -161,7 +162,6 @@ export const admin: Widen<typeof AdminEn.admin> = {
     unblockButton: "Розблокувати",
     blockButton: "У блеклист",
   },
-
   /** Audit log (/admin/audit). */
   audit: {
     heading: "Журнал аудиту",
@@ -170,5 +170,21 @@ export const admin: Widen<typeof AdminEn.admin> = {
     colAction: "Дія",
     colTarget: "Ціль",
     colPayload: "Payload",
+  },
+
+  /** Reroll requests (/admin/rerolls). */
+  rerolls: {
+    heading: "Запити на рерол",
+    empty: "Немає очікуваних запитів.",
+    colPlayer: "Гравець",
+    colGame: "Гра",
+    colReason: "Причина",
+    colRequested: "Запитано",
+    approve: "Схвалити",
+    reject: "Відхилити",
+    approveConfirm: "Схвалити рерол для {player}? Буде нароллена нова гра.",
+    rejectPlaceholder: "Причина відхилення…",
+    approved: "Схвалено",
+    rejected: "Відхилено",
   },
 };

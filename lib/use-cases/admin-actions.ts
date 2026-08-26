@@ -11,6 +11,10 @@ import {
   updateSeasonSettings,
   AdminError,
 } from "@/lib/use-cases/admin";
+import {
+  approveRerollRequest,
+  rejectRerollRequest,
+} from "@/lib/use-cases/resolve-game-roll";
 import { addCatalogGame, deleteCatalogGame, setGameBlacklisted } from "@/lib/repositories/games.repo";
 import { getT } from "@/lib/i18n/server";
 import { errorText } from "@/lib/i18n/errors";
@@ -201,4 +205,42 @@ export async function toggleBlacklistAction(formData: FormData): Promise<void> {
 export async function deleteGameAction(formData: FormData): Promise<void> {
   await deleteCatalogGame(String(formData.get("gameId")));
   revalidatePath("/admin/games-catalog");
+}
+
+
+// --- Reroll requests -------------------------------------------------------
+
+export async function approveRerollAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const requestId = formData.get("requestId");
+  if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
+  try {
+    await approveRerollRequest(requestId);
+  } catch (e) {
+    return await toError(e);
+  }
+  revalidatePath("/admin/rerolls");
+  revalidatePath("/dashboard");
+  revalidatePath("/board");
+  return { ok: "approved" };
+}
+
+export async function rejectRerollAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const requestId = formData.get("requestId");
+  const adminNote = formData.get("adminNote");
+  if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
+  if (typeof adminNote !== "string" || !adminNote.trim()) return { error: "Reason required" };
+  try {
+    await rejectRerollRequest(requestId, adminNote);
+  } catch (e) {
+    return await toError(e);
+  }
+  revalidatePath("/admin/rerolls");
+  revalidatePath("/dashboard");
+  return { ok: "rejected" };
 }
