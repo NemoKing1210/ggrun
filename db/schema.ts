@@ -182,6 +182,14 @@ export const gamesCatalog = pgTable("games_catalog", {
   coverUrl: text("cover_url"),
   genres: text("genres").array().notNull().default([]),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
+  // Enriched metadata for API-sourced games (nullable for legacy rows)
+  metacritic: integer("metacritic"),
+  rating: numeric("rating"),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+  esrb: text("esrb"),
+  externalSource: text("external_source"),
+  externalRawId: text("external_raw_id"),
+  tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

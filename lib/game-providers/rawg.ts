@@ -1,0 +1,108 @@
+import type { ExternalGame, GameProvider, ProviderSearchParams } from "./provider";
+import { PLATFORMS } from "@/lib/game-pool/constants";
+
+const RAWG_BASE = "https://api.rawg.io/api";
+
+function buildQuery(filters: ProviderSearchParams["filters"], pageSize: number, page: number): string {
+  const p = new URLSearchParams();
+  const key = process.env.RAWG_API_KEY;
+  if (key) p.set("key", key);
+  p.set("page_size", String(pageSize));
+  p.set("page", String(page));
+  if (filters.genres.length) p.set("genres", filters.genres.join(","));
+  if (filters.platforms.length) {
+    const ids = filters.platforms
+      .map((v) => PLATFORMS.find((pl) => pl.value === v)?.rawgId ?? v)
+      .join(",");
+    p.set("platforms", ids);
+  }
+  if (filters.tags.length) p.set("tags", filters.tags.join(","));
+  if (filters.searchQuery) p.set("search", filters.searchQuery);
+  if (filters.metacriticMin !== null || filters.metacriticMax !== null) {
+    const lo = filters.metacriticMin ?? 0;
+    const hi = filters.metacriticMax ?? 100;
+    p.set("metacritic", `${lo},${hi}`);
+  }
+  if (filters.yearMin !== null || filters.yearMax !== null) {
+    const lo = filters.yearMin ?? 1970;
+    const hi = filters.yearMax ?? new Date().getFullYear() + 1;
+    p.set("dates", `${lo}-01-01,${hi}-12-31`);
+  }
+  if (filters.esrb.length) p.set("esrb", filters.esrb.join(","));
+  p.set("ordering", filters.ordering || "-metacritic");
+  return p.toString();
+}
+
+export const rawgProvider: GameProvider = {
+  id: "rawg",
+  async search({ filters, pageSize = 20, page = 1 }): Promise<ExternalGame[]> {
+    const key = process.env.RAWG_API_KEY;
+    if (!key) {
+      // mock fallback when no key is configured — return empty and caller will fallback
+      return [];
+    }
+    const qs = buildQuery(filters, pageSize, page);
+    const res = await fetch(`${RAWG_BASE}/games?${qs}`, { next: { revalidate: 3600 } });
+    if (!res.ok) {
+      console.warn(`[rawg] search failed ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as {
+      results: Array<{
+        id: number;
+        name: string;
+        genres: Array<{ slug: string }>;
+        platforms: Array<{ platform: { slug: string } }>;
+        background_image: string | null;
+        metacritic: number | null;
+        rating: number | null;
+        released: string | null;
+        esrb_rating: { slug: string } | null;
+        tags: Array<{ slug: string }>;
+      }>;
+    };
+    return data.results.map((r) => ({
+      externalId: `rawg:${r.id}`,
+      title: r.name,
+      genres: r.genres.map((g) => g.slug),
+      platforms: r.platforms.map((p) => p.platform.slug),
+      coverUrl: r.background_image,
+      metacritic: r.metacritic,
+      rating: r.rating,
+      releasedAt: r.released,
+      esrb: r.esrb_rating?.slug ?? null,
+      tags: r.tags.slice(0, 10).map((t) => t.slug),
+    }));
+  },
+  async getById(id: string): Promise<ExternalGame | null> {
+    const key = process.env.RAWG_API_KEY;
+    if (!key) return null;
+    const rawId = id.replace(/^rawg:/, "");
+    const res = await fetch(`${RAWG_BASE}/games/${rawId}?key=${key}`, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    const r = (await res.json()) as {
+      id: number;
+      name: string;
+      genres: Array<{ slug: string }>;
+      platforms: Array<{ platform: { slug: string } }>;
+      background_image: string | null;
+      metacritic: number | null;
+      rating: number | null;
+      released: string | null;
+      esrb_rating: { slug: string } | null;
+      tags: Array<{ slug: string }>;
+    };
+    return {
+      externalId: `rawg:${r.id}`,
+      title: r.name,
+      genres: r.genres.map((g) => g.slug),
+      platforms: r.platforms.map((p) => p.platform.slug),
+      coverUrl: r.background_image,
+      metacritic: r.metacritic,
+      rating: r.rating,
+      releasedAt: r.released,
+      esrb: r.esrb_rating?.slug ?? null,
+      tags: r.tags.slice(0, 10).map((t) => t.slug),
+    };
+  },
+};

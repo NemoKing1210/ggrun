@@ -104,10 +104,23 @@ export const admin = {
   /** Season settings (/admin/seasons/[id]). */
   settings: {
     heading: "Settings · {season}",
-    configHeading: "Rules config (JSON) and rules text",
+    configHeading: "Flexible season settings",
     configLabel: "season.config (validated against the SeasonConfigSchema Zod schema)",
     rulesLabel: "Season rules (Markdown)",
     rulesPlaceholder: "# Rules\nText for the /rules page...",
+    tabs: {
+      templates: "Templates",
+      dice: "Dice & Points",
+      board: "Board",
+      pool: "Game Pool",
+    },
+    templatesHint: "Pick a preset — horror, strategy, RPG… — or build your own filter set. Templates pre-fill genres, tags and board hints.",
+    diceHint: "Dice determine step size for passes and drops; streak multiplier rewards consecutive fails.",
+    boardHint: "Board size, special cell counts and distribution. Regenerate on save replaces every cell.",
+    poolHint: "Where games come from and how they are filtered. Hybrid uses both local catalog and external API.",
+    saveButton: "Save settings",
+    clearTemplate: "Clear template → custom",
+    regenerateWarning: "This will delete current cell layout and re-roll positions/effects.",
   },
 
   /** Board editor (/admin/seasons/[id]/board). */
@@ -125,6 +138,9 @@ export const admin = {
     colType: "Type",
     colName: "Name",
     colConfig: "Config",
+    previewHeading: "Board preview",
+    configTarget: "Config target",
+    actualCounts: "Actual",
   },
 
   /** Player management (/admin/seasons/[id]/players). */
@@ -158,6 +174,13 @@ export const admin = {
     active: "active",
     unblockButton: "Unblock",
     blockButton: "Blacklist",
+    searchHeading: "Search external API",
+    importButton: "Import →",
+    noResults: "No results.",
+    filterPlaceholder: "Filter pool…",
+    tagsLabel: "Tags",
+    metacriticLabel: "Metacritic",
+    ratingLabel: "Rating",
   },
 
   /** Audit log (/admin/audit). */

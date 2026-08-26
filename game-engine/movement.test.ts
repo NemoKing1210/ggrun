@@ -12,11 +12,22 @@ const rngFor = (dice: number[], sides: number): (() => number) => {
 const configWith = (
   overrides: { [K in keyof SeasonConfig]?: Partial<SeasonConfig[K]> },
 ): SeasonConfig => ({
-  ...overrides,
   dice: { ...DEFAULT_SEASON_CONFIG.dice, ...overrides.dice },
   points: { ...DEFAULT_SEASON_CONFIG.points, ...overrides.points },
   board: { ...DEFAULT_SEASON_CONFIG.board, ...overrides.board },
   rerolls: { ...DEFAULT_SEASON_CONFIG.rerolls, ...overrides.rerolls },
+  gamePool: {
+    ...DEFAULT_SEASON_CONFIG.gamePool,
+    ...overrides.gamePool,
+    filters: {
+      ...DEFAULT_SEASON_CONFIG.gamePool.filters,
+      ...(overrides.gamePool?.filters ?? {}),
+    },
+    catalog: {
+      ...DEFAULT_SEASON_CONFIG.gamePool.catalog,
+      ...(overrides.gamePool?.catalog ?? {}),
+    },
+  },
 });
 
 const baseInput = (overrides: Partial<MovementInput>): MovementInput => ({
@@ -189,8 +200,8 @@ describe("resolveMovement — dropped", () => {
 });
 
 describe("normalizePosition", () => {
-  const clamped = { size: 40, loop: false };
-  const looped = { size: 40, loop: true };
+  const clamped = { ...DEFAULT_SEASON_CONFIG.board, size: 40, loop: false as const };
+  const looped = { ...DEFAULT_SEASON_CONFIG.board, size: 40, loop: true as const };
 
   it("clamps into [0, size-1]", () => {
     expect(normalizePosition(-7, clamped)).toBe(0);

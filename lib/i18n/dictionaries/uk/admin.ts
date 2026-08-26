@@ -107,10 +107,23 @@ export const admin: Widen<typeof AdminEn.admin> = {
   /** Season settings (/admin/seasons/[id]). */
   settings: {
     heading: "Налаштування · {season}",
-    configHeading: "Конфіг правил (JSON) і текст правил",
+    configHeading: "Гнучкі налаштування сезону",
     configLabel: "season.config (валідація за Zod-схемою SeasonConfigSchema)",
     rulesLabel: "Правила сезону (Markdown)",
     rulesPlaceholder: "# Правила\nТекст для сторінки /rules...",
+    tabs: {
+      templates: "Шаблони",
+      dice: "Кості та очки",
+      board: "Поле",
+      pool: "Пул ігор",
+    },
+    templatesHint: "Оберіть пресет — хоррори, стратегії, RPG… — або зберіть фільтри вручну. Шаблони заповнюють жанри, теги та підказки для поля.",
+    diceHint: "Кості визначають крок при проходженні/провалі; множник серії посилює відкат.",
+    boardHint: "Розмір поля, кількість спеціальних клітинок і розподіл. Перегенерація при збереженні перезапише клітинки.",
+    poolHint: "Звідки беруться ігри та як фільтруються. Гібрид використовує і каталог, і зовнішній API.",
+    saveButton: "Зберегти налаштування",
+    clearTemplate: "Скинути шаблон → вручну",
+    regenerateWarning: "Видалить поточну розкладку клітинок і згенерує нову.",
   },
 
   /** Board editor (/admin/seasons/[id]/board). */
@@ -128,6 +141,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
     colType: "Тип",
     colName: "Назва",
     colConfig: "Config",
+    previewHeading: "Попередній перегляд поля",
+    configTarget: "Ціль за конфігом",
+    actualCounts: "Фактично",
   },
 
   /** Player management (/admin/seasons/[id]/players). */
@@ -161,6 +177,13 @@ export const admin: Widen<typeof AdminEn.admin> = {
     active: "активна",
     unblockButton: "Розблокувати",
     blockButton: "У блеклист",
+    searchHeading: "Пошук у зовнішньому API",
+    importButton: "Імпорт →",
+    noResults: "Нічого не знайдено.",
+    filterPlaceholder: "Фільтр пулу…",
+    tagsLabel: "Теги",
+    metacriticLabel: "Metacritic",
+    ratingLabel: "Рейтинг",
   },
   /** Audit log (/admin/audit). */
   audit: {

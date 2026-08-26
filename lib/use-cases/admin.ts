@@ -169,10 +169,41 @@ export async function updateSeasonSettings(input: {
 }): Promise<void> {
   const actor = await requireStaff();
   const config = SeasonConfigSchema.parse(input.config);
-  await db
-    .update(seasons)
-    .set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) })
-    .where(eq(seasons.id, input.seasonId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(seasons)
+      .set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) })
+      .where(eq(seasons.id, input.seasonId));
+
+    // Optionally regenerate board when requested.
+    if (config.board.regenerateOnSave) {
+      const [existingBoard] = await tx.select().from(boards).where(eq(boards.seasonId, input.seasonId)).limit(1);
+      let boardId = existingBoard?.id;
+      if (!boardId) {
+        const [created] = await tx.insert(boards).values({ seasonId: input.seasonId }).returning({ id: boards.id });
+        boardId = created!.id;
+      }
+      // Clear previous cells and generate fresh distribution
+      await tx.delete(boardCells).where(eq(boardCells.boardId, boardId));
+      const { generateBoardCells } = await import("@/lib/game-pool/board-generator");
+      const cells = generateBoardCells(config);
+      if (cells.length > 0) {
+        await tx.insert(boardCells).values(
+          cells.map((c) => ({
+            boardId: boardId!,
+            position: c.position,
+            cellType: c.cellType,
+            label: c.label,
+            config: c.config,
+          })),
+        );
+      }
+      // Turn off flag after regeneration so next saves don't re-roll unintentionally,
+      // but keep the stored config with regenerateOnSave=false for clarity.
+      const withoutRegen = { ...config, board: { ...config.board, regenerateOnSave: false } };
+      await tx.update(seasons).set({ config: withoutRegen }).where(eq(seasons.id, input.seasonId));
+    }
+  });
   await logAdminAction({
     actorId: actor.id,
     actionType: "season_settings_updated",
@@ -181,6 +212,7 @@ export async function updateSeasonSettings(input: {
     payload: { config },
   });
 }
+
 
 // --- Board editor ---------------------------------------------------------
 

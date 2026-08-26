@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "./config";
-import type { SeasonConfig } from "./types";
+
 
 describe("DEFAULT_SEASON_CONFIG", () => {
-  it("matches the PLAN.md section 6.2 reference", () => {
-    expect(DEFAULT_SEASON_CONFIG).toEqual<SeasonConfig>({
-      dice: {
-        sides: 6,
-        passDiceCount: 1,
-        dropDiceCount: 2,
-        dropStreakMultiplier: true,
-      },
-      points: {
-        startingBalance: 0,
-        bonusAddsToRollOnPass: true,
-        resetBalanceAfterUse: true,
-      },
-      board: { size: 40, loop: false },
-      rerolls: { allowed: true, limitPerGame: 1 },
+  it("matches the PLAN.md section 6.2 reference for core fields", () => {
+    expect(DEFAULT_SEASON_CONFIG.dice).toEqual({
+      sides: 6,
+      passDiceCount: 1,
+      dropDiceCount: 2,
+      dropStreakMultiplier: true,
     });
+    expect(DEFAULT_SEASON_CONFIG.points).toEqual({
+      startingBalance: 0,
+      bonusAddsToRollOnPass: true,
+      resetBalanceAfterUse: true,
+    });
+    expect(DEFAULT_SEASON_CONFIG.board.size).toBe(40);
+    expect(DEFAULT_SEASON_CONFIG.board.loop).toBe(false);
+    expect(DEFAULT_SEASON_CONFIG.rerolls).toEqual({ allowed: true, limitPerGame: 1 });
+    // Extended defaults exist
+    expect(DEFAULT_SEASON_CONFIG.gamePool).toBeDefined();
+    expect(DEFAULT_SEASON_CONFIG.board.bonusCount).toBeDefined();
   });
 });
 
