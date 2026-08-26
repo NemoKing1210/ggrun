@@ -13,7 +13,7 @@ const BADGE_STYLES: Record<string, string> = {
   archived: "border-dim text-dim",
 };
 
-/** Подпись передаётся извне из словаря i18n (t.core.seasonStatuses/playerStatuses). */
+/** Label is passed in from the i18n dictionary (t.core.seasonStatuses/playerStatuses). */
 export function StatusBadge({
   status,
   label,

@@ -45,7 +45,7 @@ export async function getLeaderboard(seasonId: string): Promise<LeaderboardRow[]
     .from(seasonPlayers)
     .innerJoin(users, eq(users.id, seasonPlayers.playerId))
     .where(eq(seasonPlayers.seasonId, seasonId))
-    // Финишировавшие сверху, далее по позиции убыв., затем по балансу
+    // Finished players first, then by position descending, then by balance
     .orderBy(
       asc(seasonPlayers.status),
       desc(seasonPlayers.position),
@@ -109,7 +109,7 @@ export async function updateSeasonPlayer(
   await db.update(seasonPlayers).set(patch).where(eq(seasonPlayers.id, id));
 }
 
-// --- История игрока -------------------------------------------------------
+// --- Player history -------------------------------------------------------
 
 export type PlayerMoveRow = typeof moves.$inferSelect;
 
@@ -137,7 +137,7 @@ export async function getPlayerLedger(
     .limit(limit);
 }
 
-// --- Лента событий --------------------------------------------------------
+// --- Event feed -----------------------------------------------------------
 
 export type FeedRow = typeof eventLog.$inferSelect & {
   username: string | null;

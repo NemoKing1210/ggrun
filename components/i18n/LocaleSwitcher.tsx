@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { setLocaleAction } from "@/lib/i18n/actions";
 import { LOCALE_LABELS, LOCALES, type Locale } from "@/lib/i18n/config";
 
-/** Переключатель языка: пишет cookie, перерисовывает серверные компоненты. */
+/** Locale switcher: writes a cookie and re-renders server components. */
 export function LocaleSwitcher({ current }: { current: Locale }) {
   const [pending, startTransition] = useTransition();
   return (

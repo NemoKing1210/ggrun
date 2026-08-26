@@ -14,7 +14,7 @@ import { logAdminAction, logEvent } from "@/lib/repositories/events.repo";
 import { SeasonConfigSchema } from "@/game-engine";
 
 export class AdminError extends Error {
-  /** Код ошибки + параметры интерполяции; текст подбирается словарём i18n в экшенах. */
+  /** Error code + interpolation params; the text is resolved via the i18n dictionary in actions. */
   constructor(
     public readonly code: string,
     public readonly params: Record<string, string> = {},
@@ -35,12 +35,12 @@ export const createSeasonSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .regex(/^[a-z0-9-]+$/, "slug: строчные латинские буквы, цифры, дефис"),
+    .regex(/^[a-z0-9-]+$/, "slug: lowercase latin letters, digits, hyphens"),
   config: SeasonConfigSchema.optional(),
   cloneBoardFromSeasonId: z.string().uuid().optional(),
 });
 
-/** Создание сезона (черновик), опционально с клоном поля из другого сезона. */
+/** Creates a season (draft), optionally cloning the board from another season. */
 export async function createSeason(input: unknown): Promise<string> {
   const actor = await requireStaff();
   const parsed = createSeasonSchema.parse(input);
@@ -90,7 +90,7 @@ export async function createSeason(input: unknown): Promise<string> {
         );
       }
     } else {
-      // Дефолтное поле 40 клеток: старт + финиш + обычные
+      // Default 40-cell board: start + finish + regular cells
       const [newBoard] = await tx
         .insert(boards)
         .values({ seasonId: season!.id })
@@ -124,7 +124,7 @@ const statusTransitions: Record<string, string[]> = {
   archived: [],
 };
 
-/** Смена статуса сезона по разрешённым переходам + снапшот при старте. */
+/** Changes the season status along allowed transitions + snapshot on start. */
 export async function changeSeasonStatus(
   seasonId: string,
   newStatus: "draft" | "active" | "paused" | "finished" | "archived",
@@ -144,7 +144,7 @@ export async function changeSeasonStatus(
     if (newStatus === "finished") patch.finishedAt = new Date();
     await tx.update(seasons).set(patch).where(eq(seasons.id, seasonId));
     if (newStatus === "active") {
-      // Снапшот старта: обнуление позиций/баланса/стриков у всех участников
+      // Start snapshot: reset positions/balance/streaks for all participants
       await tx
         .update(seasonPlayers)
         .set({ position: 0, balancePoints: 0, streakPass: 0, streakDrop: 0 })
@@ -182,7 +182,7 @@ export async function updateSeasonSettings(input: {
   });
 }
 
-// --- Редактор поля ---------------------------------------------------------
+// --- Board editor ---------------------------------------------------------
 
 export async function setBoardCell(input: {
   boardId: string;
@@ -217,7 +217,7 @@ export async function setBoardCell(input: {
   });
 }
 
-// --- Управление участниками ------------------------------------------------
+// --- Participant management ------------------------------------------------
 
 export async function adminAddPlayer(seasonId: string, userId: string): Promise<void> {
   const actor = await requireStaff();

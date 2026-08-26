@@ -25,7 +25,7 @@ interface RollCardProps {
 
 const initialState: PlayerActionState = {};
 
-/** confirm() перед опасным действием; отмена не отправляет форму. */
+/** confirm() before a dangerous action; canceling does not submit. */
 function confirmGuard(message: string) {
   return (event: MouseEvent<HTMLButtonElement>) => {
     if (!window.confirm(message)) event.preventDefault();
@@ -63,7 +63,7 @@ export default function RollCard({
         <>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
             {openRoll.game?.coverUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- обложки из внешних источников
+            // eslint-disable-next-line @next/next/no-img-element -- covers from external sources
               <img
                 src={openRoll.game.coverUrl}
                 alt={format(d.coverAlt, { title: openRoll.game.title })}

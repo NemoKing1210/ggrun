@@ -40,8 +40,8 @@ export async function deleteCatalogGame(gameId: string): Promise<void> {
 }
 
 /**
- * Случайный выбор игры для ролла: исключает блэклист и игры,
- * уже выпадавшие этому игроку в текущем сезоне.
+ * Picks a random game for a roll: excludes blacklisted games and games
+ * already rolled for this player in the current season.
  */
 export async function rollRandomGame(
   seasonPlayerId: string,
@@ -76,7 +76,7 @@ export async function getGameById(id: string): Promise<CatalogGame | null> {
   return rows[0] ?? null;
 }
 
-// --- Роллы ----------------------------------------------------------------
+// --- Rolls ----------------------------------------------------------------
 
 export async function createRoll(
   seasonPlayerId: string,
@@ -89,7 +89,7 @@ export async function createRoll(
   return created!;
 }
 
-/** Текущий незавершённый ролл игрока (rolled или in_progress). */
+/** The player's current unfinished roll (rolled or in_progress). */
 export async function getOpenRoll(
   seasonPlayerId: string,
 ): Promise<(GameRoll & { game: CatalogGame | null }) | null> {

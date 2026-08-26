@@ -8,7 +8,7 @@ import {
 } from "@/lib/i18n/config";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
-/** Локаль сессии: cookie → Accept-Language системы → DEFAULT_LOCALE (en). */
+/** Session locale: cookie → system Accept-Language → DEFAULT_LOCALE (en). */
 export async function getLocale(): Promise<Locale> {
   const jar = await cookies();
   const cookieLocale = jar.get(LOCALE_COOKIE)?.value;
@@ -19,7 +19,7 @@ export async function getLocale(): Promise<Locale> {
 
 export type T = Dictionary;
 
-/** Словарь + локаль для серверных компонентов и экшенов. */
+/** Dictionary + locale for server components and actions. */
 export async function getT(): Promise<{ locale: Locale; t: T }> {
   const locale = await getLocale();
   return { locale, t: getDictionary(locale) };

@@ -1,4 +1,4 @@
-/** Публичный профиль игрока (/players/<username>). */
+/** Public player profile (/players/<username>). */
 export const profile = {
   metaTitle: "@{username} — GGRun",
   streak: "streak",

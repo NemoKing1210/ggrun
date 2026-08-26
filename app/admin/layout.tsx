@@ -5,8 +5,8 @@ import { getT } from "@/lib/i18n/server";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 
 /**
- * Админская оболочка: собственная «консольная» шапка с разделами админки
- * и переключателем обратно на сайт. Доступ — только staff.
+ * Admin shell: its own console-style header with admin sections
+ * and a switch back to the public site. Access limited to staff.
  */
 export default async function AdminLayout({
   children,

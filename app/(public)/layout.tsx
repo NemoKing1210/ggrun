@@ -2,7 +2,7 @@ import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 
-/** Публичная оболочка: шапка сайта + подвал. */
+/** Public shell: site header + footer. */
 export default async function PublicLayout({
   children,
 }: Readonly<{

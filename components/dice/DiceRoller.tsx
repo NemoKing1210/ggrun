@@ -9,9 +9,9 @@ const SPIN_MS = 1000;
 const TICK_MS = 80;
 
 /**
- * Кубик-«счётчик патронов»: пока крутится — мелькают случайные значения
- * (~1 c), финальное приходит пропсом с сервера.
- * При prefers-reduced-motion анимация отключается.
+ * Ammo-counter die: while spinning it flashes random values
+ * (~1 s); the final value arrives as props from the server.
+ * Animation is disabled under prefers-reduced-motion.
  */
 export default function DiceRoller({
   values,
@@ -23,7 +23,7 @@ export default function DiceRoller({
   const { t } = useI18n();
   const [display, setDisplay] = useState<number[]>(() => values ?? []);
   const [spinning, setSpinning] = useState(false);
-  // Ключ по значениям: референс массива меняется при каждом ререндере сервера.
+  // Keyed by values: the array reference changes on every server re-render.
   const valuesKey = values?.join(",") ?? "";
   const prevKey = useRef(valuesKey);
 

@@ -9,7 +9,7 @@ type Action = (
   formData: FormData,
 ) => Promise<AdminFormState>;
 
-/** Обёртка формы админки: useActionState + вывод ошибки/успеха. */
+/** Admin form wrapper: useActionState + error/success display. */
 export function FormShell({
   action,
   children,

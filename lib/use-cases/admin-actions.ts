@@ -14,6 +14,7 @@ import {
 import { addCatalogGame, deleteCatalogGame, setGameBlacklisted } from "@/lib/repositories/games.repo";
 import { getT } from "@/lib/i18n/server";
 import { errorText } from "@/lib/i18n/errors";
+import { format } from "@/lib/i18n/format";
 
 export type AdminFormState = { error?: string; ok?: string };
 
@@ -44,7 +45,7 @@ export async function createSeasonAction(
         String(formData.get("cloneFrom") || "") || undefined,
     });
     revalidateAdmin();
-    return { ok: `Сезон создан (${id})` };
+    return { ok: format((await getT()).t.admin.feedback.seasonCreated, { id }) };
   } catch (e) {
     return await toError(e);
   }
@@ -64,7 +65,9 @@ export async function changeStatusAction(
       | "archived";
     await changeSeasonStatus(seasonId, newStatus);
     revalidateAdmin(seasonId);
-    return { ok: `Статус изменён на ${newStatus}` };
+    return {
+      ok: format((await getT()).t.admin.feedback.statusChanged, { status: newStatus }),
+    };
   } catch (e) {
     return await toError(e);
   }
@@ -87,7 +90,7 @@ export async function updateSeasonSettingsAction(
     await updateSeasonSettings({ seasonId, config, rulesMd });
     revalidateAdmin(seasonId);
     revalidatePath("/rules");
-    return { ok: "Настройки сохранены" };
+    return { ok: (await getT()).t.admin.feedback.settingsSaved };
   } catch (e) {
     return await toError(e);
   }
@@ -110,7 +113,9 @@ export async function setBoardCellAction(
     await setBoardCell({ boardId, position, cellType, label, config });
     revalidateAdmin(String(formData.get("seasonId") || ""));
     revalidatePath("/board");
-    return { ok: `Клетка ${position} обновлена` };
+    return {
+      ok: format((await getT()).t.admin.feedback.cellSaved, { position }),
+    };
   } catch (e) {
     return await toError(e);
   }
@@ -124,7 +129,7 @@ export async function addPlayerToSeasonAction(
     const seasonId = String(formData.get("seasonId"));
     await adminAddPlayer(seasonId, String(formData.get("userId")));
     revalidateAdmin(seasonId);
-    return { ok: "Участник добавлен" };
+    return { ok: (await getT()).t.admin.feedback.playerAdded };
   } catch (e) {
     return await toError(e);
   }
@@ -152,13 +157,13 @@ export async function adjustPlayerAction(
         : {}),
     });
     revalidateAdmin(seasonId);
-    return { ok: "Корректировка применена" };
+    return { ok: (await getT()).t.admin.feedback.adjustmentApplied };
   } catch (e) {
     return await toError(e);
   }
 }
 
-// --- Каталог игр -----------------------------------------------------------
+// --- Games catalog ---------------------------------------------------------
 
 export async function addCatalogGameAction(
   _prev: AdminFormState,
@@ -178,7 +183,9 @@ export async function addCatalogGameAction(
       genres,
     });
     revalidatePath("/admin/games-catalog");
-    return { ok: `Игра «${title}» добавлена` };
+    return {
+      ok: format((await getT()).t.admin.feedback.gameAdded, { title }),
+    };
   } catch (e) {
     return await toError(e);
   }

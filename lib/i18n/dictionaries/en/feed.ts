@@ -1,4 +1,4 @@
-/** Лента событий (/feed). */
+/** Event feed (/feed). */
 export const feed = {
   metaTitle: "Feed — GGRun",
   pageTitle: "Event feed",

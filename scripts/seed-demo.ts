@@ -1,8 +1,8 @@
 /**
- * Демо-данные для локальной разработки/смоук-теста.
- * Использование: pnpm exec tsx scripts/seed-demo.ts
- * Создаёт сезон run-1 (active), поле 40 клеток и каталог игр,
- * если их ещё нет. Идемпотентен.
+ * Demo data for local development / smoke testing.
+ * Usage: pnpm exec tsx scripts/seed-demo.ts
+ * Creates the run-1 season (active), a 40-cell board and a games catalog,
+ * if they don't exist yet. Idempotent.
  */
 import "dotenv/config";
 
@@ -13,7 +13,7 @@ async function main() {
   try {
     const season = await pool.query(
       `insert into seasons (slug, title, status, config, started_at)
-       values ('run-1', 'Забег #1', 'active', '{}'::jsonb, now())
+       values ('run-1', 'Run #1', 'active', '{}'::jsonb, now())
        on conflict (slug) do nothing
        returning id`,
     );
@@ -34,7 +34,7 @@ async function main() {
             seasonId,
           ])
         ).rows[0]?.id ?? null;
-      if (!boardId) throw new Error("Нет поля");
+      if (!boardId) throw new Error("Board not found");
     }
 
     const cellCount = await pool.query(
@@ -51,14 +51,14 @@ async function main() {
         else if (pos % 9 === 3) {
           cellType = "penalty";
           config = { amount: -5 };
-          label = "Штрафной сектор";
+          label = "Penalty sector";
         } else if (pos % 11 === 7) {
           cellType = "bonus";
           config = { amount: 10 };
-          label = "Бонусный склад";
+          label = "Bonus warehouse";
         } else if (pos % 13 === 5) {
           cellType = "event";
-          label = "Неизвестное событие";
+          label = "Unknown event";
         }
         await pool.query(
           `insert into board_cells (board_id, position, cell_type, label, config)
@@ -66,7 +66,7 @@ async function main() {
           [boardId, pos, cellType, label, JSON.stringify(config)],
         );
       }
-      console.log("Поле из 40 клеток создано");
+      console.log("40-cell board created");
     }
 
     const gamesCount = await pool.query("select count(*)::int as n from games_catalog");
@@ -87,10 +87,10 @@ async function main() {
           [title, platform],
         );
       }
-      console.log(`Добавлено игр: ${games.length}`);
+      console.log(`Games added: ${games.length}`);
     }
 
-    console.log(`Демо-сезон готов: ${seasonId}`);
+    console.log(`Demo season ready: ${seasonId}`);
   } finally {
     await pool.end();
   }

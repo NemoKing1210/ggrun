@@ -27,7 +27,7 @@ import { rules as rulesUk } from "./uk/rules";
 import { admin as adminUk } from "./uk/admin";
 
 
-/** core экспортирует несколько констант — собираем plain-объект для сериализации в клиент. */
+/** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
   return {
     common: core.common,
@@ -46,8 +46,8 @@ const coreRuDict = pickCore(coreRu);
 const coreUkDict = pickCore(coreUk);
 
 /**
- * Полный словарь. Тип — из en-версии (источник правды):
- * компилятор требует, чтобы ru/uk реализовали те же ключи.
+ * Full dictionary. The type comes from the en version (source of truth):
+ * the compiler requires ru/uk to implement the same keys.
  */
 export type Dictionary = {
   core: Widen<typeof coreEn>;
@@ -93,7 +93,7 @@ const dictionaries: Record<Locale, Dictionary> = {
   },
 };
 
-/** Словарь локали; при отсутствии языка — fallback на en. */
+/** Locale dictionary; falls back to en when a locale is missing. */
 export function getDictionary(locale: Locale): Dictionary {
   return dictionaries[locale] ?? dictionaries.en;
 }

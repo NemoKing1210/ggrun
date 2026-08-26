@@ -2,7 +2,7 @@
 
 import type { MouseEvent, ReactNode } from "react";
 
-/** Кнопка submit с подтверждением; отмена диалога не отправляет форму. */
+/** Submit button with confirmation; canceling the dialog does not submit the form. */
 export function ConfirmButton({
   message,
   className,

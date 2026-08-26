@@ -7,7 +7,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { AdminError } from "@/lib/use-cases/admin";
 import { logAdminAction } from "@/lib/repositories/events.repo";
 
-/** Управление пользователями — только роль admin (не judge). */
+/** User management — admin role only (not judge). */
 export async function requireAdmin() {
   const { getCurrentUser } = await import("@/lib/auth/session");
   const user = await getCurrentUser();
@@ -115,7 +115,7 @@ export async function adminUpdateUser(input: unknown): Promise<void> {
   const target = await getUserById(data.userId);
   if (!target) throw new AdminError("adminPlayerNotFound");
 
-  // Нельзя разжаловать самого себя — риск потери доступа к админке
+  // Cannot demote yourself — risk of losing admin access
   if (data.role !== undefined && target.id === actor.id && data.role !== "admin") {
     throw new AdminError("adminSelfDemote");
   }

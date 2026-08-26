@@ -43,7 +43,7 @@ function PlayerName({
   return <span className="text-amber">{name}</span>;
 }
 
-/** Человекочитаемая строка события. Словарь и локаль приходят из FeedList. */
+/** Human-readable event line. Dictionary and locale come from FeedList. */
 function EventLine({
   entry,
   t,

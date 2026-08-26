@@ -1,92 +1,98 @@
-# GGRun — платформа игрового забега
+# GGRun — game run platform
 
-Веб-платформа для командного/соревновательного игрового ивента в жанре HPG:
-сезоны («забеги»), поле из клеток, ролл случайной игры, исход (пройдено/дроп/реролл),
-бросок кубика и движение по полю, лидерборд, лента событий и админка.
+A web platform for a team/competitive gaming event in the HPG genre: seasons
+("runs"), a board of cells, random game rolls, outcomes (passed/drop/reroll),
+dice rolls and movement across the board, a leaderboard, an event feed, and an
+admin console.
 
-ТЗ и план: [PLAN.md](./PLAN.md).
+The specification and plan: [PLAN.md](./PLAN.md).
 
-## Стек
+## Stack
 
 - **Next.js 15** (App Router, Server Actions, RSC), TypeScript strict
-- **Tailwind CSS v4** + кастомная HUD-тема (вайб GoldSrc-эпохи, оригинальные ассеты)
-- **PostgreSQL + Drizzle ORM** (миграции `drizzle-kit`)
-- **Собственная cookie-сессии auth** (scrypt-хеши, таблица `sessions`) — без внешних провайдеров
-- **Zod** — общие схемы (конфиг сезона валидируется `SeasonConfigSchema` из движка)
-- **Vitest** — юнит-тесты доменного движка
+- **Tailwind CSS v4** + a custom HUD theme (GoldSrc-era vibe, original assets)
+- **PostgreSQL + Drizzle ORM** (drizzle-kit migrations)
+- **Own cookie-session auth** (scrypt hashes, a `sessions` table) — no external
+  providers
+- **Zod** — shared schemas (the season config is validated by
+  `SeasonConfigSchema` from the engine)
+- **Vitest** — unit tests for the domain engine
 
-## Архитектура
+## Architecture
 
 ```
-presentation   → app/            страницы, тонкие server actions
-application    → lib/use-cases/  оркестрация (валидация → домен → запись)
-domain         → game-engine/    чистый TS без next/react/drizzle/pg (правила игры)
+presentation   → app/            pages, thin server actions
+application    → lib/use-cases/  orchestration (validate → domain → persist)
+domain         → game-engine/    pure TS without next/react/drizzle/pg (game rules)
 infrastructure → lib/repositories/, lib/db.ts, lib/auth/
 ```
 
-Домен (`game-engine/`) не знает ни о БД, ни о HTTP — переиспользуем в боте/CLI без правок.
-Случайные числа генерируются только на сервере; клиент не может подделать бросок.
+The domain (`game-engine/`) knows nothing about the DB or HTTP — it can be
+reused in a bot/CLI without changes. Random numbers are generated server-side
+only; the client cannot fake a roll.
 
-## Запуск локально
+## Running locally
 
-1. Postgres 17 (в OSPanel — модуль PostgreSQL-17 слушает `127.127.126.56:5432`,
-   БД `ggrun`). Настроить `DATABASE_URL` в `.env`.
-2. Установка и миграция:
+1. PostgreSQL 17 (in OSPanel — the PostgreSQL-17 module listens on
+   `127.127.126.56:5432`, database `ggrun`). Configure `DATABASE_URL` in
+   `.env`.
+2. Install and migrate:
 
    ```bash
    pnpm install
-   pnpm drizzle-kit push        # применить схему (или pnpm drizzle-kit generate)
+   pnpm drizzle-kit push        # apply the schema (or pnpm drizzle-kit generate)
    ```
 
-3. Демо-данные (сезон run-1, поле 40 клеток, 8 игр):
+3. Demo data (season run-1, a 40-cell board, 8 games):
 
    ```bash
    pnpm exec tsx scripts/seed-demo.ts
    ```
 
-4. Первый администратор (берёт BOOTSTRAP_ADMIN_EMAIL/PASSWORD из `.env`):
+4. First administrator (reads BOOTSTRAP_ADMIN_EMAIL/PASSWORD from `.env`):
 
    ```bash
    pnpm exec tsx scripts/bootstrap-admin.ts
    ```
 
-5. Dev-сервер:
+5. Dev server:
 
    ```bash
    pnpm dev                      # http://localhost:3000
    ```
 
-## Переменные окружения
+## Environment variables
 
-См. [.env.example](./.env.example). Секреты не коммитятся.
+See [.env.example](./.env.example). Secrets are not committed.
 
-## Скрипты
+## Scripts
 
-| Команда             | Назначение                          |
-| ------------------- | ----------------------------------- |
-| `pnpm dev`          | dev-сервер Next.js                  |
-| `pnpm build`        | прод-сборка                         |
-| `pnpm lint`         | ESLint                              |
-| `pnpm test`         | Vitest (юнит-тесты движка)          |
-| `pnpm drizzle-kit`  | миграции схемы                      |
+| Command            | Purpose                       |
+| ------------------ | ----------------------------- |
+| `pnpm dev`         | Next.js dev server            |
+| `pnpm build`       | production build              |
+| `pnpm lint`        | ESLint                        |
+| `pnpm test`        | Vitest (engine unit tests)    |
+| `pnpm drizzle-kit` | schema migrations             |
 
-## Структура
+## Structure
 
 ```
-app/                  публичные страницы, /dashboard, /admin
-components/           HUD-компоненты (board, dice, dashboard, admin, ui)
-game-engine/          чистый домен: кубики, движение, FSM ролла, эффекты клеток
-lib/db.ts             Drizzle + пул pg
-lib/repositories/     доступ к данным
-lib/use-cases/        resolve-game-roll, admin, auth (+ *-actions.ts серверные экшены)
-db/schema.ts          схема БД (источник правды типов)
-drizzle/              SQL-миграции
+app/                  public pages, /dashboard, /admin
+components/           HUD components (board, dice, dashboard, admin, ui, layout)
+game-engine/          pure domain: dice, movement, roll FSM, cell effects
+lib/db.ts             Drizzle + pg pool
+lib/repositories/     data access
+lib/use-cases/        resolve-game-roll, admin, users, auth (+ *-actions.ts server actions)
+db/schema.ts          DB schema (the source of truth for types)
+drizzle/              SQL migrations
 scripts/              bootstrap-admin.ts, seed-demo.ts
 ```
 
-## Расширяемость
+## Extensibility
 
-Новые механики добавляются через plugin-реестр эффектов клеток
-(`game-engine/cell-effects.ts`, ключ — тип клетки или `cell.config.effectKey`),
-через конфиг сезона (`seasons.config` JSONB, валидируется Zod) и отдельные модули —
-без переписывания ядра. См. PLAN.md §6.4.
+New mechanics are added via the cell-effect plugin registry
+(`game-engine/cell-effects.ts`, key — the cell type or
+`cell.config.effectKey`), via the season config (`seasons.config` JSONB,
+validated by Zod), and via separate modules — without rewriting the core.
+See PLAN.md §6.4.

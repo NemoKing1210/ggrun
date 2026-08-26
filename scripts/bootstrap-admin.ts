@@ -1,7 +1,7 @@
 /**
- * Bootstrap первого администратора.
- * Использование: pnpm exec tsx scripts/bootstrap-admin.ts
- * Берёт BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD из .env
+ * Bootstraps the first administrator.
+ * Usage: pnpm exec tsx scripts/bootstrap-admin.ts
+ * Reads BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD from .env
  */
 import "dotenv/config";
 
@@ -14,12 +14,12 @@ async function main() {
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
   if (!email || !password) {
     console.error(
-      "Задайте BOOTSTRAP_ADMIN_EMAIL и BOOTSTRAP_ADMIN_PASSWORD в .env",
+      "Set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD in .env",
     );
     process.exit(1);
   }
   if (password.length < 8) {
-    console.error("BOOTSTRAP_ADMIN_PASSWORD должен быть не короче 8 символов");
+    console.error("BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters");
     process.exit(1);
   }
 
@@ -33,7 +33,7 @@ async function main() {
       await pool.query("update users set role = 'admin' where email = $1", [
         email,
       ]);
-      console.log(`Пользователь ${email} повышен до роли admin`);
+      console.log(`User ${email} promoted to admin`);
       return;
     }
     const username = email.split("@")[0]!.replace(/[^a-z0-9_-]/g, "") || "admin";
@@ -43,7 +43,7 @@ async function main() {
        values ($1, $2, $3, $2, 'admin')`,
       [email, username, passwordHash],
     );
-    console.log(`Создан администратор ${email} (username: ${username})`);
+    console.log(`Admin created: ${email} (username: ${username})`);
   } finally {
     await pool.end();
   }

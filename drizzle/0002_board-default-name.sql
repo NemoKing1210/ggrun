@@ -1,0 +1,1 @@
+ALTER TABLE "boards" ALTER COLUMN "name" SET DEFAULT 'Main board';

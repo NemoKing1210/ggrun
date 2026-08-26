@@ -1,7 +1,7 @@
 import type * as CoreEn from "../en/core";
 import type { Widen } from "@/lib/i18n/widen";
 
-/** Загальні елементи інтерфейсу. */
+/** Shared UI elements. */
 export const common: Widen<typeof CoreEn.common> = {
   appName: "GGRun",
   loading: "Завантаження…",
@@ -24,7 +24,7 @@ export const common: Widen<typeof CoreEn.common> = {
   notFound: "Не знайдено",
 };
 
-/** Навігація у шапці. */
+/** Header navigation. */
 export const nav: Widen<typeof CoreEn.nav> = {
   home: "Головна",
   board: "Поле",
@@ -44,7 +44,7 @@ export const footer: Widen<typeof CoreEn.footer> = {
   metaDescription: "Платформа командного ігрового івенту: сезони, поле, кубики, таблиця лідерів",
 };
 
-/** Вхід і реєстрація. */
+/** Login and registration. */
 export const auth: Widen<typeof CoreEn.auth> = {
   loginTitle: "Вхід",
   loginIdentifier: "Email або нік",
@@ -66,7 +66,7 @@ export const auth: Widen<typeof CoreEn.auth> = {
   devAsPlayer: "Увійти як гравець",
 };
 
-/** Кабінет гравця (/dashboard). */
+/** Player dashboard (/dashboard). */
 export const dashboard: Widen<typeof CoreEn.dashboard> = {
   heading: "Штаб гравця",
   seasonLine: "{season} · {player}",
@@ -98,7 +98,7 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   missingCatalogEntry: "Гра випала, але запис у каталозі недоступний.",
 };
 
-/** Статуси сезону та учасника. */
+/** Season and participant statuses. */
 export const seasonStatuses = {
   draft: "Чернетка",
   active: "Триває",
@@ -114,7 +114,7 @@ export const playerStatuses = {
   withdrawn: "Знявся",
 } as const;
 
-/** Названия типов клеток поля. */
+/** Board cell type names. */
 export const cellTypes: Widen<typeof CoreEn.cellTypes> = {
   start: "Старт",
   finish: "Фініш",
@@ -126,7 +126,7 @@ export const cellTypes: Widen<typeof CoreEn.cellTypes> = {
   custom: "Особлива",
 };
 
-/** Тексти помилок серверних use-cases (ключі — коди помилок). */
+/** Server use-case error texts (keys are error codes). */
 export const errors: Widen<typeof CoreEn.errors> = {
   gameNotAllowed: "Недостатньо прав для цієї дії",
   gameParticipantNotFound: "Учасника не знайдено",

@@ -15,9 +15,9 @@ export type BoardMarker = {
 
 
 /**
- * Поле «горизонтальной змейкой»: чётные ряды слева направо,
- * нечётные — справа налево. Кол-во колонок считается по ширине
- * контейнера (ResizeObserver), canvas не нужен.
+ * Horizontal snake board: even rows run left-to-right,
+ * odd rows right-to-left. Column count is derived from the container
+ * width (ResizeObserver); no canvas needed.
  */
 export function SnakeBoard({
   cells,

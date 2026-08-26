@@ -1,4 +1,4 @@
-/** Общие элементы интерфейса. */
+/** Shared UI elements. */
 export const common = {
   appName: "GGRun",
   loading: "Loading…",
@@ -21,7 +21,7 @@ export const common = {
   notFound: "Not found",
 } as const;
 
-/** Навигация в шапке. */
+/** Header navigation. */
 export const nav = {
   home: "Home",
   board: "Board",
@@ -41,7 +41,7 @@ export const footer = {
   metaDescription: "Team gaming event platform: seasons, board, dice movement, leaderboard",
 } as const;
 
-/** Вход и регистрация. */
+/** Login and registration. */
 export const auth = {
   loginTitle: "Log in",
   loginIdentifier: "Email or nickname",
@@ -63,7 +63,7 @@ export const auth = {
   devAsPlayer: "Login as player",
 } as const;
 
-/** Кабинет игрока (/dashboard). */
+/** Player dashboard (/dashboard). */
 export const dashboard = {
   heading: "Player HQ",
   seasonLine: "{season} · {player}",
@@ -95,7 +95,7 @@ export const dashboard = {
   missingCatalogEntry: "The game came up, but its catalog entry is unavailable.",
 } as const;
 
-/** Статусы сезона и участника. */
+/** Season and participant statuses. */
 export const seasonStatuses = {
   draft: "Draft",
   active: "Running",
@@ -111,7 +111,7 @@ export const playerStatuses = {
   withdrawn: "Withdrawn",
 } as const;
 
-/** Названия типов клеток поля. */
+/** Board cell type names. */
 export const cellTypes = {
   start: "Start",
   finish: "Finish",
@@ -124,12 +124,12 @@ export const cellTypes = {
 } as const;
 
 /**
- * Тексты ошибок серверных use-cases.
- * Ключи — коды ошибок (GameLoopError/AdminError/AuthError бросают код,
- * серверные экшены переводят код текстом на языке сессии).
+ * Server use-case error texts.
+ * Keys are error codes (GameLoopError/AdminError/AuthError throw a code;
+ * server actions resolve the code into text in the session language).
  */
 export const errors = {
-  // --- игровой цикл (GameLoopError) ---
+  // --- game loop (GameLoopError) ---
   gameNotAllowed: "You are not allowed to perform this action",
   gameParticipantNotFound: "Participant not found",
   gameSeasonNotActive: "The season is not active",
@@ -141,7 +141,7 @@ export const errors = {
   gameRerollLimitForGame: "Reroll limit for this game is reached",
   gameLoginRequired: "Login required",
 
-  // --- админка (AdminError) ---
+  // --- admin (AdminError) ---
   adminStaffRequired: "Staff permissions required",
   adminSeasonNotFound: "Season not found",
   adminInvalidTransition: "Invalid status transition {from} → {to}",
@@ -150,7 +150,7 @@ export const errors = {
   adminSelfDemote: "You cannot demote yourself",
   adminSelfDelete: "You cannot delete yourself",
 
-  // --- аутентификация (AuthError) ---
+  // --- authentication (AuthError) ---
   authInvalidEmail: "Invalid email",
   authPasswordTooShort: "Password must be at least 8 characters",
   authUserExists: "User already exists",
@@ -158,7 +158,7 @@ export const errors = {
   authInvalidCredentials: "Wrong login or password",
   authBlocked: "This account is blocked",
 
-  // --- формы ---
+  // --- forms ---
   formLoginRequired: "Enter your login",
   formPasswordRequired: "Enter your password",
   formSlugFormat: "slug: lowercase latin letters, digits, hyphens",

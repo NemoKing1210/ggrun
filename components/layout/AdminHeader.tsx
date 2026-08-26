@@ -8,7 +8,7 @@ import { Menu, X } from "lucide-react";
 import { logoutAction } from "@/lib/auth/actions";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
-/** Шапка админ-консоли: sticky, на мобильных — бургер с разделами. */
+/** Admin console header: sticky, burger with sections on mobile. */
 export function AdminHeader({
   navLinks,
   userName,
@@ -30,7 +30,7 @@ export function AdminHeader({
             &gt;_ {t.admin.nav.console}
           </span>
 
-          {/* Десктопная навигация */}
+          {/* Desktop navigation */}
           <span className="ml-4 hidden items-center gap-x-4 lg:flex">
             {navLinks.map((l) => (
               <Link
@@ -74,7 +74,7 @@ export function AdminHeader({
           </span>
         </div>
 
-        {/* Мобильный дропдаун */}
+        {/* Mobile dropdown */}
         {open && (
           <div className="border-t border-[#55554a] py-2 lg:hidden">
             <span className="block px-3 py-1 font-mono text-xs text-military sm:hidden">

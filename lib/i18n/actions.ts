@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
 
-/** Смена языка вручную (перекрывает определение по системе). */
+/** Manual language switch (overrides the system-detected locale). */
 export async function setLocaleAction(
   locale: string,
 ): Promise<void> {

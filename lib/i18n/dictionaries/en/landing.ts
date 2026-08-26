@@ -1,4 +1,4 @@
-/** Главная страница (/). */
+/** Home page (/). */
 export const landing = {
   metaTitle: "GGRun — game run",
   currentSeason: "// current season",

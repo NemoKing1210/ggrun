@@ -55,7 +55,7 @@ export const playerStatusEnum = pgEnum("player_status", [
 ]);
 
 // ---------------------------------------------------------------------------
-// Users & sessions (локальная замена Supabase Auth: profiles поверх своих users)
+// Users & sessions (local replacement for Supabase Auth: profiles on top of our own users)
 // ---------------------------------------------------------------------------
 
 export const users = pgTable("users", {
@@ -98,9 +98,9 @@ export const seasons = pgTable("seasons", {
   slug: text("slug").unique().notNull(),
   title: text("title").notNull(),
   status: seasonStatusEnum("status").notNull().default("draft"),
-  /** Правила сезона (кубики, очки, поле) — см. game-engine/types.ts SeasonConfig */
+  /** Season rules (dice, points, board) — see game-engine/types.ts SeasonConfig */
   config: jsonb("config").notNull().default({}),
-  /** Текст страницы «Правила» (markdown), редактируется из админки */
+  /** Rules page text (markdown), edited from the admin area */
   rulesMd: text("rules_md"),
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
@@ -117,7 +117,7 @@ export const boards = pgTable("boards", {
   seasonId: uuid("season_id")
     .notNull()
     .references(() => seasons.id, { onDelete: "cascade" }),
-  name: text("name").notNull().default("Основное поле"),
+  name: text("name").notNull().default("Main board"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -133,14 +133,14 @@ export const boardCells = pgTable(
     position: integer("position").notNull(),
     cellType: cellTypeEnum("cell_type").notNull().default("normal"),
     label: text("label"),
-    /** Параметры клетки: { amount } для penalty/bonus, { effectKey, ... } для custom */
+    /** Cell params: { amount } for penalty/bonus, { effectKey, ... } for custom */
     config: jsonb("config").notNull().default({}),
   },
   (t) => [unique("board_cells_board_position_uq").on(t.boardId, t.position)],
 );
 
 // ---------------------------------------------------------------------------
-// Участники и игры
+// Participants & games
 // ---------------------------------------------------------------------------
 
 export const seasonPlayers = pgTable(

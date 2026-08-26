@@ -28,8 +28,8 @@ const DEV_USERS = {
 } as const;
 
 /**
- * Быстрый вход в dev-режиме: только вне production.
- * Пользователи создаются при отсутствии, чтобы работало на чистой БД.
+ * Quick dev-mode login: outside production only.
+ * Users are created when missing, so it works against a clean DB.
  */
 export async function devQuickLoginAction(
   formData: FormData,

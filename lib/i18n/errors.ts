@@ -3,8 +3,8 @@ import { format } from "@/lib/i18n/format";
 type ErrorsDict = Record<string, string>;
 
 /**
- * Перевод кода ошибки use-case в текст на языке сессии.
- * Словарь ошибок плоский: t.core.errors[code], при отсутствии кода — formUnknown.
+ * Maps a use-case error code to text in the session language.
+ * The error dictionary is flat: t.core.errors[code]; unknown codes fall back to formUnknown.
  */
 export function errorText(
   errors: ErrorsDict,

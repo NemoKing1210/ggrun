@@ -1,9 +1,20 @@
 /**
- * Админ-панель: обзор, создание сезона, настройки, редактор поля,
- * управление игроками, каталог игр, аудит-лог.
+ * Admin panel: overview, season creation, settings, board editor,
+ * player management, games catalog, audit log.
  */
 export const admin = {
-  /** Навигация админской шапки. */
+  /** Successful form responses. */
+  feedback: {
+    seasonCreated: "Season created ({id})",
+    statusChanged: "Status changed to {status}",
+    settingsSaved: "Settings saved",
+    cellSaved: "Cell {position} updated",
+    playerAdded: "Participant added",
+    adjustmentApplied: "Adjustment applied",
+    gameAdded: "Game “{title}” added",
+  },
+
+  /** Admin header navigation. */
   nav: {
     console: "Admin console",
     dashboard: "Dashboard",
@@ -14,7 +25,7 @@ export const admin = {
     backToSite: "← Site",
   },
 
-  /** Дашборд /admin. */
+  /** Dashboard /admin. */
   dashboard: {
     heading: "Overview",
     statUsers: "Users",
@@ -28,7 +39,7 @@ export const admin = {
     quickLinksHeading: "Quick actions",
   },
 
-  /** Управление пользователями /admin/users (только admin). */
+  /** User management /admin/users (admin only). */
   users: {
     heading: "Users",
     searchPlaceholder: "Search by email, username or name…",
@@ -80,7 +91,7 @@ export const admin = {
     auditLink: "Audit log →",
   },
 
-  /** Форма создания сезона на /admin. */
+  /** Season creation form on /admin. */
   createSeason: {
     titleLabel: "Title",
     titlePlaceholder: "Run #1",
@@ -89,7 +100,7 @@ export const admin = {
     noCloneOption: "— do not clone (default board) —",
   },
 
-  /** Настройки сезона (/admin/seasons/[id]). */
+  /** Season settings (/admin/seasons/[id]). */
   settings: {
     heading: "Settings · {season}",
     configHeading: "Rules config (JSON) and rules text",
@@ -98,7 +109,7 @@ export const admin = {
     rulesPlaceholder: "# Rules\nText for the /rules page...",
   },
 
-  /** Редактор поля (/admin/seasons/[id]/board). */
+  /** Board editor (/admin/seasons/[id]/board). */
   boardEditor: {
    saveCell: "Save cell",
     heading: "Board · {season}",
@@ -115,7 +126,7 @@ export const admin = {
     colConfig: "Config",
   },
 
-  /** Управление игроками (/admin/seasons/[id]/players). */
+  /** Player management (/admin/seasons/[id]/players). */
   players: {
     heading: "Players · {season}",
     addHeading: "Add participant",
@@ -128,7 +139,7 @@ export const admin = {
     reasonPlaceholder: "Manual referee adjustment",
   },
 
-  /** Каталог игр (/admin/games-catalog). */
+  /** Games catalog (/admin/games-catalog). */
   catalog: {
     heading: "Games catalog",
     addHeading: "Add a game manually",
@@ -148,7 +159,7 @@ export const admin = {
     blockButton: "Blacklist",
   },
 
-  /** Аудит-лог (/admin/audit). */
+  /** Audit log (/admin/audit). */
   audit: {
     heading: "Audit log",
     colTime: "Time",

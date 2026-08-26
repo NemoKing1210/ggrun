@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Инлайн-разметка: **жирный** и `код`. Без dangerouslySetInnerHTML. */
+/** Inline markup: **bold** and `code`. No dangerouslySetInnerHTML. */
 function inline(text: string, keyPrefix: string): ReactNode[] {
   return text
     .split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
@@ -22,8 +22,8 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
 }
 
 /**
- * Минимальный конвертер markdown: заголовки #–####, списки -/* и N.,
- * абзацы. Без внешних зависимостей.
+ * Minimal markdown converter: headings #–####, lists -/* and N.,
+ * paragraphs. No external dependencies.
  */
 export function Markdown({ source }: { source: string }) {
   const lines = source.split(/\r?\n/);

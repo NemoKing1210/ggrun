@@ -1,4 +1,4 @@
-/** Таблица лидеров (/leaderboard). */
+/** Leaderboard (/leaderboard). */
 export const leaderboard = {
   metaTitle: "Leaderboard — GGRun",
   pageTitle: "Leaderboard",

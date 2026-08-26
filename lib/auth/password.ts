@@ -5,7 +5,7 @@ const scrypt = promisify(scryptCb);
 
 const KEY_LEN = 64;
 
-/** Формат: scrypt$<saltHex>$<hashHex> */
+/** Format: scrypt$<saltHex>$<hashHex> */
 export async function hashPassword(
   password: string,
 ): Promise<string> {

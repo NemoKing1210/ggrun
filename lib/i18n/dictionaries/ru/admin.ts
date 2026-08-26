@@ -2,11 +2,22 @@ import type * as AdminEn from "../en/admin";
 import type { Widen } from "@/lib/i18n/widen";
 
 /**
- * Админ-панель: обзор, создание сезона, настройки, редактор поля,
- * управление игроками, каталог игр, аудит-лог.
+ * Admin panel: overview, season creation, settings, board editor,
+ * player management, games catalog, audit log.
  */
+
 export const admin: Widen<typeof AdminEn.admin> = {
-  /** Навигация админской шапки. */
+  /** Успешные ответы форм. */
+  feedback: {
+    seasonCreated: "Сезон создан ({id})",
+    statusChanged: "Статус изменён на {status}",
+    settingsSaved: "Настройки сохранены",
+    cellSaved: "Клетка {position} обновлена",
+    playerAdded: "Участник добавлен",
+    adjustmentApplied: "Корректировка применена",
+    gameAdded: "Игра «{title}» добавлена",
+  },
+  /** Admin header navigation. */
   nav: {
     console: "Консоль администратора",
     dashboard: "Дашборд",
@@ -17,7 +28,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     backToSite: "← На сайт",
   },
 
-  /** Дашборд /admin. */
+  /** Dashboard /admin. */
   dashboard: {
     heading: "Обзор",
     statUsers: "Пользователи",
@@ -31,7 +42,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     quickLinksHeading: "Быстрые действия",
   },
 
-  /** Управление пользователями /admin/users (только admin). */
+  /** User management /admin/users (admin only). */
   users: {
     heading: "Пользователи",
     searchPlaceholder: "Поиск по email, username или имени…",
@@ -83,7 +94,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     auditLink: "Аудит-лог →",
   },
 
-  /** Форма создания сезона на /admin. */
+  /** Season creation form on /admin. */
   createSeason: {
     titleLabel: "Название",
     titlePlaceholder: "Забег #1",
@@ -92,7 +103,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     noCloneOption: "— не клонировать (поле по умолчанию) —",
   },
 
-  /** Настройки сезона (/admin/seasons/[id]). */
+  /** Season settings (/admin/seasons/[id]). */
   settings: {
     heading: "Настройки · {season}",
     configHeading: "Конфиг правил (JSON) и текст правил",
@@ -101,7 +112,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     rulesPlaceholder: "# Правила\nТекст для страницы /rules...",
   },
 
-  /** Редактор поля (/admin/seasons/[id]/board). */
+  /** Board editor (/admin/seasons/[id]/board). */
   boardEditor: {
    saveCell: "Сохранить клетку",
     heading: "Поле · {season}",
@@ -118,7 +129,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     colConfig: "Config",
   },
 
-  /** Управление игроками (/admin/seasons/[id]/players). */
+  /** Player management (/admin/seasons/[id]/players). */
   players: {
     heading: "Игроки · {season}",
     addHeading: "Добавить участника",
@@ -131,7 +142,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     reasonPlaceholder: "Ручная корректировка судьи",
   },
 
-  /** Каталог игр (/admin/games-catalog). */
+  /** Games catalog (/admin/games-catalog). */
   catalog: {
     heading: "Каталог игр",
     addHeading: "Добавить игру вручную",
@@ -151,7 +162,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
     blockButton: "В блэклист",
   },
 
-  /** Аудит-лог (/admin/audit). */
+  /** Audit log (/admin/audit). */
   audit: {
     heading: "Аудит-лог",
     colTime: "Время",

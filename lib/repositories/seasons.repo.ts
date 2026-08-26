@@ -55,7 +55,7 @@ export async function getBoardCells(boardId: string): Promise<BoardCell[]> {
     .orderBy(boardCells.position);
 }
 
-/** Атомарная смена статуса сезона (для переходов draft→active и т.п.). */
+/** Atomic season status change (for draft→active and similar transitions). */
 export async function setSeasonStatus(
   seasonId: string,
   status: Season["status"],

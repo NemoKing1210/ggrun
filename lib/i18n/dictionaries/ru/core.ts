@@ -1,7 +1,7 @@
 import type * as CoreEn from "../en/core";
 import type { Widen } from "@/lib/i18n/widen";
 
-/** Общие элементы интерфейса. */
+/** Shared UI elements. */
 export const common: Widen<typeof CoreEn.common> = {
   appName: "GGRun",
   loading: "Загрузка…",
@@ -24,7 +24,7 @@ export const common: Widen<typeof CoreEn.common> = {
   notFound: "Не найдено",
 };
 
-/** Навигация в шапке. */
+/** Header navigation. */
 export const nav: Widen<typeof CoreEn.nav> = {
   home: "Главная",
   board: "Поле",
@@ -44,7 +44,7 @@ export const footer: Widen<typeof CoreEn.footer> = {
   metaDescription: "Платформа командного игрового ивента: сезоны, поле, кубики, лидерборд",
 };
 
-/** Вход и регистрация. */
+/** Login and registration. */
 export const auth: Widen<typeof CoreEn.auth> = {
   loginTitle: "Вход",
   loginIdentifier: "Email или ник",
@@ -66,7 +66,7 @@ export const auth: Widen<typeof CoreEn.auth> = {
   devAsPlayer: "Войти как игрок",
 };
 
-/** Кабинет игрока (/dashboard). */
+/** Player dashboard (/dashboard). */
 export const dashboard: Widen<typeof CoreEn.dashboard> = {
   heading: "Штаб игрока",
   seasonLine: "{season} · {player}",
@@ -98,7 +98,7 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   missingCatalogEntry: "Игра выпала, но запись в каталоге недоступна.",
 };
 
-/** Статусы сезона и участника. */
+/** Season and participant statuses. */
 export const seasonStatuses = {
   draft: "Черновик",
   active: "Идёт",
@@ -114,7 +114,7 @@ export const playerStatuses = {
   withdrawn: "Снялся",
 } as const;
 
-/** Названия типов клеток поля. */
+/** Board cell type names. */
 export const cellTypes: Widen<typeof CoreEn.cellTypes> = {
   start: "Старт",
   finish: "Финиш",
@@ -127,7 +127,7 @@ export const cellTypes: Widen<typeof CoreEn.cellTypes> = {
 };
 
 /**
- * Тексты ошибок серверных use-cases (ключи — коды ошибок).
+ * Server use-case error texts (keys are error codes).
  */
 export const errors: Widen<typeof CoreEn.errors> = {
   gameNotAllowed: "Недостаточно прав для этого действия",

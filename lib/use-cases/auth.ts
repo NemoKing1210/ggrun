@@ -5,7 +5,7 @@ import { users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 
 export class AuthError extends Error {
-  /** Код ошибки; текст подбирается словарём i18n в серверных экшенах. */
+  /** Error code; the text is resolved via the i18n dictionary in server actions. */
   constructor(public readonly code: string) {
     super(code);
   }

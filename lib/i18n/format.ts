@@ -1,7 +1,8 @@
 /**
- * Подстановка параметров в шаблон словаря: "сезон «{season}»" +
- * { season: "run-1" } → "сезон «run-1»". Все значения словарей — строки,
- * чтобы словарь можно было передавать через RSC-границу в клиентские компоненты.
+ * Interpolates params into a dictionary template:
+ * "Season {season}" + { season: "run-1" } → "Season run-1".
+ * All dictionary values are strings so the dictionary can be passed
+ * across the RSC boundary into client components.
  */
 export function format(
   template: string,

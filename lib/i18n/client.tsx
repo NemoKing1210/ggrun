@@ -21,11 +21,11 @@ export function I18nProvider({
   );
 }
 
-/** Доступ к словарю в клиентских компонентах. */
+/** Dictionary access in client components. */
 export function useI18n(): { locale: Locale; t: Dictionary } {
   const ctx = useContext(I18nContext);
   if (!ctx) {
-    throw new Error("useI18n должен вызываться внутри I18nProvider");
+    throw new Error("useI18n must be used within I18nProvider");
   }
   return ctx;
 }

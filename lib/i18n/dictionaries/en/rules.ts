@@ -1,4 +1,4 @@
-/** Страница правил (/rules). */
+/** Rules page (/rules). */
 export const rules = {
   metaTitle: "Rules — GGRun",
   pageTitle: "Rules",

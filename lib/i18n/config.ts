@@ -1,14 +1,14 @@
 /**
- * Конфиг i18n. Добавление языка:
- * 1. создать lib/i18n/dictionaries/<locale>/ с файлами всех неймспейсов
- *    (типы — из en-версий);
- * 2. зарегистрировать в LOCALES и в dictionaries (lib/i18n/dictionaries/index.ts).
+ * i18n config. Adding a language:
+ * 1. create lib/i18n/dictionaries/<locale>/ with files for every namespace
+ *    (types come from the en versions);
+ * 2. register it in LOCALES and in dictionaries (lib/i18n/dictionaries/index.ts).
  */
 export const LOCALES = ["en", "ru", "uk"] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
-/** Язык по умолчанию и fallback для неполных словарей. */
+/** Default locale and fallback for incomplete dictionaries. */
 export const DEFAULT_LOCALE: Locale = "en";
 
 export const LOCALE_COOKIE = "ggrun_locale";
@@ -24,8 +24,8 @@ export function isLocale(value: string | undefined | null): value is Locale {
 }
 
 /**
- * Парсинг заголовка Accept-Language с учётом q-весов.
- * Возвращает лучшую поддерживаемую локаль или DEFAULT_LOCALE.
+ * Parses the Accept-Language header honoring q-weights.
+ * Returns the best supported locale or DEFAULT_LOCALE.
  */
 export function negotiateLocale(acceptLanguage: string | null | undefined): Locale {
   if (!acceptLanguage) return DEFAULT_LOCALE;

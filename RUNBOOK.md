@@ -1,27 +1,28 @@
-# RUNBOOK — день ивента
+# RUNBOOK — event day
 
-Пошаговая инструкция ведущему/админу: как запустить новый сезон в день забега.
+A step-by-step guide for the host/admin: how to launch a new season on event
+day.
 
-## 0. Накануне
+## 0. The day before
 
-1. Убедиться, что применены миграции: `pnpm drizzle-kit push`.
-2. Наполнить каталог игр: `/admin/games-catalog` → «Добавить игру вручную».
-   Игры с блэклистом не выпадают в ролле. Удаление игры возможно, только если она
-   никому не выпадала (FK защищает историю).
-3. Проверить правила: `/admin/seasons/<id>` → текст правил (Markdown) сохраняется
-   и сразу виден на `/rules`.
+1. Make sure migrations are applied: `pnpm drizzle-kit push`.
+2. Fill the game catalog: `/admin/games-catalog` → "Add a game manually".
+   Blacklisted games never come up in rolls. A game can be deleted only if it
+   has never been rolled for anyone (FK protects the history).
+3. Check the rules: `/admin/seasons/<id>` → the rules text (Markdown) is saved
+   and immediately visible at `/rules`.
 
-## 1. Создание сезона
+## 1. Creating a season
 
-1. `/admin` → «Новый сезон»: название, slug (`run-2`), при желании — клонировать
-   поле из прошлого сезона.
-2. Новый сезон создаётся в статусе `draft`. Откройте «Поле» и поправьте клетки:
-   позиция, тип (normal/start/finish/penalty/bonus/event/teleport/custom),
-   название, amount для penalty/bonus.
+1. `/admin` → "New season": title, slug (`run-2`), optionally clone the board
+   from a previous season.
+2. The new season is created in the `draft` status. Open "Board" and adjust
+   the cells: position, type (normal/start/finish/penalty/bonus/event/
+   teleport/custom), name, amount for penalty/bonus.
 
-## 2. Конфиг правил сезона
+## 2. Season rules config
 
-`/admin/seasons/<id>` → JSON `season.config`. Дефолт:
+`/admin/seasons/<id>` → the `season.config` JSON. Default:
 
 ```json
 {
@@ -32,47 +33,58 @@
 }
 ```
 
-Сохранение валидируется Zod-схемой — невалидный JSON не попадёт в БД.
+Saving is validated by the Zod schema — invalid JSON never reaches the DB.
 
-## 3. Участники
+## 3. Participants
 
-1. Каждый игрок самостоятельно регистрируется (`/register`) и входит.
-2. Админ добавляет участников: `/admin/seasons/<id>/players` → выбрать пользователя → «Добавить».
+1. Every player registers (`/register`) and logs in on their own.
+2. The admin adds participants: `/admin/seasons/<id>/players` → pick a user →
+   "Add".
 
-## 4. Старт
+## 4. Start
 
-1. `/admin` → у сезона кнопка статуса `active`.
-   При старте позиции/балансы всех участников обнуляются (снапшот старта),
-   в ленту пишется `season_started`.
-2. Игроки заходят в `/dashboard`, жмут «Ролл игры», играют, отмечают исход.
+1. `/admin` → the season's `active` status button.
+   On start, all participants' positions/balances are reset to zero (the
+   start snapshot) and `season_started` is written to the feed.
+2. Players open `/dashboard`, hit "Roll a game", play, and mark the outcome.
 
-## 5. Во время забега
+## 5. During the run
 
-- **Ручная корректировка** (позиция/баланс/статус): `/admin/seasons/<id>/players`
-  → форма у игрока. Причина **обязательна** — корректировка попадает в аудит-лог
-  и публичную ленту событий.
-- **Аудит**: `/admin/audit` — кто, когда и что менял.
-- **Лидерборд** сортируется по позиции; финишировавшие сверху. Статусы игроков
-  меняются той же формой корректировки (`finished` — игрок достиг финиша).
+- **Manual adjustment** (position/balance/status):
+  `/admin/seasons/<id>/players` → the form under the player. The reason is
+  **required** — the adjustment lands in the audit log and the public event
+  feed.
+- **Audit**: `/admin/audit` — who changed what and when.
+- **Leaderboard**: sorted by position; finishers on top. Player statuses are
+  changed via the same adjustment form (`finished` — the player reached the
+  finish).
 
-## 6. Финиш
+## 6. Finish
 
-1. `/admin` → статус `finished` (фиксируется время окончания).
-2. После награждения — `archived` (необратимо; данные остаются в истории).
+1. `/admin` → status `finished` (the end time is recorded).
+2. After the awards — `archived` (irreversible; the data remains in history).
 
-## Переходы статусов сезона
+## Season status transitions
 
 ```
 draft → active → paused → finished → archived
-              ↘ draft/archived (из draft)   paused → finished
 ```
 
-Недопустимые переходы блокируются с ошибкой.
+Invalid transitions are blocked with an error.
 
-## Траблшутинг
+## User management
 
-- **«Сезон не активен»** при ролле — сезон в draft/paused; переключите статус.
-- **«Лимит рероллов исчерпан»** — исчерпан `rerolls.limitPerGame` для этой игры;
-  судья может принудительно выдать новую игру ручной корректировкой (см. выше).
-- **БД недоступна** — проверьте, что модуль Postgres OSPanel запущен
-  (слушает `127.127.126.56:5432`), затем перезапустите dev-сервер.
+`/admin/users` (admin role only): search by email/username/name, create
+users, edit profiles/roles/passwords, block and delete accounts. A blocked
+user loses access immediately and cannot log in. You cannot block, demote, or
+delete yourself.
+
+## Troubleshooting
+
+- **"The season is not active"** on roll — the season is draft/paused;
+  switch the status.
+- **"Reroll limit reached"** — `rerolls.limitPerGame` for this game is
+  exhausted; the referee can grant a new game via a manual adjustment (see
+  above).
+- **DB unavailable** — check that the OSPanel Postgres module is running
+  (listening on `127.127.126.56:5432`), then restart the dev server.

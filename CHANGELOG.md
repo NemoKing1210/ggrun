@@ -1,111 +1,122 @@
 # Changelog
 
-Все заметные изменения проекта документируются в этом файле.
+All notable changes to this project are documented in this file.
 
-Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/)
-и [Semantic Versioning](https://semver.org/lang/ru/). Правила версирования —
-в конце файла и в `AGENTS.md` (раздел «Versioning & Changelog»).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and [Semantic Versioning](https://semver.org/). Versioning rules — at the bottom
+of this file and in `AGENTS.md` (section "Versioning & Changelog").
 
 ## [Unreleased]
 
 ### Added
-- Лицензия MIT (`LICENSE`), поле `license` в `package.json`.
+- MIT license (`LICENSE`), `license` field in `package.json`.
+
+### Changed
+- All markdown documentation (PLAN/README/RUNBOOK/CHANGELOG/AGENTS) and code
+  comments translated to English; only site translations (i18n dictionaries)
+  remain multilingual. `PLAN.md` restored — it was accidentally deleted in the
+  0.5.0 release commit.
+- Audit page restored to dictionary-based i18n (was hardcoded).
+- Board name DB default changed to "Main board"
+  (`drizzle/0002_board-default-name.sql`).
+- Admin form success responses moved into the `admin.feedback` dictionary
+  namespace.
 
 ## [0.5.0] — 2026-08-26
 
 ### Added
-- Адаптивные шапки сайта и админ-консоли: sticky-навигация, бургер-меню
-  на мобильных (`components/layout/SiteHeader.tsx`, `AdminHeader.tsx`),
-  подсветка активного раздела, мобильные дропдауны с выходом.
+- Responsive site and admin-console headers: sticky navigation, mobile burger
+  menus (`components/layout/SiteHeader.tsx`, `AdminHeader.tsx`), active-section
+  highlight, mobile dropdowns with logout.
 
 ### Changed
-- Серверные layout-ы (`app/(public)/layout.tsx`, `app/admin/layout.tsx`)
-  переведены на передачу данных в клиентские хедеры через пропсы.
+- Server layouts (`app/(public)/layout.tsx`, `app/admin/layout.tsx`) now pass
+  data to client headers via props.
 
 ## [0.4.1] — 2026-08-26
 
 ### Added
-- `AGENTS.md` — guidelines для ИИ-агентов (архитектура, конвенции, команды).
+- `AGENTS.md` — guidelines for AI agents (architecture, conventions, commands).
 
 ## [0.4.0] — 2026-08-26
 
 ### Added
-- Админ-консоль с собственной шапкой и переключателем «сайт ⇄ админка»
+- Admin console with its own header and a site ⇄ admin toggle
   (`app/admin/layout.tsx`, route groups `app/(public)/` vs `app/admin/`).
-- Дашборд администратора `/admin` со статистикой (пользователи, сезоны,
-  игры, роллы, ходы, события).
-- Управление пользователями `/admin/users` (только роль admin): поиск,
-  создание, редактирование (имя/username/email/роль/пароль), блокировка,
-  удаление — с защитой от самоблока/самоудаления/саморазжалования и записью
-  в аудит-лог.
-- Миграция `drizzle/0001_user-blocking.sql`: `users.is_blocked`;
-  FK `seasons.created_by` и `ledger_entries.created_by` → `ON DELETE SET NULL`.
-- Блокировка аккаунтов: заблокированный пользователь мгновенно теряет
-  сессию и не может войти (ошибка `authBlocked`).
+- Admin dashboard `/admin` with stats (users, seasons, games, rolls, moves,
+  events).
+- User management `/admin/users` (admin role only): search, creation, editing
+  (display name/username/email/role/password), blocking, deletion — with
+  self-block/self-delete/self-demote guards and audit-log records.
+- Migration `drizzle/0001_user-blocking.sql`: `users.is_blocked`;
+  `seasons.created_by` and `ledger_entries.created_by` FKs → `ON DELETE SET NULL`.
+- Account blocking: a blocked user immediately loses their session and cannot
+  log in (`authBlocked` error).
 
 ### Changed
-- Список сезонов перенесён с `/admin` на `/admin/seasons`.
-- Confirm-диалоги опасных форм вынесены в клиентский
-  `components/admin/ConfirmButton.tsx` (серверные компоненты не могут
-  передавать event handlers).
+- Season list moved from `/admin` to `/admin/seasons`.
+- Confirm dialogs for destructive forms extracted into the client-side
+  `components/admin/ConfirmButton.tsx` (server components cannot pass event
+  handlers).
 
 ## [0.3.0] — 2026-08-26
 
 ### Added
-- Интернационализация: английский, русский, украинский языки
-  (`lib/i18n/`, словари по неймспейсам, типобезопасность через `Widen`).
-- Определение языка по `Accept-Language` системы, fallback — английский;
-  ручное переключение через cookie (`LocaleSwitcher` в шапке).
-- Ошибки use-cases переведены на коды с локализуемыми текстами
+- Internationalization: English, Russian, Ukrainian languages
+  (`lib/i18n/`, per-namespace dictionaries, type safety via `Widen`).
+- Language detection from the system `Accept-Language` header, fallback —
+  English; manual switching via cookie (`LocaleSwitcher` in the header).
+- Use-case errors converted to codes with localizable texts
   (`lib/i18n/errors.ts`).
-- Дев-быстрый вход админом/игроком на странице логина
-  (`lib/auth/dev-login.ts`, отключён в production).
+- Dev quick login as admin/player on the login page
+  (`lib/auth/dev-login.ts`, disabled in production).
 
 ## [0.2.1] — 2026-08-26
 
 ### Changed
-- Скроллбары стилизованы под HUD-тему (WebKit + Firefox).
-- Мелкие стилевые правки сида.
+- Scrollbars styled to match the HUD theme (WebKit + Firefox).
+- Minor seed styling fixes.
 
 ## [0.2.0] — 2026-08-26
 
 ### Added
-- Схема БД и первая миграция (`drizzle/0000_init.sql`): users/sessions,
-  сезоны, поля, участники, каталог игр, роллы, ходы, ledger, лента, аудит.
-- Cookie-сессионная аутентификация (scrypt), bootstrap первого админа
+- Database schema and first migration (`drizzle/0000_init.sql`): users/sessions,
+  seasons, boards, participants, game catalog, rolls, moves, ledger, feed,
+  audit.
+- Cookie-session authentication (scrypt), first-admin bootstrap
   (`scripts/bootstrap-admin.ts`).
-- Игровой движок `game-engine/` (чистый TS): кубики, движение, FSM ролла,
-  plugin-реестр эффектов клеток, Zod-конфиг сезона + 50 юнит-тестов.
-- Игровой цикл игрока: ролл игры, исходы passed/dropped/rerolled, серверный
-  RNG, кабинет `/dashboard` с анимацией кубика.
-- Публичные страницы: лендинг сезона, поле («змейка»), лидерборд, лента
-  событий, профиль игрока, правила (Markdown из БД).
-- Админ-панель v1: CRUD сезонов с клонированием поля, редактор клеток,
-  управление участниками сезона с обязательной причиной корректировок,
-  каталог игр с блэклистом, аудит-лог.
-- HUD-тема в духе GoldSrc-эпохи (оригинальные ассеты).
-- Демо-сид (`scripts/seed-demo.ts`), `README.md`, `RUNBOOK.md`.
+- Game engine `game-engine/` (pure TS): dice, movement, roll FSM, cell-effect
+  plugin registry, Zod season config + 50 unit tests.
+- Player game loop: game roll, passed/dropped/rerolled outcomes, server-side
+  RNG, `/dashboard` with dice animation.
+- Public pages: season landing, board (snake layout), leaderboard, event feed,
+  player profile, rules (Markdown from the DB).
+- Admin panel v1: season CRUD with board cloning, cell editor, season
+  participant management with mandatory adjustment reasons, game catalog with
+  blacklist, audit log.
+- GoldSrc-era-inspired HUD theme (original assets).
+- Demo seed (`scripts/seed-demo.ts`), `README.md`, `RUNBOOK.md`.
 
 ## [0.1.0] — 2026-08-26
 
 ### Added
-- Базовый Next.js 15 scaffold: TypeScript strict, Tailwind v4, ESLint
-  (flat config) + Prettier, Vitest, drizzle-kit конфигурация.
+- Base Next.js 15 scaffold: TypeScript strict, Tailwind v4, ESLint (flat
+  config) + Prettier, Vitest, drizzle-kit configuration.
 
 ---
 
-## Правила версирования (Semantic Versioning)
+## Versioning rules (Semantic Versioning)
 
-Версия `MAJOR.MINOR.PATCH`; обновляется одновременно в `package.json`
-(поле `version`) и в этом файле (секция с датой) в одном релизном коммите
-`chore(release): vX.Y.Z`.
+The version is `MAJOR.MINOR.PATCH`; it is updated simultaneously in
+`package.json` (the `version` field) and in this file (a dated section) in a
+single release commit `chore(release): vX.Y.Z`.
 
-- **PATCH** — исправления без изменения поведения, стили, документация,
-  рефакторинг.
-- **MINOR** — новые функции (страницы, разделы админки, языки, миграции
-  с аддитивными изменениями схемы).
-- **MAJOR** — ломающие изменения: удаление страниц/функций, изменения
-  формата конфига сезона или схемы, требующие ручных действий с данными.
-- Пока версия `0.x`: ломающие изменения повышают MINOR и помечаются в
-  changelog словом **BREAKING**; `1.0.0` — когда MVP стабилен и публикуется
-  реальным пользователям.
+- **PATCH** — fixes with no behavior change, styles, documentation,
+  refactoring.
+- **MINOR** — new features (pages, admin sections, languages, additive schema
+  migrations).
+- **MAJOR** — breaking changes: removal of pages/features, season-config or
+  schema format changes requiring manual data actions.
+- While the version is `0.x`: breaking changes bump MINOR and are marked
+  **BREAKING** in the changelog; `1.0.0` — once the MVP is stable and released
+  to real users.

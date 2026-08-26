@@ -1,4 +1,4 @@
-/** Страница поля (/board) и заглушка «сезона нет». */
+/** Board page (/board) and the "no season" placeholder. */
 export const board = {
   metaTitle: "Board — GGRun",
   pageTitle: "Board",

@@ -26,8 +26,8 @@ import {
 
 export class GameLoopError extends Error {
   /**
-   * Код ошибки; текст подбирается словарём i18n (t.core.errors) в серверных
-   * экшенах — домен не знает о языках интерфейса.
+   * Error code; the text is resolved via the i18n dictionary (t.core.errors) in
+   * server actions — the domain knows nothing about UI languages.
    */
   constructor(public readonly code: string) {
     super(code);
@@ -39,7 +39,7 @@ function parseSeasonConfig(raw: unknown): SeasonConfig {
   return parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
 }
 
-/** Владелец записи season_players или staff — остальные не допускаются. */
+/** Owner of the season_players row or staff — everyone else is rejected. */
 async function assertActorAllowed(
   seasonPlayerId: string,
   playerId: string,
@@ -51,8 +51,8 @@ async function assertActorAllowed(
 }
 
 /**
- * Ролл новой игры игроку. Игра выбирается на сервере случайным образом
- * из каталога (без блэклиста и уже сыгранных этим участником).
+ * Rolls a new game for a player. The game is chosen on the server at random
+ * from the catalog (no blacklist, no games already played by this participant).
  */
 export async function rollNewGame(seasonPlayerId: string): Promise<string> {
   const sp = await getSeasonPlayerById(seasonPlayerId);
@@ -74,13 +74,13 @@ export async function rollNewGame(seasonPlayerId: string): Promise<string> {
     eventType: "game_rolled",
     payload: { gameId: game?.id ?? null, title: game?.title ?? null },
   });
-  void updateRollStatus; // статус уже 'rolled' при создании
+  void updateRollStatus; // the status is already 'rolled' at creation time
   return roll.id;
 }
 
 /**
- * Разрешение ролла игроком: passed / dropped / rerolled.
- * Случайные числа генерируются только на сервере.
+ * Resolves a roll by the player: passed / dropped / rerolled.
+ * Random numbers are generated on the server only.
  */
 export async function resolveGameRoll(params: {
   rollId: string;
@@ -124,12 +124,12 @@ export async function resolveGameRoll(params: {
 
   const config = parseSeasonConfig(season.config);
 
-  // FSM движка требует rolled → in_progress до исхода: игрок, отмечающий
-  // результат, фактически переводит ролл в in_progress в тот же момент.
+  // The engine FSM requires rolled → in_progress before the outcome: a player
+  // marking the result effectively moves the roll to in_progress at that moment.
   const effectiveStatus =
     roll.status === "rolled" ? "in_progress" : roll.status;
 
-  // --- rerolled: новый ролл игры без движения ------------------------------
+  // --- rerolled: new game roll without movement ------------------------------
   if (params.outcome === "rerolled") {
     if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
       throw new GameLoopError("gameRerollLimit");
@@ -171,7 +171,7 @@ export async function resolveGameRoll(params: {
     };
   }
 
-  // --- passed / dropped: движение через чистый доменный движок --------------
+  // --- passed / dropped: movement via the pure domain engine ------------------
   const result = resolveMovement({
     currentPosition: sp.position,
     balancePoints: sp.balancePoints,
@@ -182,7 +182,7 @@ export async function resolveGameRoll(params: {
     rng: Math.random,
   });
 
-  // Эффект клетки приземления (plugin-реестр в движке)
+  // Landing cell effect (plugin registry in the engine)
   let landedType: string | null = null;
   let finalPosition = result.newPosition;
   let finalBalance = result.newBalancePoints;
@@ -271,7 +271,7 @@ export async function resolveGameRoll(params: {
   };
 }
 
-/** Незавершённый ролл участника (rolled/in_progress), если есть. */
+/** The participant's unfinished roll (rolled/in_progress), if any. */
 export async function getOpenRollRow(seasonPlayerId: string) {
   const rows = await db
     .select()

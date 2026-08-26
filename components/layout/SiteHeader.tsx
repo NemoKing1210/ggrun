@@ -16,7 +16,7 @@ export interface SiteHeaderUser {
   isStaff: boolean;
 }
 
-/** Публичная шапка: sticky, на мобильных — бургер-меню с навигацией. */
+/** Public header: sticky, burger menu with navigation on mobile. */
 export function SiteHeader({
   user,
   locale,
@@ -45,7 +45,7 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-[#3d3d34] bg-[#151514]/95 backdrop-blur-sm">
       <nav className="mx-auto max-w-6xl px-4">
-        {/* Строка 1: логотип, язык, аккаунт, бургер */}
+        {/* Row 1: logo, language, account, burger */}
         <div className="flex h-14 items-center gap-3">
           <Link
             href="/"
@@ -55,7 +55,7 @@ export function SiteHeader({
             {t.core.common.appName}
           </Link>
 
-          {/* Десктопная навигация */}
+          {/* Desktop navigation */}
           <span className="ml-4 hidden items-center gap-x-5 md:flex">
             {navLinks.map((l) => (
               <Link
@@ -118,7 +118,7 @@ export function SiteHeader({
           </span>
         </div>
 
-        {/* Мобильный дропдаун */}
+        {/* Mobile dropdown */}
         {open && (
           <div className="border-t border-[#3d3d34] py-2 md:hidden">
             <ul className="flex flex-col">

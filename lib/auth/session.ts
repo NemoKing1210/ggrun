@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { sessions, users, type User } from "@/db/schema";
 
 export const SESSION_COOKIE = "ggrun_session";
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function tokenFingerprint(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -32,7 +32,7 @@ export async function createSession(userId: string): Promise<void> {
   });
 }
 
-/** Возвращает текущего пользователя по cookie-сессии или null. */
+/** Returns the current user from the cookie session, or null. */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
@@ -63,7 +63,7 @@ export async function destroySession(): Promise<void> {
   jar.delete(SESSION_COOKIE);
 }
 
-/** staff = admin или judge — доступ в админку и судейские действия. */
+/** staff = admin or judge — access to the admin area and judge actions. */
 export function isStaff(user: User | null): boolean {
   return user !== null && (user.role === "admin" || user.role === "judge");
 }

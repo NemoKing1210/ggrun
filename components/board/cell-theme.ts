@@ -2,7 +2,7 @@ import type { BoardCell } from "@/db/schema";
 
 type CellType = BoardCell["cellType"];
 
-/** Только оформление; подписи типов берутся из словаря (t.core.cellTypes). */
+/** Styling only; type labels come from the dictionary (t.core.cellTypes). */
 export const CELL_THEME: Record<CellType, { box: string; dot: string }> = {
   start: { box: "border-amber bg-amber/10", dot: "bg-military" },
   finish: { box: "border-military bg-military/20", dot: "bg-amber" },

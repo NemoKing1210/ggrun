@@ -2,96 +2,168 @@
 
 ## Project Overview
 
-GGRun — веб-платформа сезонного игрового ивента (HPG-жанр): сезоны («забеги»), поле из клеток, ролл случайной игры, исход (passed/dropped/rerolled), бросок кубика и движение по полю, лидерборд, лента событий, админ-консоль. Спецификация — `PLAN.md` (источник требований для агентов).
+GGRun — a web platform for a seasonal gaming event (HPG genre): seasons
+("runs"), a board of cells, random game rolls, outcomes (passed/dropped/rerolled),
+dice rolls and movement across the board, a leaderboard, an event feed, and an
+admin console. The specification lives in `PLAN.md` (the requirements source
+for agents).
 
 ## Architecture & Data Flow
 
-Четыре слоя, направление импортов строго вниз:
+Four layers; imports point strictly downward:
 
 ```
 app/ (route groups)  +  thin "use server" actions   ← presentation
 lib/use-cases/          zod-validate → domain → tx  ← application
-game-engine/            чистый TS, правила игры     ← domain
+game-engine/            pure TS, game rules         ← domain
 lib/repositories/, lib/db.ts, lib/auth/             ← infrastructure
 ```
 
-- **Инвариант домена**: `game-engine/` не импортирует `next/*`, `react`, `drizzle-orm`, `pg`. Закреплено конвенцией (doc-комментарии в `game-engine/index.ts`, `types.ts`), ESLint-правила нет — не добавляй такие импорты.
-- **Случайность только на сервере**: движок принимает `rng: () => number` (DI для тестов); use-cases передают `Math.random` — клиент не может подделать кубик.
-- **Ошибки как коды**: use-cases бросают `GameLoopError(code)` / `AdminError(code, params)` / `AuthError(code)`; `"use server"`-экшены ловят их и переводят через `errorText(t.core.errors, code, params)` (`lib/i18n/errors.ts`). Домен не знает о языках UI.
-- **Аудит двухуровневый**: `logAdminAction` → `admin_audit_log` (каждая мутация staff, просмотр в `/admin/audit`); `logEvent` → `event_log` (публичная лента). Пишутся внутри тех же транзакций в use-cases.
+- **Domain invariant**: `game-engine/` must not import `next/*`, `react`,
+  `drizzle-orm`, `pg`. Enforced by convention (doc comments in
+  `game-engine/index.ts`, `types.ts`); there is no ESLint rule — do not add
+  such imports.
+- **Randomness is server-only**: the engine takes an injected
+  `rng: () => number` (DI for testability); use-cases pass `Math.random` —
+  the client can never fake dice.
+- **Errors as codes**: use-cases throw `GameLoopError(code)` /
+  `AdminError(code, params)` / `AuthError(code)`; `"use server"` actions catch
+  them and translate via `errorText(t.core.errors, code, params)`
+  (`lib/i18n/errors.ts`). The domain never knows about UI languages.
+- **Two-tier audit**: `logAdminAction` → `admin_audit_log` (every staff
+  mutation, viewable at `/admin/audit`); `logEvent` → `event_log` (public
+  feed). Both are written inside the same use-case transactions.
 
-Поток хода: `rollAction` → `rollNewGame` (random из каталога, исключая блэклист и сыгранное) → игрок отмечает исход → `resolveAction` → `resolveGameRoll` → `resolveMovement` (движок) → `applyCellEffect` + `normalizePosition` → транзакция: `game_rolls` + `moves` + `ledger_entries` + `event_log`.
+Turn flow: `rollAction` → `rollNewGame` (random catalog game, excluding
+blacklist and already-played) → player marks the outcome → `resolveAction` →
+`resolveGameRoll` → `resolveMovement` (engine) → `applyCellEffect` +
+`normalizePosition` → transaction: `game_rolls` + `moves` + `ledger_entries` +
+`event_log`.
 
 ## Key Directories
 
-| Путь | Назначение |
+| Path | Purpose |
 | --- | --- |
-| `app/(public)/` | Публичный shell: лендинг, `/board`, `/leaderboard`, `/feed`, `/rules`, `/players/[username]`, `/login`, `/register`, `/dashboard` |
-| `app/admin/` | Админ-консоль (свой layout-guard): дашборд, `seasons/` + `seasons/[id]/{board,players}`, `users`, `games-catalog`, `audit` |
-| `game-engine/` | Домен: `dice.ts`, `movement.ts`, `roll-state-machine.ts`, `cell-effects.ts`, `config.ts`, `types.ts` + колокационные `*.test.ts` |
-| `lib/use-cases/` | Бизнес-логика: `resolve-game-roll.ts`, `admin.ts`, `users.ts`, `auth.ts` + `*-actions.ts` (серверные экшены) |
-| `lib/repositories/` | Доступ к БД: `seasons.repo.ts`, `players.repo.ts`, `games.repo.ts`, `events.repo.ts` |
-| `lib/auth/` | `session.ts` (cookie-сессии, sha256-токены), `password.ts` (scrypt), `actions.ts`, `dev-login.ts` (dev-only) |
+| `app/(public)/` | Public shell: landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/players/[username]`, `/login`, `/register`, `/dashboard` |
+| `app/admin/` | Admin console (own layout-guard): dashboard, `seasons/` + `seasons/[id]/{board,players}`, `users`, `games-catalog`, `audit` |
+| `game-engine/` | Domain: `dice.ts`, `movement.ts`, `roll-state-machine.ts`, `cell-effects.ts`, `config.ts`, `types.ts` + colocated `*.test.ts` |
+| `lib/use-cases/` | Business logic: `resolve-game-roll.ts`, `admin.ts`, `users.ts`, `auth.ts` + `*-actions.ts` (server actions) |
+| `lib/repositories/` | DB access: `seasons.repo.ts`, `players.repo.ts`, `games.repo.ts`, `events.repo.ts` |
+| `lib/auth/` | `session.ts` (cookie sessions, sha256 tokens), `password.ts` (scrypt), `actions.ts`, `dev-login.ts` (dev-only) |
 | `lib/i18n/` | `config.ts`, `server.ts` (`getT()`), `client.tsx` (`useI18n`), `format.ts`, `widen.ts`, `errors.ts`, `dictionaries/{en,ru,uk}/` |
-| `db/schema.ts` | Drizzle-схема — источник правды типов (12 таблиц, 5 pg-enum'ов) |
-| `drizzle/` | Сгенерированные SQL-миграции |
+| `db/schema.ts` | Drizzle schema — the source of truth for types (12 tables, 5 pg enums) |
+| `drizzle/` | Generated SQL migrations |
 | `scripts/` | `bootstrap-admin.ts`, `seed-demo.ts` (tsx + dotenv) |
 
 ## Development Commands
 
 ```bash
 pnpm install
-pnpm dev                        # next dev --turbopack, порт 3000
+pnpm dev                        # next dev --turbopack, port 3000
 pnpm build                      # next build --turbopack
 pnpm lint                       # eslint (flat config)
-pnpm test                       # vitest run (домен)
-pnpm drizzle-kit generate       # SQL-миграция в drizzle/ после правки db/schema.ts
-pnpm drizzle-kit push           # применить схему к БД
-pnpm exec tsx scripts/seed-demo.ts        # демо-сезон run-1, поле 40 клеток, 8 игр (идемпотентен)
-pnpm exec tsx scripts/bootstrap-admin.ts  # первый админ из BOOTSTRAP_ADMIN_* в .env
+pnpm test                       # vitest run (domain)
+pnpm drizzle-kit generate       # SQL migration into drizzle/ after editing db/schema.ts
+pnpm drizzle-kit push           # apply the schema to the DB
+pnpm exec tsx scripts/seed-demo.ts        # demo season run-1, 40-cell board, 8 games (idempotent)
+pnpm exec tsx scripts/bootstrap-admin.ts  # first admin from BOOTSTRAP_ADMIN_* in .env
 ```
 
-БД: PostgreSQL 17 (OSPanel) на `127.127.126.56:5432`, база `ggrun`. Переменные — см. `.env.example` (`DATABASE_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`; Steam/IGDB — backlog).
+DB: PostgreSQL 17 (OSPanel) at `127.127.126.56:5432`, database `ggrun`.
+Env vars — see `.env.example` (`DATABASE_URL`, `AUTH_SECRET`,
+`NEXT_PUBLIC_SITE_URL`, `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`; Steam/IGDB —
+backlog).
 
 ## Code Conventions & Common Patterns
 
-- **Где что писать**: бизнес-логика — только `lib/use-cases/*`. Файлы `*-actions.ts` с `"use server"` — тонкие адаптеры FormData: parse → try/catch use-case → `{error?}`/`{ok?}` (форма для `useActionState`, первый аргумент `_prev`) → `revalidatePath` при успехе. Простые экшены (`logoutAction`, `blockUserAction`) — void-хендлеры `<form action={...}>` без useActionState.
-- **i18n обязательна для UI-строк**: серверные компоненты — `const { t, locale } = await getT()` → `t.namespace.key`; клиентские — `useI18n()` (провайдер в `app/layout.tsx`). Интерполяция — только `format("шаблон {x}", { x })` (`lib/i18n/format.ts`). Новый язык: скопировать `lib/i18n/dictionaries/en/*.ts` в новую папку, аннотации `Widen<typeof EnNs.ns>`, зарегистрировать в `LOCALES` (`config.ts`) и `dictionaries/index.ts`.
-- **Словари RSC-сериализуемы**: значения — только строки, никаких функций; `pickCore()` в `dictionaries/index.ts` собирает plain-object из экспортов core. `Widen<T>` (`lib/i18n/widen.ts`) расширяет as-const литералы en до `string`, чтобы ru/uk требовали ту же структуру, но не те же литералы.
-- **Confirm в серверных формах**: клиентский `components/admin/ConfirmButton.tsx` (onClick → `window.confirm` → `preventDefault` при отмене). Серверный компонент не может передать `onSubmit` — не пытайся.
-- **Гварды**: `app/admin/layout.tsx` редиректит не-staff; `requireAdmin` (`lib/use-cases/users.ts`) строже `requireStaff` — судья не управляет пользователями. Самоблок/самоудаление/саморазжалование запрещены (коды `adminSelf*`).
-- **Статусы сезона**: явная карта переходов `draft→active→paused→finished→archived` (`lib/use-cases/admin.ts`); переход в `active` сбрасывает позиции/балансы участников. Ролл-FSM `rolled→in_progress→passed|dropped|rerolled`; use-case считает `rolled` → `in_progress` в момент отметки исхода (`effectiveStatus`).
-- **Версионирование и changelog**: версия ведётся в `package.json` (`version`) и
-  `CHANGELOG.md` (формат Keep a Changelog), обновляются в одном релизном коммите
-  `chore(release): vX.Y.Z`. Правила semver: PATCH — фиксы/стили/доки без изменения
-  поведения; MINOR — новые функции и аддитивные миграции схемы; MAJOR — ломающие
-  изменения (удаление функций, формат конфига/схемы с ручными действиями). В 0.x
-  ломающие изменения повышают MINOR и помечаются **BREAKING**. Новые записи
-  добавляются в секцию `[Unreleased]` и выносятся в версию при релизе.
-- **Форматирование**: Prettier (double quotes, semi, 100 cols), ESLint `next/core-web-vitals` + `next/typescript` + prettier. Коммиты — conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
+- **Where to put what**: business logic lives only in `lib/use-cases/*`.
+  `*-actions.ts` files marked `"use server"` are thin FormData adapters:
+  parse → try/catch use-case → `{error?}`/`{ok?}` (the shape for
+  `useActionState`, first argument `_prev`) → `revalidatePath` on success.
+  Simple actions (`logoutAction`, `blockUserAction`) are void
+  `<form action={...}>` handlers without useActionState.
+- **i18n is mandatory for UI strings**: server components use
+  `const { t, locale } = await getT()` → `t.namespace.key`; client components
+  use `useI18n()` (provider in `app/layout.tsx`). Interpolation only via
+  `format("template {x}", { x })` (`lib/i18n/format.ts`). Adding a language:
+  copy `lib/i18n/dictionaries/en/*.ts` into a new folder, annotate with
+  `Widen<typeof EnNs.ns>`, register in `LOCALES` (`config.ts`) and
+  `dictionaries/index.ts`.
+- **Dictionaries are RSC-serializable**: values are strings only, no
+  functions; `pickCore()` in `dictionaries/index.ts` assembles a plain object
+  from the core exports. `Widen<T>` (`lib/i18n/widen.ts`) widens en as-const
+  literals to `string`, so ru/uk must match the structure, not the literals.
+- **Confirm in server forms**: the client-side
+  `components/admin/ConfirmButton.tsx` (onClick → `window.confirm` →
+  `preventDefault` on cancel). A server component cannot pass `onSubmit` —
+  don't try.
+- **Guards**: `app/admin/layout.tsx` redirects non-staff; `requireAdmin`
+  (`lib/use-cases/users.ts`) is stricter than `requireStaff` — judges cannot
+  manage users. Self-block/self-delete/self-demote are forbidden
+  (`adminSelf*` codes).
+- **Season statuses**: an explicit transition map
+  `draft→active→paused→finished→archived` (`lib/use-cases/admin.ts`);
+  moving to `active` resets participant positions/balances. Roll FSM
+  `rolled→in_progress→passed|dropped|rerolled`; the use-case treats `rolled`
+  as `in_progress` at the moment the outcome is marked (`effectiveStatus`).
+- **Versioning & changelog**: the version lives in `package.json`
+  (`version`) and `CHANGELOG.md` (Keep a Changelog format); both are updated
+  in a single release commit `chore(release): vX.Y.Z`. Semver rules: PATCH —
+  fixes/styles/docs without behavior changes; MINOR — new features and
+  additive schema migrations; MAJOR — breaking changes (feature removal,
+  config/schema format changes requiring manual actions). While `0.x`,
+  breaking changes bump MINOR and are marked **BREAKING**. New entries go
+  into the `[Unreleased]` section and are promoted to a version on release.
+- **Formatting**: Prettier (double quotes, semi, 100 cols), ESLint
+  `next/core-web-vitals` + `next/typescript` + prettier. Commits follow
+  conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
 
 ## Important Files
 
-- `db/schema.ts` — все таблицы/enums/типы (`$inferSelect`); правка схемы → `drizzle-kit generate` + `push`.
-- `game-engine/config.ts` — `DEFAULT_SEASON_CONFIG` + `SeasonConfigSchema` (Zod, парсит частичный JSONB из `seasons.config`).
-- `game-engine/cell-effects.ts` — plugin-реестр `CELL_EFFECTS` (ключ — cellType или `config.effectKey`; penalty/bonus читают `config.amount`, teleport — `config.target`; неизвестный ключ → no-op). Точка расширения механик без миграций.
-- `game-engine/roll-state-machine.ts` — `nextRollStatus` бросает `RangeError` на нелегальных переходах; `canReroll` / `requestReroll` — чистые хелперы.
-- `lib/db.ts` — pg Pool (max 10, кэш на globalThis в dev) + drizzle со схемой.
-- `lib/auth/session.ts` — `getCurrentUser()` (React `cache()`, фильтрует `isBlocked`), `isStaff` = admin|judge.
-- `app/admin/layout.tsx`, `app/(public)/layout.tsx` — два shell'а с разными шапками.
+- `db/schema.ts` — all tables/enums/types (`$inferSelect`); schema edits →
+  `drizzle-kit generate` + `push`.
+- `game-engine/config.ts` — `DEFAULT_SEASON_CONFIG` + `SeasonConfigSchema`
+  (Zod, parses the partial JSONB from `seasons.config`).
+- `game-engine/cell-effects.ts` — the `CELL_EFFECTS` plugin registry (key is
+  the cellType or `config.effectKey`; penalty/bonus read `config.amount`,
+  teleport reads `config.target`; unknown keys → no-op). The extension point
+  for new mechanics without migrations.
+- `game-engine/roll-state-machine.ts` — `nextRollStatus` throws `RangeError`
+  on illegal transitions; `canReroll` / `requestReroll` are pure helpers.
+- `lib/db.ts` — pg pool (max 10, cached on globalThis in dev) + drizzle with
+  the schema.
+- `lib/auth/session.ts` — `getCurrentUser()` (React `cache()`, filters out
+  `isBlocked`), `isStaff` = admin|judge.
+- `app/admin/layout.tsx`, `app/(public)/layout.tsx` — two shells with
+  different headers.
 
 ## Runtime/Tooling Preferences
 
-- **Лицензия — MIT** (`LICENSE`); проект `private: true` в `package.json` — публичная раздача не предполагается, но код можно переиспользовать внутри команды.
-- **Пакетный менеджер — pnpm** (lockfile v9). Node ≥ 20.
-- Next 15.5 App Router, React 19, Turbopack в dev и build. TS strict, `@/*` → корень репо.
-- Tailwind v4 через `@tailwindcss/postcss` (отдельного конфига нет; HUD-тема — CSS-переменные и классы `hud-*`/`ammo-counter`/`hazard-tape` в `app/globals.css`).
-- Windows/OSPanel-окружение: БД стартуется модулем OSPanel; абсолютные пути в коде не хардкодить.
-- CI отсутствует; husky/lint-staged в devDeps, но pre-commit хуки не подключены — не рассчитывай на них.
+- **License — MIT** (`LICENSE`); the project is `private: true` in
+  `package.json` — public distribution is not planned, but the code may be
+  reused within the team.
+- **Package manager — pnpm** (lockfile v9). Node ≥ 20.
+- Next 15.5 App Router, React 19, Turbopack in both dev and build. TS strict,
+  `@/*` → repo root.
+- Tailwind v4 via `@tailwindcss/postcss` (no separate config file; the HUD
+  theme lives as CSS variables and the `hud-*`/`ammo-counter`/`hazard-tape`
+  classes in `app/globals.css`).
+- Windows/OSPanel environment: the DB is started by the OSPanel module; don't
+  hardcode absolute paths in code.
+- No CI; husky/lint-staged are in devDeps but pre-commit hooks are not wired
+  up — don't rely on them.
 
 ## Testing & QA
 
-- **Vitest**, файлы колокационны: `game-engine/<module>.test.ts`. Запуск: `pnpm test`.
-- Покрыты все ветки домена: кубики (грани/валидация), движение (passed/dropped, расход баланса, множитель стрика, clamp vs wrap), FSM (легальные/нелегальные переходы, лимит рероллов), эффекты клеток (все типы + plugin-роутинг по `effectKey`), Zod-конфиг (дефолты/отклонения). Стиль: чистые детерминированные функции с инжектируемым `rng`, без моков/БД/DOM.
-- Тестов вне `game-engine/` нет; при добавлении UI-тестов держи их рядом с тестируемым модулем и не тяни в них БД.
-- Перед сдачей изменений: `pnpm lint` + `pnpm exec tsc --noEmit` + `pnpm test` + `pnpm build`; поведенческие правки проверять на живом dev-сервере.
+- **Vitest**, colocated files: `game-engine/<module>.test.ts`. Run:
+  `pnpm test`.
+- All domain branches are covered: dice (faces/validation), movement
+  (passed/dropped, balance consumption, streak multiplier, clamp vs wrap),
+  FSM (legal/illegal transitions, reroll limit), cell effects (all types +
+  plugin routing by `effectKey`), Zod config (defaults/rejections). Style:
+  pure deterministic functions with an injected `rng`, no mocks/DB/DOM.
+- There are no tests outside `game-engine/`; when adding UI tests keep them
+  next to the module under test and keep the DB out of them.
+- Before handing off changes: `pnpm lint` + `pnpm exec tsc --noEmit` +
+  `pnpm test` + `pnpm build`; verify behavioral changes against a live dev
+  server.

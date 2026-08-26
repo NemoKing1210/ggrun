@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /*
- * HUD-тема: вайб GoldSrc-эпохи (см. PLAN.md раздел 8).
- * Оригинальный визуальный язык: тёмный уголь, янтарный акцент,
- * military-зелёный, ржаво-красный для опасных действий.
+ * HUD theme: GoldSrc-era vibe (see PLAN.md section 8).
+ * Original visual language: dark charcoal, amber accent,
+ * military green, rust red for dangerous actions.
  */
 :root {
   --hud-bg: #1b1b1a;
@@ -49,7 +49,7 @@ body {
   }
 }
 
-/* Hazard tape: чёрно-жёлтая диагональная штриховка */
+/* Hazard tape: black-and-yellow diagonal stripes */
 .hazard-tape {
   background: repeating-linear-gradient(
     -45deg,
@@ -59,7 +59,7 @@ body {
   height: 6px;
 }
 
-/* Ammo-counter цифры */
+/* Ammo-counter digits */
 .ammo-counter {
   font-family: var(--font-tech-mono), monospace;
   font-variant-numeric: tabular-nums;
@@ -67,7 +67,7 @@ body {
   text-shadow: 0 0 8px rgba(242, 169, 0, 0.35);
 }
 
-/* Угловые скобки-«рамки» карточек */
+/* Corner-bracket frames on cards */
 .hud-card {
   position: relative;
   border: 1px solid #3d3d34;
@@ -93,7 +93,7 @@ body {
   border-width: 0 2px 2px 0;
 }
 
-/* Толстые скошенные кнопки с bevel */
+/* Thick beveled buttons */
 .hud-btn {
   font-family: var(--font-display), sans-serif;
   letter-spacing: 0.08em;
@@ -125,17 +125,17 @@ body {
   border-color: #8a2817;
 }
 
-/* Фокус-стейты для доступности */
+/* Focus states for accessibility */
 :focus-visible {
   outline: 2px solid var(--hud-amber);
   outline-offset: 2px;
 }
 
 /*
- * Скроллбары под HUD-тему.
- * Firefox: тонкий, тёмный трек, янтарный бегунок.
- * Chromium/WebKit: плоский прямоугольный бегунок с bevel-границей,
- * без скруглений — консольная эстетика.
+ * Scrollbars themed to match the HUD.
+ * Firefox: thin, dark track, amber thumb.
+ * Chromium/WebKit: flat rectangular thumb with a bevel border,
+ * no rounding — console aesthetics.
  */
 * {
   scrollbar-width: thin;
