@@ -82,6 +82,7 @@ pnpm exec tsx scripts/bootstrap-admin.ts  # первый админ из BOOTSTR
 
 ## Runtime/Tooling Preferences
 
+- **Лицензия — MIT** (`LICENSE`); проект `private: true` в `package.json` — публичная раздача не предполагается, но код можно переиспользовать внутри команды.
 - **Пакетный менеджер — pnpm** (lockfile v9). Node ≥ 20.
 - Next 15.5 App Router, React 19, Turbopack в dev и build. TS strict, `@/*` → корень репо.
 - Tailwind v4 через `@tailwindcss/postcss` (отдельного конфига нет; HUD-тема — CSS-переменные и классы `hud-*`/`ammo-counter`/`hazard-tape` в `app/globals.css`).

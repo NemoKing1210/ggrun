@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### Added
+- Лицензия MIT (`LICENSE`), поле `license` в `package.json`.
+
 ## [0.5.0] — 2026-08-26
 
 ### Added
