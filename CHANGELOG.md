@@ -10,6 +10,9 @@ of this file and in `AGENTS.md` (section "Versioning & Changelog").
 
 ### Added
 - MIT license (`LICENSE`), `license` field in `package.json`.
+- HUD-themed route loading screens (`app/loading.tsx`, `app/admin/loading.tsx`,
+  `components/layout/HudLoader.tsx`) with CSS-only animations and
+  `prefers-reduced-motion` support.
 
 ### Removed
 - `PLAN.md` (the original Russian spec, later translated) — the MVP is

@@ -174,3 +174,43 @@ select {
   padding: 0.5rem 0.75rem;
   width: 100%;
 }
+
+/* HUD loader animations */
+@keyframes hud-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+@keyframes hud-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes hud-stripes {
+  to { background-position: 48px 0; }
+}
+@keyframes hud-pulse-cell {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.75); opacity: 0.5; }
+}
+
+.hud-loader-blink {
+  animation: hud-blink 1.1s steps(2, start) infinite;
+}
+.hud-loader-cell {
+  animation: hud-pulse-cell 0.9s ease-in-out infinite;
+}
+.hud-loader-progress {
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--hud-amber) 0 12px,
+    #111110 12px 24px
+  );
+  background-size: 48px 100%;
+  animation: hud-stripes 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-loader-blink,
+  .hud-loader-cell,
+  .hud-loader-progress {
+    animation: none;
+  }
+}
