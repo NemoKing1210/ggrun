@@ -1,8 +1,9 @@
 # RUNBOOK — event day
 
+> **Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun)
+
 A step-by-step guide for the host/admin: how to launch a new season on event
 day.
-
 ## 0. The day before
 
 1. Make sure migrations are applied: `pnpm drizzle-kit push`.

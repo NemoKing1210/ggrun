@@ -1,9 +1,17 @@
 # GGRun — game run platform
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](./LICENSE)
+[![Author: NemoKing1210](https://img.shields.io/badge/Author-NemoKing1210-181717?logo=github)](https://github.com/NemoKing1210)
+[![Repo: NemoKing1210/ggrun](https://img.shields.io/badge/Repo-NemoKing1210%2Fggrun-181717?logo=github)](https://github.com/NemoKing1210/ggrun)
+[![Stack: Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js)](https://nextjs.org)
+[![Issues](https://img.shields.io/github/issues/NemoKing1210/ggrun)](https://github.com/NemoKing1210/ggrun/issues)
+
 A web platform for a team/competitive gaming event in the HPG genre: seasons
 ("runs"), a board of cells, random game rolls, outcomes (passed/drop/reroll),
 dice rolls and movement across the board, a leaderboard, an event feed, and an
 admin console.
+
+**Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) · **Issues & feedback:** [github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues) · **License:** [MIT](./LICENSE)
 
 ## Stack
 
@@ -15,6 +23,18 @@ admin console.
 - **Zod** — shared schemas (the season config is validated by
   `SeasonConfigSchema` from the engine)
 - **Vitest** — unit tests for the domain engine
+
+## Quick start
+
+```bash
+# clone
+git clone https://github.com/NemoKing1210/ggrun.git
+cd ggrun
+
+pnpm install
+```
+
+See [Running locally](#running-locally) for full setup.
 
 ## Architecture
 
@@ -94,3 +114,17 @@ New mechanics are added via the cell-effect plugin registry
 `cell.config.effectKey`), via the season config (`seasons.config` JSONB,
 validated by Zod), and via separate modules — without rewriting the core.
 See the cell-effect plugin registry description above.
+
+## Author & Links
+
+- **Author:** [NemoKing1210](https://github.com/NemoKing1210) — full profile, other projects and contact via GitHub.
+- **Project repository:** [https://github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) — clone, fork and star the repo.
+- **Issue tracker:** [https://github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues) — bug reports, feature requests and questions.
+- **Releases & changelog:** [https://github.com/NemoKing1210/ggrun/releases](https://github.com/NemoKing1210/ggrun/releases) and [CHANGELOG.md](./CHANGELOG.md).
+- **License:** [MIT](./LICENSE) — Copyright (c) 2026 NemoKing1210.
+
+If you use GGRun in your own event, a star on GitHub is appreciated.
+
+## Contributing
+
+Issues and pull requests are welcome at [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun). Please follow the guidelines in [AGENTS.md](./AGENTS.md) and keep `pnpm lint` + `pnpm exec tsc --noEmit` + `pnpm test` + `pnpm build` green.

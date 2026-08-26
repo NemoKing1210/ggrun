@@ -27,6 +27,17 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t.core.footer.metaTitle,
     description: t.core.footer.metaDescription,
+    authors: [{ name: "NemoKing1210", url: "https://github.com/NemoKing1210" }],
+    creator: "NemoKing1210",
+    publisher: "NemoKing1210",
+    metadataBase: new URL("https://github.com/NemoKing1210/ggrun"),
+    openGraph: {
+      title: t.core.footer.metaTitle,
+      description: t.core.footer.metaDescription,
+      url: "https://github.com/NemoKing1210/ggrun",
+      siteName: "GGRun",
+      type: "website",
+    },
   };
 }
 

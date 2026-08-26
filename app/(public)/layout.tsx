@@ -32,7 +32,25 @@ export default async function PublicLayout({
       </div>
       <main className="mx-auto max-w-6xl px-4 py-6 sm:py-8">{children}</main>
       <footer className="mt-16 border-t border-[#3d3d34] py-4 text-center text-xs text-dim">
-        {t.core.footer.tagline}
+        <span>{t.core.footer.tagline}</span>
+        <span className="mx-2">·</span>
+        <a
+          href="https://github.com/NemoKing1210"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-amber underline-offset-2 hover:underline"
+        >
+          NemoKing1210
+        </a>
+        <span className="mx-2">·</span>
+        <a
+          href="https://github.com/NemoKing1210/ggrun"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-amber underline-offset-2 hover:underline"
+        >
+          GitHub
+        </a>
       </footer>
     </>
   );

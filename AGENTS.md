@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+> **Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) · **Issues:** [github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues)
+
 ## Project Overview
 
 GGRun — a web platform for a seasonal gaming event (HPG genre): seasons

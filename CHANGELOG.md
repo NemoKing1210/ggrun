@@ -1,12 +1,12 @@
 # Changelog
 
+> **Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) · **Issues:** [github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues)
+
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and [Semantic Versioning](https://semver.org/). Versioning rules — at the bottom
 of this file and in `AGENTS.md` (section "Versioning & Changelog").
-
-## [Unreleased]
 
 ### Added
 - MIT license (`LICENSE`), `license` field in `package.json`.

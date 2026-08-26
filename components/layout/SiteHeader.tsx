@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ExternalLink } from "lucide-react";
 
 import { logoutAction } from "@/lib/auth/actions";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -74,6 +74,16 @@ export function SiteHeader({
           </span>
 
           <span className="ml-auto flex items-center gap-2 sm:gap-3">
+            <a
+              href="https://github.com/NemoKing1210/ggrun"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub — NemoKing1210/ggrun"
+              className="hidden sm:inline-flex items-center justify-center rounded border border-[#3d3d34] p-1.5 text-dim transition-colors hover:border-amber hover:text-amber"
+              title="GitHub — NemoKing1210/ggrun"
+            >
+              <ExternalLink size={16} />
+            </a>
             <LocaleSwitcher current={locale} />
             {user ? (
               <>
@@ -138,6 +148,16 @@ export function SiteHeader({
                   </Link>
                 </li>
               ))}
+              <li>
+                <a
+                  href="https://github.com/NemoKing1210/ggrun"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest text-dim hover:text-foreground"
+                >
+                  GitHub — NemoKing1210/ggrun
+                </a>
+              </li>
               {user && (
                 <>
                   <li>
