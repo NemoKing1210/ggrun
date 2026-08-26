@@ -3,6 +3,65 @@
  * управление игроками, каталог игр, аудит-лог.
  */
 export const admin = {
+  /** Навигация админской шапки. */
+  nav: {
+    console: "Admin console",
+    dashboard: "Dashboard",
+    seasons: "Seasons",
+    users: "Users",
+    catalog: "Games catalog",
+    audit: "Audit log",
+    backToSite: "← Site",
+  },
+
+  /** Дашборд /admin. */
+  dashboard: {
+    heading: "Overview",
+    statUsers: "Users",
+    statSeasons: "Seasons",
+    statGames: "Games in catalog",
+    statRolls: "Game rolls",
+    statMoves: "Moves",
+    statEvents: "Feed events",
+    activeSeason: "Active season",
+    noActiveSeason: "No active season right now.",
+    quickLinksHeading: "Quick actions",
+  },
+
+  /** Управление пользователями /admin/users (только admin). */
+  users: {
+    heading: "Users",
+    searchPlaceholder: "Search by email, username or name…",
+    empty: "No users match the query.",
+    colUser: "User",
+    colEmail: "Email",
+    colRole: "Role",
+    colStatus: "Status",
+    colActions: "Actions",
+    activeUser: "active",
+    blocked: "blocked",
+    you: "you",
+    addHeading: "Add user",
+    emailLabel: "Email",
+    usernameLabel: "Username",
+    passwordLabel: "Password (min. 8 characters)",
+    roleLabel: "Role",
+    roles: {
+      admin: "Admin",
+      judge: "Judge",
+      player: "Player",
+      viewer: "Viewer",
+    },
+    blockButton: "Block",
+    unblockButton: "Unblock",
+    blockConfirm: "Block {user}? They will lose access immediately.",
+    deleteButton: "Delete",
+    deleteConfirm: "Delete {user}? Their rolls and season participation will be removed.",
+    saved: "Saved",
+    userAdded: "User created",
+    userDeleted: "User deleted",
+  },
+
   /** /admin */
   overview: {
     heading: "Admin panel",

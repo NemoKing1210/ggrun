@@ -45,6 +45,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
       and(
         eq(sessions.tokenHash, tokenFingerprint(token)),
         gt(sessions.expiresAt, new Date()),
+        eq(users.isBlocked, false),
       ),
     )
     .limit(1);

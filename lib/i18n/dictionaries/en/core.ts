@@ -145,6 +145,9 @@ export const errors = {
   adminSeasonNotFound: "Season not found",
   adminInvalidTransition: "Invalid status transition {from} → {to}",
   adminPlayerNotFound: "Participant not found",
+  adminSelfBlock: "You cannot block yourself",
+  adminSelfDemote: "You cannot demote yourself",
+  adminSelfDelete: "You cannot delete yourself",
 
   // --- аутентификация (AuthError) ---
   authInvalidEmail: "Invalid email",
@@ -152,6 +155,7 @@ export const errors = {
   authUserExists: "User already exists",
   authUsernameFailed: "Failed to generate a unique username",
   authInvalidCredentials: "Wrong login or password",
+  authBlocked: "This account is blocked",
 
   // --- формы ---
   formLoginRequired: "Enter your login",

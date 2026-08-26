@@ -28,6 +28,7 @@ async function toError(e: unknown): Promise<AdminFormState> {
 
 function revalidateAdmin(seasonId?: string): void {
   revalidatePath("/admin");
+  revalidatePath("/admin/seasons");
   if (seasonId) revalidatePath(`/admin/seasons/${seasonId}`);
 }
 

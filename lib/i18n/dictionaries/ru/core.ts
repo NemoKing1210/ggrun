@@ -144,12 +144,16 @@ export const errors: Widen<typeof CoreEn.errors> = {
   adminSeasonNotFound: "Сезон не найден",
   adminInvalidTransition: "Недопустимый переход {from} → {to}",
   adminPlayerNotFound: "Участник не найден",
+  adminSelfBlock: "Нельзя заблокировать самого себя",
+  adminSelfDemote: "Нельзя разжаловать самого себя",
+  adminSelfDelete: "Нельзя удалить самого себя",
 
   authInvalidEmail: "Некорректный email",
   authPasswordTooShort: "Пароль должен быть не короче 8 символов",
   authUserExists: "Пользователь уже существует",
   authUsernameFailed: "Не удалось подобрать уникальный username",
   authInvalidCredentials: "Неверный логин или пароль",
+  authBlocked: "Этот аккаунт заблокирован",
 
   formLoginRequired: "Укажите логин",
   formPasswordRequired: "Укажите пароль",

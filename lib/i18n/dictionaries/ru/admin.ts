@@ -6,6 +6,65 @@ import type { Widen } from "@/lib/i18n/widen";
  * управление игроками, каталог игр, аудит-лог.
  */
 export const admin: Widen<typeof AdminEn.admin> = {
+  /** Навигация админской шапки. */
+  nav: {
+    console: "Консоль администратора",
+    dashboard: "Дашборд",
+    seasons: "Сезоны",
+    users: "Пользователи",
+    catalog: "Каталог игр",
+    audit: "Аудит-лог",
+    backToSite: "← На сайт",
+  },
+
+  /** Дашборд /admin. */
+  dashboard: {
+    heading: "Обзор",
+    statUsers: "Пользователи",
+    statSeasons: "Сезоны",
+    statGames: "Игр в каталоге",
+    statRolls: "Роллов игр",
+    statMoves: "Ходов",
+    statEvents: "Событий в ленте",
+    activeSeason: "Активный сезон",
+    noActiveSeason: "Сейчас активного сезона нет.",
+    quickLinksHeading: "Быстрые действия",
+  },
+
+  /** Управление пользователями /admin/users (только admin). */
+  users: {
+    heading: "Пользователи",
+    searchPlaceholder: "Поиск по email, username или имени…",
+    empty: "Под запрос нет пользователей.",
+    colUser: "Пользователь",
+    colEmail: "Email",
+    colRole: "Роль",
+    colStatus: "Статус",
+    colActions: "Действия",
+    activeUser: "активен",
+    blocked: "заблокирован",
+    you: "вы",
+    addHeading: "Добавить пользователя",
+    emailLabel: "Email",
+    usernameLabel: "Username",
+    passwordLabel: "Пароль (мин. 8 символов)",
+    roleLabel: "Роль",
+    roles: {
+      admin: "Админ",
+      judge: "Судья",
+      player: "Игрок",
+      viewer: "Зритель",
+    },
+    blockButton: "Заблокировать",
+    unblockButton: "Разблокировать",
+    blockConfirm: "Заблокировать {user}? Доступ пропадёт мгновенно.",
+    deleteButton: "Удалить",
+    deleteConfirm: "Удалить {user}? Его роллы и участие в сезонах будут удалены.",
+    saved: "Сохранено",
+    userAdded: "Пользователь создан",
+    userDeleted: "Пользователь удалён",
+  },
+
   /** /admin */
   overview: {
     heading: "Админка",

@@ -67,6 +67,7 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   twitchLogin: text("twitch_login"),
   role: userRoleEnum("role").notNull().default("viewer"),
+  isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -103,7 +104,9 @@ export const seasons = pgTable("seasons", {
   rulesMd: text("rules_md"),
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
-  createdBy: uuid("created_by").references(() => users.id),
+  createdBy: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -225,7 +228,9 @@ export const ledgerEntries = pgTable("ledger_entries", {
   // 'game_pass_bonus', 'penalty_cell', 'bonus_cell', 'admin_adjustment', ...
   reason: text("reason").notNull(),
   relatedMoveId: uuid("related_move_id").references(() => moves.id),
-  createdBy: uuid("created_by").references(() => users.id),
+  createdBy: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

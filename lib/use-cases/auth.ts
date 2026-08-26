@@ -73,6 +73,7 @@ export async function authenticate(
     .where(or(eq(users.email, key), eq(users.username, key)))
     .limit(1);
   const user = rows[0];
+  if (user?.isBlocked) throw new AuthError("authBlocked");
   if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     throw new AuthError("authInvalidCredentials");
   }
