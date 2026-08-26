@@ -17,7 +17,7 @@ async function main() {
        on conflict (slug) do nothing
        returning id`,
     );
-    let seasonId =
+    const seasonId =
       season.rows[0]?.id ??
       (await pool.query("select id from seasons where slug = 'run-1'")).rows[0]!.id;
 
