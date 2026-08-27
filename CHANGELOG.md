@@ -36,6 +36,14 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   `makeToError(domainErrorClass)` factory and a `zodToMessage` helper.
 
 ### Changed
+- Unified public page layout widths: every public page now renders its
+  content through `PageContainer` (`components/ui/PageContainer.tsx`),
+  which spans exactly the same container as the breadcrumbs row in the
+  public shell. The per-page ad-hoc `mx-auto max-w-*` wrappers
+  (`max-w-sm` … `max-w-5xl`) are gone, so content edges always align with
+  the crumbs and the gap under the breadcrumbs is identical on every page.
+  The dashboard no longer nests a duplicate container (and a nested
+  `<main>`) inside the shell. Documented in `DESIGN.md` (Layout Containers).
 - Settings save no longer falls through to the generic "Unknown error" when
   the payload fails Zod validation; the message targets the first issue
   (e.g. `displayName: String must contain at most 100 character(s)`) and

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { CELL_THEME } from "@/components/board/cell-theme";
@@ -45,7 +46,7 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
   });
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <PageContainer>
       <div className="mb-4">
         <Link href="/seasons" className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
           {t.seasons.detail.backToArchive}
@@ -198,6 +199,6 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
           <div className="mt-1 font-mono text-xs text-amber">{t.seasons.overview.viewLeaderboard}</div>
         </Link>
       </div>
-    </div>
+    </PageContainer>
   );
 }

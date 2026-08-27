@@ -5,6 +5,7 @@ import {
   type BoardRoll,
 } from "@/components/board/board-view";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { format } from "@/lib/i18n/format";
@@ -80,7 +81,7 @@ export default async function BoardPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <PageContainer>
       <PageHeader
         kicker={kicker}
         title={t.board.pageTitle}
@@ -115,6 +116,6 @@ export default async function BoardPage() {
             </li>
           ))}
       </ul>
-    </div>
+    </PageContainer>
   );
 }

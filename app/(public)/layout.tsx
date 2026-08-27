@@ -29,12 +29,13 @@ export default async function PublicLayout({
             : null
         }
       />
-      <div className="mx-auto w-full max-w-6xl px-4 pt-4">
-        <Breadcrumbs />
+      {/* Single container for breadcrumbs + content keeps their edges aligned. */}
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4">
+        <div className="pt-4">
+          <Breadcrumbs />
+        </div>
+        <main className="flex-1 py-6 sm:py-8">{children}</main>
       </div>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-8">
-        {children}
-      </main>
       <SiteFooter t={t} showAdmin={user ? isStaff(user) : false} />
     </div>
   );

@@ -1,4 +1,5 @@
 import { Markdown } from "@/components/rules/markdown";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
@@ -16,7 +17,7 @@ export default async function RulesPage() {
   if (!season) return <SeasonMissing />;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer>
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.rules.pageTitle}
@@ -28,6 +29,6 @@ export default async function RulesPage() {
       ) : (
         <EmptyState>{t.rules.empty}</EmptyState>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getOpenRoll, getRecentRolls, getPendingRerollForPlayer } from "@/lib/repositories/games.repo";
@@ -39,24 +40,24 @@ export default async function DashboardPage() {
   const season = await getActiveSeason();
   if (!season) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+      <PageContainer>
         <PageHeader title={t.core.dashboard.heading} />
         <EmptyState>{t.core.dashboard.noActiveSeason}</EmptyState>
-      </main>
+      </PageContainer>
     );
   }
 
   const seasonPlayer = await getSeasonPlayerForUser(season.id, user.id);
   if (!seasonPlayer) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+      <PageContainer>
         <PageHeader
           kicker={format(t.core.common.seasonKicker, { season: season.title })}
           title={t.core.dashboard.heading}
           right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
         />
         <EmptyState>{t.core.dashboard.notInSeason}</EmptyState>
-      </main>
+      </PageContainer>
     );
   }
 
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+    <PageContainer className="flex flex-col gap-6">
       <Link
         href={"/players/" + user.username}
         className="flex no-underline items-center gap-3 self-start transition hover:text-amber"
@@ -254,6 +255,6 @@ export default async function DashboardPage() {
           )}
         </div>
       </section>
-    </main>
+    </PageContainer>
   );
 }

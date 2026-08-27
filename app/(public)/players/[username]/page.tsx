@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { count, desc, eq } from "drizzle-orm";
 
+import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { db } from "@/lib/db";
@@ -68,7 +69,7 @@ export default async function PlayerProfilePage({ params }: Params) {
   );
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <PageContainer>
       <header className="hud-card mb-8 flex flex-wrap items-center gap-5 p-6">
         <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} className="!size-16 !rounded-none" square />
         <div className="min-w-0 flex-1">
@@ -215,6 +216,6 @@ export default async function PlayerProfilePage({ params }: Params) {
           )}
         </section>
       ) : null}
-    </div>
+    </PageContainer>
   );
 }

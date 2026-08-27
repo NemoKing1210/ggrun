@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Markdown } from "@/components/rules/markdown";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { StatusBadge } from "@/components/ui/status";
 import { getSeasonBySlug } from "@/lib/repositories/seasons.repo";
@@ -24,7 +25,7 @@ export default async function SeasonRulesPage({ params }: { params: Promise<{ sl
   if (!season) notFound();
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer>
       <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
         {t.seasons.detail.backToArchive}
       </Link>
@@ -43,6 +44,6 @@ export default async function SeasonRulesPage({ params }: { params: Promise<{ sl
           <EmptyState>{t.rules.empty}</EmptyState>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { SettingsForm } from "@/components/settings/SettingsForm";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
   const { t } = await getT();
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer>
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">
         {t.settings.heading}
       </h1>
@@ -30,6 +31,6 @@ export default async function SettingsPage() {
         locale={user.locale}
         links={user.links}
       />
-    </div>
+    </PageContainer>
   );
 }

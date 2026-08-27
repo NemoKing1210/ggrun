@@ -1,4 +1,5 @@
 import { FeedList } from "@/components/feed/feed-list";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/page-header";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getEventFeed } from "@/lib/repositories/players.repo";
@@ -19,7 +20,7 @@ export default async function FeedPage() {
   const rows = await getEventFeed(season.id, 30);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer>
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.feed.pageTitle}
@@ -27,6 +28,6 @@ export default async function FeedPage() {
       <div className="hud-card p-6">
         <FeedList rows={rows} />
       </div>
-    </div>
+    </PageContainer>
   );
 }

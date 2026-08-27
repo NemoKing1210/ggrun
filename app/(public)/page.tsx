@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { FeedList } from "@/components/feed/feed-list";
 import { StatusBadge } from "@/components/ui/status";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getEventFeed, getLeaderboard } from "@/lib/repositories/players.repo";
 import { getActiveSeason, listArchivedSeasons } from "@/lib/repositories/seasons.repo";
@@ -32,7 +33,7 @@ export default async function HomePage() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+    <PageContainer className="flex flex-col gap-8">
       <section className="hud-card overflow-hidden">
         <div className="hazard-tape h-2 w-full" />
         <div className="p-6 sm:p-8">
@@ -148,6 +149,6 @@ export default async function HomePage() {
           <p className="mt-3 font-mono text-xs text-dim">{t.seasons.archiveEmpty}</p>
         )}
       </section>
-    </div>
+    </PageContainer>
   );
 }

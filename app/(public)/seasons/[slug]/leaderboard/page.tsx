@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { getLeaderboard } from "@/lib/repositories/players.repo";
@@ -49,7 +50,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
   const rows = await getLeaderboard(season.id);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <PageContainer>
       <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
         {t.seasons.detail.backToArchive}
       </Link>
@@ -107,6 +108,6 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { Input } from "@/components/ui/Input";
 import { DebugError } from "@/components/ui/DebugError";
 import { Field } from "@/components/ui/Field";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 const initial: FormState = {};
 
@@ -15,7 +16,7 @@ export default function RegisterPage() {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(registerAction, initial);
   return (
-    <div className="mx-auto max-w-sm">
+    <PageContainer>
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">{t.core.auth.registerTitle}</h1>
       <div className="hazard-tape my-4" aria-hidden />
       <form action={formAction} className="flex flex-col gap-4">
@@ -43,6 +44,6 @@ export default function RegisterPage() {
       <p className="mt-4 text-sm text-dim">
         {t.core.auth.haveAccount} <Link href="/login" className="text-amber hover:underline">{t.core.auth.goToLogin}</Link>
       </p>
-    </div>
+    </PageContainer>
   );
 }

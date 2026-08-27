@@ -46,6 +46,9 @@ Scale is tight: `xs` for hints, `sm` for labels, `xl`/`3xl` display for page tit
 - Borders `1px solid #3d3d34` (card) / `#55554a` (button off) / `#c98f00` (amber active) / `#8a2817` (danger).
 - Clip sizes: buttons/cards `8px` or `6px`, inputs/selects/chips/badges/switches `4px` (small switch `3px`, thumb `2px`). Never `rounded`.
 
+### Layout Containers
+
+`components/ui/PageContainer.tsx` is the single source of truth for page content width. The public shell (`app/(public)/layout.tsx`) centers **one** fixed-width container (`max-w-6xl`) that holds both the breadcrumbs row and `<main>` — their edges always align and the vertical rhythm between them is defined exactly once. Every page renders its content through `PageContainer`, which spans the full width of that shared container; pages never write their own `mx-auto max-w-*` wrapper and never narrow their content below the breadcrumb row.
 ### The Cut
 
 ```

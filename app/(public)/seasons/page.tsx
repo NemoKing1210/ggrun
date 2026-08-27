@@ -1,4 +1,5 @@
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonCard } from "@/components/seasons/SeasonCard";
 import { getT } from "@/lib/i18n/server";
 import { getActiveSeason, listPublicSeasons, getMainBoard, getBoardCells } from "@/lib/repositories/seasons.repo";
@@ -15,13 +16,13 @@ export default async function SeasonsArchivePage() {
 
   if (seasons.length === 0) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <PageContainer>
         <PageHeader title={t.seasons.archiveTitle} />
         <p className="text-sm text-dim">{t.seasons.archiveDescription}</p>
         <div className="mt-6">
           <EmptyState>{t.seasons.archiveEmpty}</EmptyState>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -44,7 +45,7 @@ export default async function SeasonsArchivePage() {
   const finishedCount = seasons.filter((s) => s.status === "finished" || s.status === "archived").length;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <PageContainer>
       <PageHeader
         title={t.seasons.archiveTitle}
         kicker={finishedCount > 0 ? `${finishedCount} ${t.core.nav.seasons.toLowerCase()}` : undefined}
@@ -67,6 +68,6 @@ export default async function SeasonsArchivePage() {
           />
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }

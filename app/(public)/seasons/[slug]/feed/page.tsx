@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { FeedList } from "@/components/feed/feed-list";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { StatusBadge } from "@/components/ui/status";
 import { getEventFeed } from "@/lib/repositories/players.repo";
@@ -27,7 +28,7 @@ export default async function SeasonFeedPage({ params }: { params: Promise<{ slu
   const rows = await getEventFeed(season.id, 50);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer>
       <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
         {t.seasons.detail.backToArchive}
       </Link>
@@ -40,6 +41,6 @@ export default async function SeasonFeedPage({ params }: { params: Promise<{ slu
       <div className="mt-6 hud-card p-6">
         <FeedList rows={rows} />
       </div>
-    </div>
+    </PageContainer>
   );
 }

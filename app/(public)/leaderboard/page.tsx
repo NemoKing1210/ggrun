@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard } from "@/lib/repositories/players.repo";
@@ -48,7 +49,7 @@ export default async function LeaderboardPage() {
   const rows = await getLeaderboard(season.id);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <PageContainer>
       <PageHeader
         kicker={kicker}
         title={t.leaderboard.pageTitle}
@@ -139,6 +140,6 @@ export default async function LeaderboardPage() {
           </table>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

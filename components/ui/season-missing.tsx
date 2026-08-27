@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getT } from "@/lib/i18n/server";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 export async function SeasonMissing() {
   const { t } = await getT();
@@ -12,7 +13,7 @@ export async function SeasonMissing() {
     { href: "/seasons", ...t.board.missing.sections.seasons },
   ];
   return (
-    <div className="mx-auto max-w-xl">
+    <PageContainer>
       <div className="hud-card p-8 text-center">
         <div className="hazard-tape mb-6 h-2 w-full" />
         <h1 className="font-display text-3xl uppercase tracking-wide text-amber">
@@ -34,6 +35,6 @@ export async function SeasonMissing() {
           ))}
         </nav>
       </div>
-    </div>
+    </PageContainer>
   );
 }

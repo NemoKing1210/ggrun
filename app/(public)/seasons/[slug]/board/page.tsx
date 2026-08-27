@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { BoardView, type BoardPlayer, type BoardRoll } from "@/components/board/board-view";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
@@ -36,7 +37,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
 
   if (!board) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <PageContainer>
         <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
           {t.seasons.detail.backToArchive}
         </Link>
@@ -45,14 +46,14 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoBoard}</EmptyState>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   const cells = await getBoardCells(board.id);
   if (cells.length === 0) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <PageContainer>
         <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
           {t.seasons.detail.backToArchive}
         </Link>
@@ -61,7 +62,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoCells}</EmptyState>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -87,7 +88,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
   }));
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <PageContainer>
       <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
         {t.seasons.detail.backToArchive}
       </Link>
@@ -110,6 +111,6 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
             </li>
           ))}
       </ul>
-    </div>
+    </PageContainer>
   );
 }
