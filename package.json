@@ -25,7 +25,8 @@
   ],
   "keywords": ["gaming", "nextjs", "drizzle", "board-game", "hpg", "leaderboard", "seasonal-event"],
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
+    "dev:turbo": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",

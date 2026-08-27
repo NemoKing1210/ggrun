@@ -78,7 +78,9 @@ blacklist and already-played) → player marks the outcome → `resolveAction` �
 
 ```bash
 pnpm install
-pnpm dev                        # next dev --turbopack, port 3000
+pnpm dev                        # next dev (webpack: the Turbopack dev server
+                                # has a Windows-only _buildManifest.js.tmp
+                                # ENOENT race; use dev:turbo to opt back in)
 pnpm build                      # next build --turbopack
 pnpm lint                       # eslint (flat config)
 pnpm test                       # vitest run (domain)

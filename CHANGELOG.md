@@ -41,6 +41,13 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   `makeToError(domainErrorClass)` factory and a `zodToMessage` helper.
 
 ### Changed
+- `pnpm dev` now runs the webpack dev server (`next dev`) instead of
+  Turbopack: on Windows every file edit crashed HMR with
+  `ENOENT … .next/static/development/_buildManifest.js.tmp.<random>`
+  (Turbopack's atomic manifest write loses the race with the filesystem /
+  antivirus; unfixed in Next 15.5.x). `pnpm build` still uses
+  `--turbopack`. Opt back into the Turbopack dev server with the new
+  `pnpm dev:turbo` alias if needed.
 - Unified public page layout widths: every public page now renders its
   content through `PageContainer` (`components/ui/PageContainer.tsx`),
   which spans exactly the same container as the breadcrumbs row in the
