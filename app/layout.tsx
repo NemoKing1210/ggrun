@@ -72,6 +72,13 @@ export default async function RootLayout({
   const accentCss = accent.primary === "#f2a900"
     ? ""
     : `:root{--hud-amber:${accent.primary};--hud-amber-border:${accent.border};--hud-amber-glow:${accent.glow};}`;
+  let maintenanceMode = false;
+  try {
+    const { getSiteSettings } = await import("@/lib/repositories/site-settings.repo");
+    const s = await getSiteSettings();
+    maintenanceMode = !!s.maintenanceMode;
+  } catch {}
+  const showMaintenanceBanner = maintenanceMode && (!user || user.role !== "admin");
   return (
     <html lang={locale}>
       <body
@@ -81,6 +88,13 @@ export default async function RootLayout({
         {accentCss ? <style>{accentCss}</style> : null}
         <I18nProvider locale={locale} t={t}>
           <TopLoader />
+          {showMaintenanceBanner && (
+            <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
+              <span className="size-2 bg-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] animate-pulse" aria-hidden />
+              {t.core.maintenance.text} — {t.core.maintenance.title}
+              <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
+            </div>
+          )}
           <PageTransition>{children}</PageTransition>
         </I18nProvider>
       </body>

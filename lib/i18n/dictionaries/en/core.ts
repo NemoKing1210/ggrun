@@ -54,6 +54,12 @@ export const footer = {
   admin: "Admin console",
 } as const;
 
+/** Maintenance banner. */
+export const maintenance = {
+  title: "Maintenance",
+  text: "Site is in maintenance mode — login is restricted to admins",
+} as const;
+
 /** Login and registration. */
 export const auth = {
   loginTitle: "Log in",
@@ -212,6 +218,15 @@ export const errors = {
   authInvalidCredentials: "Wrong login or password",
   authBlocked: "This account is blocked",
   authLoginRequired: "Please log in",
+  authRegistrationDisabled: "Registration is currently disabled",
+  authMaintenance: "Site is in maintenance mode — only admins can log in",
+  authPendingApproval: "Your account is pending admin approval",
+  authEmailNotVerified: "Please verify your email — check your inbox for the link",
+  authInviteInvalid: "Invite link is invalid or expired",
+  authEmailVerified: "Email verified — you can now log in",
+  authVerificationExpired: "Verification link expired",
+  registrationPendingApproval: "Account created — awaiting admin approval",
+  registrationCheckEmail: "Account created — check your email for the verification link",
 
   // --- forms ---
   formLoginRequired: "Enter your login",

@@ -58,10 +58,26 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("displayName") ?? "");
+  const inviteToken = formData.get("invite") ? String(formData.get("invite")) : null;
   try {
-    const user = await registerUser({ email, password, displayName });
-    await createSession(user.id);
-    log.info("auth.register", { userId: user.id, email });
+    const result = await registerUser({ email, password, displayName, inviteToken });
+    if (result.requiresApproval) {
+      log.info("auth.register.pending_approval", { userId: result.id, email });
+      return { ok: "registrationPendingApproval" };
+    }
+    if (result.requiresVerification) {
+      log.info("auth.register.pending_verification", { userId: result.id, email });
+      const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const link = `${base.replace(/\/$/, "")}/verify-email?token=${encodeURIComponent(result.verificationToken ?? "")}`;
+      // In production this would be emailed; for now we log it
+      log.info("auth.register.verification_link", { userId: result.id, link });
+      return {
+        ok: "registrationCheckEmail",
+        debug: process.env.NODE_ENV === "development" ? link : undefined,
+      };
+    }
+    await createSession(result.id);
+    log.info("auth.register", { userId: result.id, email });
   } catch (e) {
     return await toError(e, "auth.register", { email });
   }

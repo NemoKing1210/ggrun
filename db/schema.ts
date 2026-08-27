@@ -58,6 +58,11 @@ export const playerStatusEnum = pgEnum("player_status", [
   "eliminated",
   "withdrawn",
 ]);
+export const registrationModeEnum = pgEnum("registration_mode", [
+  "open",
+  "manual_approval",
+  "email_link",
+]);
 
 // ---------------------------------------------------------------------------
 // Users & sessions (local replacement for Supabase Auth: profiles on top of our own users)
@@ -83,6 +88,11 @@ export const users = pgTable("users", {
   accent: text("accent").notNull().default("amber"),
   /** Preferred site language; overrides the locale cookie when set. */
   locale: text("locale"),
+  /** Email verification & manual approval flags for registration flows. */
+  isApproved: boolean("is_approved").notNull().default(true),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpiresAt: timestamp("email_verification_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -308,6 +318,29 @@ export const eventLog = pgTable(
       .defaultNow(),
   },
   (t) => [index("event_log_season_created_idx").on(t.seasonId, t.createdAt)],
+);
+
+export const siteSettings = pgTable("site_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  registrationEnabled: boolean("registration_enabled").notNull().default(true),
+  registrationMode: registrationModeEnum("registration_mode").notNull().default("open"),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const inviteTokens = pgTable(
+  "invite_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    token: text("token").notNull().unique(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    maxUses: integer("max_uses").notNull().default(1),
+    usesCount: integer("uses_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("invite_tokens_token_idx").on(t.token)],
 );
 
 export const adminAuditLog = pgTable("admin_audit_log", {

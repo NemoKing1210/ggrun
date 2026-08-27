@@ -56,6 +56,12 @@ export const footer: Widen<typeof CoreEn.footer> = {
   admin: "Консоль администратора",
 };
 
+/** Maintenance banner. */
+export const maintenance: Widen<typeof CoreEn.maintenance> = {
+  title: "Обслуживание",
+  text: "Сайт в режиме обслуживания — вход доступен только администраторам",
+};
+
 /** Login and registration. */
 export const auth: Widen<typeof CoreEn.auth> = {
   loginTitle: "Вход",
@@ -210,6 +216,15 @@ export const errors: Widen<typeof CoreEn.errors> = {
   authInvalidCredentials: "Неверный логин или пароль",
   authBlocked: "Этот аккаунт заблокирован",
   authLoginRequired: "Войдите в аккаунт",
+  authRegistrationDisabled: "Регистрация временно отключена",
+  authMaintenance: "Сайт в режиме обслуживания — вход только для администраторов",
+  authPendingApproval: "Ваш аккаунт ожидает подтверждения администратора",
+  authEmailNotVerified: "Подтвердите email — проверьте почту и перейдите по ссылке",
+  authInviteInvalid: "Ссылка-приглашение недействительна или просрочена",
+  authEmailVerified: "Email подтверждён — теперь можно войти",
+  authVerificationExpired: "Срок действия ссылки истёк",
+  registrationPendingApproval: "Аккаунт создан — ожидайте подтверждения администратора",
+  registrationCheckEmail: "Аккаунт создан — проверьте почту и перейдите по ссылке",
 
   formLoginRequired: "Укажите логин",
   formPasswordRequired: "Укажите пароль",

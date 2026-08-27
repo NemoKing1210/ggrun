@@ -12,6 +12,7 @@ import {
   ClipboardDocumentListIcon,
   CircleStackIcon,
   ArrowRightIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 import { db } from "@/lib/db";
@@ -91,6 +92,7 @@ export default async function AdminDashboardPage() {
     { href: "/admin/games-catalog", label: t.admin.nav.catalog, icon: PuzzlePieceIcon },
     { href: "/admin/audit", label: t.admin.nav.audit, icon: ClipboardDocumentListIcon },
     { href: "/admin/rerolls", label: t.admin.nav.rerolls, icon: QueueListIcon },
+    { href: "/admin/settings", label: t.admin.nav.settings, icon: Cog6ToothIcon },
   ];
 
   return (

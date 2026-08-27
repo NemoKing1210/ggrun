@@ -46,6 +46,7 @@ function pickCore(core: Widen<typeof coreEn>) {
     breadcrumbs: core.breadcrumbs,
     errors: core.errors,
     siteUnavailable: core.siteUnavailable,
+    maintenance: core.maintenance,
   };
 }
 const coreEnDict = pickCore(coreEn);
