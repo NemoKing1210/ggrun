@@ -82,10 +82,18 @@ pnpm dev                        # next dev --turbopack, port 3000
 pnpm build                      # next build --turbopack
 pnpm lint                       # eslint (flat config)
 pnpm test                       # vitest run (domain)
-pnpm drizzle-kit generate       # SQL migration into drizzle/ after editing db/schema.ts
-pnpm drizzle-kit push           # apply the schema to the DB
-pnpm exec tsx scripts/seed-demo.ts        # demo season run-1, 40-cell board, 8 games (idempotent)
-pnpm exec tsx scripts/bootstrap-admin.ts  # first admin from BOOTSTRAP_ADMIN_* in .env
+
+# Database helpers (all scripts load .env with override, so a stale
+# DATABASE_URL exported in the shell can never shadow the project .env):
+pnpm db:status                  # connectivity + server info + row counts per table
+pnpm db:generate                # drizzle-kit generate (SQL migration into drizzle/)
+pnpm db:push                    # drizzle-kit push --force (apply schema to the DB)
+pnpm db:seed                    # demo season run-1, 40-cell board, 8 games (idempotent)
+pnpm db:admin                   # first admin from BOOTSTRAP_ADMIN_* in .env
+pnpm db:reset                   # drop public schema + re-apply schema (asks to type YES)
+pnpm db:setup                   # full fresh-DB bootstrap: push + seed + admin
+
+pnpm drizzle-kit generate       # equivalent of pnpm db:generate
 ```
 
 DB: PostgreSQL 17 (OSPanel) at `127.127.126.56:5432`, database `ggrun`.
@@ -136,7 +144,6 @@ backlog).
 - **Formatting**: Prettier (double quotes, semi, 100 cols), ESLint
   `next/core-web-vitals` + `next/typescript` + prettier. Commits follow
   conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
-
 ## Important Files
 
 - `db/schema.ts` — all tables/enums/types (`$inferSelect`); schema edits →

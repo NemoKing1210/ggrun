@@ -29,7 +29,14 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:status": "tsx scripts/db-status.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push --force",
+    "db:seed": "tsx scripts/seed-demo.ts",
+    "db:admin": "tsx scripts/bootstrap-admin.ts",
+    "db:reset": "tsx scripts/db-reset.ts",
+    "db:setup": "pnpm db:push && pnpm db:seed && pnpm db:admin"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.4",

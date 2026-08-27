@@ -4,9 +4,9 @@
  * Creates the run-1 season (active), a 40-cell board and a games catalog,
  * if they don't exist yet. Idempotent.
  */
-import "dotenv/config";
-
 import { Pool } from "pg";
+
+import "./lib/load-env";
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

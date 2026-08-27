@@ -1,7 +1,9 @@
 import { defineConfig } from "drizzle-kit";
 import { config } from "dotenv";
 
-config();
+// `override: true` so a stale DATABASE_URL from the outer shell/session
+// environment cannot shadow the project `.env` file.
+config({ override: true });
 
 export default defineConfig({
   schema: "./db/schema.ts",
@@ -13,3 +15,4 @@ export default defineConfig({
   strict: false,
   verbose: true,
 });
+

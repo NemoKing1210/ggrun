@@ -3,7 +3,7 @@
  * Usage: pnpm exec tsx scripts/bootstrap-admin.ts
  * Reads BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD from .env
  */
-import "dotenv/config";
+import "./lib/load-env";
 
 import { Pool } from "pg";
 

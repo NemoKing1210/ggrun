@@ -10,6 +10,15 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- Database helper scripts with short `pnpm` aliases: `db:status`
+  (connectivity check + server info + per-table row counts), `db:push`,
+  `db:generate`, `db:seed`, `db:admin`, `db:reset` (destructive, requires
+  typing YES) and `db:setup` (push + seed + admin for a fresh database).
+- Shared CLI env loader `scripts/lib/load-env.ts`: loads `.env` with
+  `override: true`, so a stale `DATABASE_URL` exported in the shell/session
+  environment can no longer shadow the project `.env` (this previously made
+  every script and `drizzle-kit` silently target an unreachable database).
+  `drizzle.config.ts` uses the same override behavior.
 - Graceful "site temporarily unavailable" screen when the database is
   unreachable: a throttled `select 1` health probe (`lib/db-health.ts`)
   gates the root layout, session resolution fails soft to anonymous during
