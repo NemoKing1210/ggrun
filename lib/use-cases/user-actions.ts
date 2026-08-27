@@ -141,6 +141,7 @@ export async function updateUserSettingsAction(
     displayName: String(formData.get("displayName") || ""),
     bio: String(formData.get("bio") || ""),
     avatarUrl: String(formData.get("avatarUrl") || ""),
+    bannerUrl: String(formData.get("bannerUrl") || ""),
     accent: String(formData.get("accent") || "amber"),
     locale: String(formData.get("locale") || "en"),
     links,

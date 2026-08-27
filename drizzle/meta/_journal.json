@@ -43,6 +43,13 @@
       "when": 1787765338510,
       "tag": "0005_user_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787847094950,
+      "tag": "0006_dashing_riptide",
+      "breakpoints": true
     }
   ]
 }

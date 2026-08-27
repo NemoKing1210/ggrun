@@ -70,6 +70,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   displayName: text("display_name"),
   avatarUrl: text("avatar_url"),
+  /** Wide profile banner (3:1), cropped & resized on upload; shown on the public profile. */
+  bannerUrl: text("banner_url"),
   twitchLogin: text("twitch_login"),
   role: userRoleEnum("role").notNull().default("viewer"),
   isBlocked: boolean("is_blocked").notNull().default(false),

@@ -70,6 +70,15 @@ export default async function PlayerProfilePage({ params }: Params) {
 
   return (
     <PageContainer>
+      {user.bannerUrl ? (
+        <div
+          className="mb-4 w-full overflow-hidden border border-[#3d3d34] bg-raised [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]"
+          style={{ aspectRatio: "3 / 1" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={user.bannerUrl} alt="" className="size-full object-cover" />
+        </div>
+      ) : null}
       <header className="hud-card mb-8 flex flex-wrap items-center gap-5 p-6">
         <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} className="!size-16 !rounded-none" square />
         <div className="min-w-0 flex-1">

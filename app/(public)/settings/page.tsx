@@ -27,6 +27,7 @@ export default async function SettingsPage() {
         displayName={user.displayName}
         bio={user.bio}
         avatarUrl={user.avatarUrl}
+        bannerUrl={user.bannerUrl}
         accent={user.accent}
         locale={user.locale}
         links={user.links}

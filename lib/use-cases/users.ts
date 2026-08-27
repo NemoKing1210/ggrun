@@ -8,7 +8,7 @@ import { AdminError } from "@/lib/use-cases/admin";
 import { logAdminAction } from "@/lib/repositories/events.repo";
 import { MAX_BIO_LENGTH } from "@/lib/profile";
 import { ACCENT_KEYS, type AccentKey } from "@/lib/accent";
-import { LOCALES, type Locale } from "@/lib/i18n/config";
+import { LOCALES, isLocale, type Locale } from "@/lib/i18n/config";
 
 /** User management — admin role only (not judge). */
 export async function requireAdmin() {
@@ -205,11 +205,22 @@ export const updateUserSettingsSchema = z.object({
   avatarUrl: z
     .union([
       z.string().url(),
-      // Inline resized avatar (data:image/...;base64, max ~256 KB)
+      // Inline resized avatar (data:image/...;base64, max ~300 KB)
       z
         .string()
         .regex(/^data:image\/(png|jpe?g|webp);base64,/)
         .max(300_000),
+      z.literal(""),
+    ])
+    .optional(),
+  bannerUrl: z
+    .union([
+      z.string().url(),
+      // Inline resized banner (data:image/...;base64, max ~500 KB — 1500×500 JPEG @ 0.85)
+      z
+        .string()
+        .regex(/^data:image\/(png|jpe?g|webp);base64,/)
+        .max(500_000),
       z.literal(""),
     ])
     .optional(),
@@ -228,10 +239,23 @@ export async function updateUserSettings(input: unknown): Promise<void> {
       displayName: data.displayName,
       bio: data.bio || null,
       avatarUrl: data.avatarUrl === undefined ? undefined : data.avatarUrl || null,
+      bannerUrl: data.bannerUrl === undefined ? undefined : data.bannerUrl || null,
       accent: data.accent as AccentKey,
       locale: data.locale as Locale,
       links: data.links as unknown as Record<string, unknown>[],
     })
+    .where(eq(users.id, user.id));
+}
+
+ /** Updates only the locale preference for the current user. No-op for anonymous visitors. */
+export async function setUserLocale(locale: string): Promise<void> {
+  if (!isLocale(locale)) return;
+  const { getCurrentUser } = await import("@/lib/auth/session");
+  const user = await getCurrentUser();
+  if (!user) return;
+  await db
+    .update(users)
+    .set({ locale: locale as Locale })
     .where(eq(users.id, user.id));
 }
 

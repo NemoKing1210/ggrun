@@ -8,6 +8,7 @@ export const common = {
   create: "Create",
   delete: "Delete",
   apply: "Apply",
+  cancel: "Cancel",
   position: "Position",
   balance: "Balance",
   status: "Status",

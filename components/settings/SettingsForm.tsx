@@ -7,6 +7,7 @@ import { updateUserSettingsAction } from "@/lib/use-cases/user-actions";
 import { useI18n } from "@/lib/i18n/client";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/accent";
+import { ImageCropper } from "@/components/ui/ImageCropper";
 import { Input } from "@/components/ui/Input";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
@@ -22,12 +23,15 @@ type Props = {
   displayName: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  bannerUrl: string | null;
   accent: string | null;
   locale: string | null;
   links: unknown;
 };
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const AVATAR_OUTPUT = { width: 256, height: 256 };
+const BANNER_OUTPUT = { width: 1500, height: 500 };
 
 /** Applies an accent to the document root CSS vars (live preview). */
 function applyAccent(key: AccentKey) {
@@ -38,52 +42,34 @@ function applyAccent(key: AccentKey) {
   root.style.setProperty("--hud-amber-glow", a.glow);
 }
 
-function resizeAvatar(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith("image/")) {
-      reject(new Error("not-an-image"));
-      return;
-    }
-    if (file.size > MAX_AVATAR_BYTES) {
-      reject(new Error("too-large"));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read-failed"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("decode-failed"));
-      img.onload = () => {
-        const SIZE = 128;
-        const canvas = document.createElement("canvas");
-        canvas.width = SIZE;
-        canvas.height = SIZE;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("no-canvas"));
-          return;
-        }
-        // Cover-crop to a square
-        const side = Math.min(img.width, img.height);
-        const sx = (img.width - side) / 2;
-        const sy = (img.height - side) / 2;
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
+function readAsDataUrl(file: File): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result ?? ""));
+  reader.onerror = () => reject(new Error("read-failed"));
+  reader.readAsDataURL(file);
+  return promise;
 }
 
-export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, links }: Props) {
+type CropTarget = "avatar" | "banner";
+
+export function SettingsForm({
+  displayName,
+  bio,
+  avatarUrl,
+  bannerUrl,
+  accent,
+  locale,
+  links,
+}: Props) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(updateUserSettingsAction, {});
 
   const [name, setName] = useState(displayName ?? "");
   const [bioText, setBioText] = useState(bio ?? "");
   const [avatar, setAvatar] = useState(avatarUrl ?? "");
-  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [banner, setBanner] = useState(bannerUrl ?? "");
+  const [imageError, setImageError] = useState<string | null>(null);
   const [accentKey, setAccentKey] = useState<AccentKey>(
     (accent && accent in ACCENTS ? accent : "amber") as AccentKey,
   );
@@ -100,7 +86,11 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
       .slice(0, 6)
       .map((l) => ({ network: l.network as string, url: l.url as string }));
   });
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
+
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<CropTarget | null>(null);
 
   // Apply the user's saved accent on mount (before save).
   useEffect(() => {
@@ -108,22 +98,52 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pickAvatar = (file: File | undefined) => {
-    setAvatarError(null);
+  const openCropper = async (file: File | undefined, target: CropTarget) => {
+    setImageError(null);
     if (!file) return;
-    resizeAvatar(file)
-      .then((dataUrl) => setAvatar(dataUrl))
-      .catch(() => setAvatarError(t.settings.avatarHint));
+    if (!file.type.startsWith("image/")) {
+      setImageError(t.settings.imageInvalid);
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError(t.settings.imageTooLarge);
+      return;
+    }
+    try {
+      const dataUrl = await readAsDataUrl(file);
+      setCropTarget(target);
+      setCropSrc(dataUrl);
+    } catch {
+      setImageError(t.settings.imageInvalid);
+    }
   };
 
-  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    pickAvatar(e.target.files?.[0]);
+  const onAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    void openCropper(e.target.files?.[0], "avatar");
     e.target.value = "";
   };
-
-  const onDrop = (e: React.DragEvent) => {
+  const onBannerPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    void openCropper(e.target.files?.[0], "banner");
+    e.target.value = "";
+  };
+  const onAvatarDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    pickAvatar(e.dataTransfer.files?.[0]);
+    void openCropper(e.dataTransfer.files?.[0], "avatar");
+  };
+  const onBannerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    void openCropper(e.dataTransfer.files?.[0], "banner");
+  };
+
+  const closeCropper = () => {
+    setCropSrc(null);
+    setCropTarget(null);
+  };
+
+  const handleApplyCrop = (dataUrl: string) => {
+    if (cropTarget === "banner") setBanner(dataUrl);
+    else setAvatar(dataUrl);
+    closeCropper();
   };
 
   const setRow = (i: number, patch: Partial<LinkRow>) =>
@@ -135,6 +155,7 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
     formData.set("displayName", name);
     formData.set("bio", bioText);
     formData.set("avatarUrl", avatar);
+    formData.set("bannerUrl", banner);
     formData.set("accent", accentKey);
     formData.set("locale", localeKey);
     formData.set("links", JSON.stringify(rows.filter((r) => r.network && r.url.trim())));
@@ -146,7 +167,7 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
       action={handleSubmit}
       className="flex flex-col gap-6"
       onDragOver={(e) => e.preventDefault()}
-      onDrop={onDrop}
+      onDrop={onAvatarDrop}
     >
       {/* Profile */}
       <section className="hud-card p-5">
@@ -154,6 +175,55 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
           {t.settings.profileHeading}
         </h2>
         <div className="flex flex-col gap-5">
+          {/* Banner (3:1) */}
+          <div className="flex flex-col gap-2">
+            <label className="font-display text-[11px] uppercase tracking-widest text-zinc-400">
+              {t.settings.bannerLabel}
+            </label>
+            <div
+              className="relative w-full overflow-hidden border border-dim/40 bg-raised [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]"
+              style={{ aspectRatio: "3 / 1" }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={onBannerDrop}
+            >
+              {banner ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={banner} alt="" className="size-full object-cover" />
+              ) : (
+                <span className="inline-flex size-full items-center justify-center font-mono text-xs uppercase tracking-widest text-dim">
+                  {t.settings.bannerEmpty}
+                </span>
+              )}
+            </div>
+            <input
+              ref={bannerFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onBannerPick}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => bannerFileRef.current?.click()}
+                className="hud-btn !py-1 !px-3 text-xs"
+              >
+                {t.settings.uploadBanner}
+              </button>
+              {banner ? (
+                <button
+                  type="button"
+                  onClick={() => setBanner("")}
+                  className="hud-btn hud-btn-danger !py-1 !px-3 text-xs"
+                >
+                  {t.settings.removeBanner}
+                </button>
+              ) : null}
+            </div>
+            <p className="text-xs text-zinc-500">{t.settings.bannerHint}</p>
+          </div>
+
+          {/* Avatar + identity */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="flex flex-col items-center gap-2">
               <div className="relative size-24 overflow-hidden border border-dim/40 bg-raised [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -167,16 +237,16 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
                 )}
               </div>
               <input
-                ref={fileRef}
+                ref={avatarFileRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={onPick}
+                onChange={onAvatarPick}
               />
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => fileRef.current?.click()}
+                  onClick={() => avatarFileRef.current?.click()}
                   className="hud-btn !py-1 !px-3 text-xs"
                 >
                   {t.settings.uploadAvatar}
@@ -215,7 +285,7 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
               </Field>
             </div>
           </div>
-          {avatarError && <p className="text-xs text-danger">{avatarError}</p>}
+          {imageError && <p className="text-xs text-danger">{imageError}</p>}
         </div>
       </section>
 
@@ -377,6 +447,29 @@ export function SettingsForm({ displayName, bio, avatarUrl, accent, locale, link
           {pending ? t.core.common.working : t.settings.save}
         </button>
       </div>
+
+      <ImageCropper
+        src={cropSrc}
+        open={cropSrc !== null}
+        aspect={cropTarget === "banner" ? 3 : 1}
+        outputWidth={cropTarget === "banner" ? BANNER_OUTPUT.width : AVATAR_OUTPUT.width}
+        outputHeight={cropTarget === "banner" ? BANNER_OUTPUT.height : AVATAR_OUTPUT.height}
+        labels={{
+          title:
+            cropTarget === "banner" ? t.settings.cropperTitleBanner : t.settings.cropperTitleAvatar,
+          zoom: t.settings.cropperZoom,
+          apply: t.settings.cropperApply,
+          cancel: t.core.common.cancel,
+          working: t.core.common.working,
+          error: t.settings.imageInvalid,
+          hint:
+            cropTarget === "banner"
+              ? t.settings.cropperHintBanner
+              : t.settings.cropperHintAvatar,
+        }}
+        onApply={handleApplyCrop}
+        onClose={closeCropper}
+      />
     </form>
   );
 }

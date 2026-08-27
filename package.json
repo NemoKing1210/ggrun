@@ -23,7 +23,15 @@
       "url": "https://github.com/NemoKing1210/ggrun"
     }
   ],
-  "keywords": ["gaming", "nextjs", "drizzle", "board-game", "hpg", "leaderboard", "seasonal-event"],
+  "keywords": [
+    "gaming",
+    "nextjs",
+    "drizzle",
+    "board-game",
+    "hpg",
+    "leaderboard",
+    "seasonal-event"
+  ],
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
@@ -48,6 +56,7 @@
     "pg": "^8.23.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-easy-crop": "^6.2.3",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"

@@ -11,6 +11,7 @@ export const common: Widen<typeof CoreEn.common> = {
   create: "Створити",
   delete: "Видалити",
   apply: "Застосувати",
+  cancel: "Скасувати",
   position: "Позиція",
   balance: "Баланс",
   status: "Статус",

@@ -10,13 +10,17 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
-- Browser tab titles on every page: `/dashboard`, `/login`, `/register`
-  and all `/admin/*` pages now set a localized `<title>` via
-  `generateMetadata` (previously they fell back to the generic site title
-  from the root layout). Login/register forms were extracted into client
-  components (`components/auth/LoginForm.tsx`, `RegisterForm.tsx`) so their
-  routes can stay server components that own the metadata; admin season
-  pages include the season title in the tab title.
+- Profile banner field (`users.banner_url`, migration `0006`): users can
+  upload a wide header image (3:1, 1500×500) on `/settings`. Shown on the
+  public profile page (`/players/[username]`) above the player header card.
+- Shared `ImageCropper` modal component
+  (`components/ui/ImageCropper.tsx`, built on `react-easy-crop`): the
+  avatar uploader in `/settings` now opens this modal so the user can
+  position and zoom the crop before saving (replaces the old
+  auto-center-square resize). The same component powers the new banner
+  upload with a 3:1 aspect lock. Source images up to 5 MB; output is
+  JPEG at q=0.85, auto-stepping down to q=0.55 and finally half-size
+  to stay under 600 KB.
 - Live season uptime on the landing hero: `SeasonUptime`
   (`components/landing/SeasonUptime.tsx`) shows how long the current season
   has been running (`Dd HH:MM:SS`) and ticks once per second on the client.
@@ -71,6 +75,12 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   throws; added `formInvalid` for non-field-specific zod fallbacks.
 
 ### Fixed
+- Header language switcher now updates the locale for authenticated users as
+  well: `setLocaleAction` (`lib/i18n/actions.ts`) calls a new
+  `setUserLocale` use case (`lib/use-cases/users.ts`) that writes
+  `users.locale`, so the change survives across sessions and devices. The
+  Settings page form continues to write the column on save. Anonymous
+  visitors still get the cookie-only path.
 - Page transition no longer flashes a vertical scrollbar during the entrance
   animation (`hud-page-in` slide offset is negative now) and no longer leaves
   a retained transform on the wrapper, which turned it into the containing
