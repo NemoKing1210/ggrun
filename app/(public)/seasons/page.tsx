@@ -1,9 +1,8 @@
-import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
-import { SeasonCard } from "@/components/seasons/SeasonCard";
 import { getT } from "@/lib/i18n/server";
 import { getActiveSeason, listPublicSeasons, getMainBoard, getBoardCells } from "@/lib/repositories/seasons.repo";
-import { getLeaderboard } from "@/lib/repositories/players.repo";
+import { getLeaderboard, getSeasonStats } from "@/lib/repositories/players.repo";
+import { SeasonsArchiveClient } from "@/components/seasons/SeasonsArchiveClient";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -17,57 +16,41 @@ export default async function SeasonsArchivePage() {
   if (seasons.length === 0) {
     return (
       <PageContainer>
-        <PageHeader title={t.seasons.archiveTitle} />
-        <p className="text-sm text-dim">{t.seasons.archiveDescription}</p>
-        <div className="mt-6">
-          <EmptyState>{t.seasons.archiveEmpty}</EmptyState>
+        <div className="hud-card border-dashed p-8 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+          <p className="font-display text-lg uppercase tracking-wide text-dim">{t.seasons.archiveTitle}</p>
+          <p className="mt-1 text-sm text-zinc-500">{t.seasons.archiveEmpty}</p>
         </div>
       </PageContainer>
     );
   }
 
-  // Fetch stats per season in parallel (participants + cells)
-  const statsList = await Promise.all(
+  const withStats = await Promise.all(
     seasons.map(async (season) => {
-      const [board, leaderboard] = await Promise.all([
+      const [board, leaderboard, stats] = await Promise.all([
         getMainBoard(season.id),
         getLeaderboard(season.id),
+        getSeasonStats(season.id),
       ]);
       const cells = board ? await getBoardCells(board.id) : [];
+      const top = leaderboard[0];
       return {
         season,
-        participants: leaderboard.length,
-        cells: cells.length,
+        stats: {
+          participants: leaderboard.length,
+          cells: cells.length,
+          moves: stats.totalMoves,
+          topPlayerName: top ? (top.displayName ?? top.username) : null,
+          boardCells: cells,
+        },
       };
     }),
   );
 
-  const finishedCount = seasons.filter((s) => s.status === "finished" || s.status === "archived").length;
+  const totalPlayers = withStats.reduce((acc, s) => acc + s.stats.participants, 0);
 
   return (
     <PageContainer>
-      <PageHeader
-        title={t.seasons.archiveTitle}
-        kicker={finishedCount > 0 ? `${finishedCount} ${t.core.nav.seasons.toLowerCase()}` : undefined}
-      />
-      <p className="mb-6 font-mono text-xs uppercase tracking-widest text-dim">
-        {t.seasons.archiveDescription}
-      </p>
-
-      <div className="hazard-tape mb-6" aria-hidden />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {statsList.map(({ season, participants, cells }) => (
-          <SeasonCard
-            key={season.id}
-            season={season}
-            t={t}
-            locale={locale}
-            stats={{ participants, cells }}
-            isCurrent={activeSeason?.id === season.id}
-          />
-        ))}
-      </div>
+      <SeasonsArchiveClient seasons={withStats} activeSeason={activeSeason} totalPlayers={totalPlayers} t={t} locale={locale} />
     </PageContainer>
   );
 }
