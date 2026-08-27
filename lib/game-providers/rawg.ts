@@ -1,6 +1,7 @@
 import type { ExternalGame, GameProvider, ProviderSearchParams } from "./provider";
 import { PLATFORMS } from "@/lib/game-pool/constants";
 import { getEffectiveProviderKeys } from "./keys";
+import { fetchExternal } from "@/lib/external-fetch";
 
 const RAWG_BASE = "https://api.rawg.io/api";
 
@@ -45,7 +46,7 @@ export const rawgProvider: GameProvider = {
     const qs = await buildQuery(filters, pageSize, page);
     const fetchOpts: RequestInit & { next?: { revalidate?: number } } =
       cacheTtlHours === 0 ? { cache: "no-store" } : { next: { revalidate: Math.max(60, cacheTtlHours * 3600) } };
-    const res = await fetch(`${RAWG_BASE}/games?${qs}`, fetchOpts);
+    const res = await fetchExternal(`${RAWG_BASE}/games?${qs}`, fetchOpts);
     if (!res.ok) {
       console.warn(`[rawg] search failed ${res.status}`);
       return [];
@@ -81,7 +82,7 @@ export const rawgProvider: GameProvider = {
     const { rawgApiKey: key } = await getEffectiveProviderKeys();
     if (!key) return null;
     const rawId = id.replace(/^rawg:/, "");
-    const res = await fetch(`${RAWG_BASE}/games/${rawId}?key=${key}`, { next: { revalidate: 3600 } });
+    const res = await fetchExternal(`${RAWG_BASE}/games/${rawId}?key=${key}`, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
     const r = (await res.json()) as {
       id: number;

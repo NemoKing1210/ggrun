@@ -34,15 +34,27 @@ export default async function AdminSettingsPage() {
     igdbClientIdMasked: maskKey((settings as unknown as Record<string, unknown>).igdbClientId as string | null),
     igdbClientSecretMasked: maskKey((settings as unknown as Record<string, unknown>).igdbClientSecret as string | null),
     steamApiKeyMasked: maskKey((settings as unknown as Record<string, unknown>).steamApiKey as string | null),
+    gamespotApiKeyMasked: maskKey((settings as unknown as Record<string, unknown>).gamespotApiKey as string | null),
+    proxyUrlMasked: (() => {
+      const s = settings as unknown as Record<string, unknown>;
+      const dbOn = Boolean(s.proxyEnabled) && Boolean(s.proxyUrl);
+      const dbUrl = typeof s.proxyUrl === "string" ? s.proxyUrl : null;
+      const envUrl = process.env.PROXY_URL ?? null;
+      return maskKey(dbOn && dbUrl ? dbUrl : (envUrl ?? null));
+    })(),
     hasDb: {
       rawg: Boolean((settings as unknown as Record<string, unknown>).rawgApiKey),
       igdb: Boolean((settings as unknown as Record<string, unknown>).igdbClientId && (settings as unknown as Record<string, unknown>).igdbClientSecret),
       steam: Boolean((settings as unknown as Record<string, unknown>).steamApiKey),
+      gamespot: Boolean((settings as unknown as Record<string, unknown>).gamespotApiKey),
+      proxy: Boolean((settings as unknown as Record<string, unknown>).proxyEnabled && (settings as unknown as Record<string, unknown>).proxyUrl),
     },
     hasEnv: {
       rawg: Boolean(process.env.RAWG_API_KEY),
       igdb: Boolean(process.env.IGDB_CLIENT_ID && process.env.IGDB_CLIENT_SECRET),
       steam: Boolean(process.env.STEAM_WEB_API_KEY),
+      gamespot: Boolean(process.env.GAMESPOT_API_KEY),
+      proxy: Boolean(process.env.PROXY_URL),
     },
   };
 

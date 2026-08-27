@@ -1,5 +1,7 @@
 import type { GameProvider } from "./provider";
 import { rawgProvider } from "./rawg";
+import { freetogameProvider } from "./freetogame";
+import { gamespotProvider } from "./gamespot";
 
 const IGDB_PLACEHOLDER: GameProvider = {
   id: "igdb",
@@ -37,6 +39,10 @@ export function getProvider(id: string): GameProvider {
   switch (id) {
     case "rawg":
       return rawgProvider;
+    case "freetogame":
+      return freetogameProvider;
+    case "gamespot":
+      return gamespotProvider;
     case "igdb":
       return IGDB_PLACEHOLDER;
     case "steam":
@@ -46,5 +52,5 @@ export function getProvider(id: string): GameProvider {
   }
 }
 
-export { rawgProvider };
+export { rawgProvider, freetogameProvider, gamespotProvider };
 export type { ExternalGame, GameProvider } from "./provider";

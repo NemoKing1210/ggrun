@@ -59,6 +59,7 @@
     "react-dom": "19.1.0",
     "react-easy-crop": "^6.2.3",
     "tailwind-merge": "^3.6.0",
+    "undici": "^8.10.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"
   },

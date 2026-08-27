@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/format";
 import { AdminError } from "@/lib/use-cases/admin";
 import { makeToError, type ActionState } from "@/lib/use-cases/action-error";
 import {
@@ -13,6 +14,7 @@ import {
   approveUserUseCase,
   rejectUserUseCase,
   resendVerificationUseCase,
+  testProxyUseCase,
 } from "@/lib/use-cases/site-settings";
 import { log } from "@/lib/log";
 
@@ -38,6 +40,14 @@ export async function updateProviderKeysAction(
       igdbClientId: get("igdbClientId"),
       igdbClientSecret: get("igdbClientSecret"),
       steamApiKey: get("steamApiKey"),
+      gamespotApiKey: get("gamespotApiKey"),
+      proxyEnabled: (() => {
+        const v = formData.get("proxyEnabled");
+        if (v === null) return undefined;
+        const s = String(v).toLowerCase();
+        return s === "true" || s === "1" || s === "on" || s === "yes";
+      })(),
+      proxyUrl: get("proxyUrl"),
     });
     revalidatePath("/admin/settings");
     revalidatePath("/admin/games");
@@ -45,6 +55,23 @@ export async function updateProviderKeysAction(
     return { ok: t.admin.siteSettings.saved };
   } catch (e) {
     return await toError(e, "site.provider_keys.update", { actorId: (await getCurrentUser())?.id ?? null });
+  }
+}
+
+export async function testProxyAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const proxyUrl = String(formData.get("proxyUrl") ?? "__USE_CURRENT__");
+    const result = await testProxyUseCase(proxyUrl);
+    const { t } = await getT();
+    if (result.ok) return { ok: t.admin.siteSettings.proxyTestOk };
+    return {
+      error: format(t.admin.siteSettings.proxyTestFail, { detail: result.error ?? "" }),
+    };
+  } catch (e) {
+    return await toError(e, "site.proxy.test", { actorId: (await getCurrentUser())?.id ?? null });
   }
 }
 

@@ -232,6 +232,7 @@ export const errors: Widen<typeof CoreEn.errors> = {
   adminSeasonNotFound: "Сезон не знайдено",
   adminInvalidTransition: "Неприпустимий перехід {from} → {to}",
   adminActiveSeasonExists: "Забіг «{title}» уже активний. Одночасно може тривати лише один забіг — спочатку завершіть або архівуйте його.",
+  proxyUrlInvalid: "URL проксі має починатися з http:// або https://",
   adminPlayerNotFound: "Учасника не знайдено",
   adminSelfBlock: "Не можна блокувати самого себе",
   adminSelfDemote: "Не можна розжалувати самого себе",

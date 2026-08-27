@@ -10,7 +10,13 @@ export type BoardDistribution = "random" | "even" | "clustered" | "manual";
 export type GamePoolSource = "catalog" | "api" | "hybrid";
 
 /** External API provider for hybrid/api modes. */
-export type GameProviderId = "internal" | "rawg" | "igdb" | "steam";
+export type GameProviderId =
+  | "internal"
+  | "rawg"
+  | "igdb"
+  | "steam"
+  | "freetogame"
+  | "gamespot";
 
 /** Filters applied when picking a game (catalog or API). */
 export interface GamePoolFilters {

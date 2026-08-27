@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
   ShieldCheckIcon,
   Cog6ToothIcon,
@@ -22,6 +22,7 @@ import {
 import {
   updateSiteSettingsAction,
   updateProviderKeysAction,
+  testProxyAction,
   createInviteAction,
 } from "@/lib/use-cases/site-settings-actions";
 import { Switch } from "@/components/ui/Switch";
@@ -62,8 +63,10 @@ type ProviderKeysMeta = {
   igdbClientIdMasked: string | null;
   igdbClientSecretMasked: string | null;
   steamApiKeyMasked: string | null;
-  hasDb: { rawg: boolean; igdb: boolean; steam: boolean };
-  hasEnv: { rawg: boolean; igdb: boolean; steam: boolean };
+  gamespotApiKeyMasked: string | null;
+  proxyUrlMasked: string | null;
+  hasDb: { rawg: boolean; igdb: boolean; steam: boolean; gamespot: boolean; proxy: boolean };
+  hasEnv: { rawg: boolean; igdb: boolean; steam: boolean; gamespot: boolean; proxy: boolean };
 };
 
 export function GlobalSettingsForm({
@@ -98,8 +101,23 @@ export function GlobalSettingsForm({
   const [igdbIdInput, setIgdbIdInput] = useState("");
   const [igdbSecretInput, setIgdbSecretInput] = useState("");
   const [steamInput, setSteamInput] = useState("");
-  const [clearFlags, setClearFlags] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false });
-  const [showKeys, setShowKeys] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false });
+  const [gamespotInput, setGameSpotInput] = useState("");
+  const [proxyEnabledInput, setProxyEnabledInput] = useState(
+    providerKeys ? providerKeys.hasDb.proxy || (providerKeys.hasEnv.proxy && !providerKeys.hasDb.proxy) : false,
+  );
+  const [proxyInput, setProxyInput] = useState("");
+  const [clearFlags, setClearFlags] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false, gamespot: false, proxy: false });
+  const [showKeys, setShowKeys] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false, gamespot: false, proxy: false });
+  const [proxyTestMsg, setProxyTestMsg] = useState<{ error?: string; ok?: string } | null>(null);
+  const [proxyTesting, startProxyTest] = useTransition();
+  const runProxyTest = () => {
+    const fd = new FormData();
+    fd.set("proxyUrl", proxyInput.trim() || "__USE_CURRENT__");
+    startProxyTest(async () => {
+      const res = await testProxyAction({}, fd);
+      setProxyTestMsg(res);
+    });
+  };
 
   const copy = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
@@ -119,7 +137,7 @@ export function GlobalSettingsForm({
   ] as const;
 
   const hasAnyProvider = providerKeys
-    ? providerKeys.hasDb.rawg || providerKeys.hasDb.igdb || providerKeys.hasDb.steam || providerKeys.hasEnv.rawg || providerKeys.hasEnv.igdb || providerKeys.hasEnv.steam
+    ? providerKeys.hasDb.rawg || providerKeys.hasDb.igdb || providerKeys.hasDb.steam || providerKeys.hasDb.gamespot || providerKeys.hasEnv.rawg || providerKeys.hasEnv.igdb || providerKeys.hasEnv.steam || providerKeys.hasEnv.gamespot
     : false;
 
   return (
@@ -174,8 +192,8 @@ export function GlobalSettingsForm({
           <div className="min-w-0 flex-1">
             <p className="font-display text-xs uppercase tracking-widest">{s.apiProvidersTitle}</p>
             <p className="text-xs text-zinc-500 truncate">
-              {providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "RAWG ✓" : "RAWG —"} · {providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "IGDB ✓" : "IGDB —"} · {providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "Steam ✓" : "Steam —"}
-              {!hasAnyProvider ? s.noKeysHint : s.hasKeysHint}
+              FreeToGame ✓ (no key) · {providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "RAWG ✓" : "RAWG —"} · {providerKeys.hasDb.gamespot || providerKeys.hasEnv.gamespot ? "GameSpot ✓" : "GameSpot —"} · {providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "IGDB ✓" : "IGDB —"} · {providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "Steam ✓" : "Steam —"}
+              {!hasAnyProvider ? s.noKeysHint : ""}
             </p>
           </div>
           <button type="button" onClick={() => setActiveTab("integrations")} className="hud-btn !py-1 !px-2 text-xs">{s.configureButton}</button>
@@ -377,12 +395,70 @@ export function GlobalSettingsForm({
             <input type="hidden" name="igdbClientId" value={clearFlags.igdbId ? "" : igdbIdInput.trim() ? igdbIdInput.trim() : "__KEEP__"} />
             <input type="hidden" name="igdbClientSecret" value={clearFlags.igdbSecret ? "" : igdbSecretInput.trim() ? igdbSecretInput.trim() : "__KEEP__"} />
             <input type="hidden" name="steamApiKey" value={clearFlags.steam ? "" : steamInput.trim() ? steamInput.trim() : "__KEEP__"} />
+            <input type="hidden" name="gamespotApiKey" value={clearFlags.gamespot ? "" : gamespotInput.trim() ? gamespotInput.trim() : "__KEEP__"} />
+            <input type="hidden" name="proxyEnabled" value={proxyEnabledInput ? "true" : "false"} />
+            <input type="hidden" name="proxyUrl" value={clearFlags.proxy ? "" : proxyInput.trim() ? proxyInput.trim() : "__KEEP__"} />
+
+            {/* Outbound proxy — applies to every provider below */}
+            <div className="border border-amber/20 bg-[#16160f] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2">
+                    <GlobeAltIcon className="size-4 text-amber" /> {s.proxyHeading}
+                    <Badge variant={proxyEnabledInput ? "military" : "dim"} size="sm">{proxyEnabledInput ? s.providerActive : s.providerNotSet}</Badge>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.proxyHint}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-3">
+                <Switch
+                  checked={proxyEnabledInput}
+                  onChange={(v) => { setProxyEnabledInput(v); if (!v) setClearFlags((p) => ({ ...p, proxy: false })); }}
+                  label={s.proxyEnabledLabel}
+                  description={s.proxyEnabledDescription}
+                  variant={proxyEnabledInput ? "military" : "default"}
+                />
+                <Field label={s.proxyUrlLabel}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.proxy ? "text" : "password"}
+                      placeholder={s.proxyUrlPlaceholder}
+                      value={clearFlags.proxy ? "" : proxyInput}
+                      onChange={(e) => { setProxyInput(e.target.value); setClearFlags((p) => ({ ...p, proxy: false })); }}
+                      disabled={!proxyEnabledInput || clearFlags.proxy}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, proxy: !p.proxy }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.proxy ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono text-zinc-500">
+                    {providerKeys.hasDb.proxy ? <span className="text-amber">{s.dbOverride} · {s.sourceLabel} {providerKeys.proxyUrlMasked}</span> : providerKeys.hasEnv.proxy ? <span className="text-military">{s.envLabel} · {s.proxyEnvActive}</span> : <span className="text-dim">{s.proxyInactive}</span>}
+                  </span>
+                  {providerKeys.hasDb.proxy && !clearFlags.proxy && (
+                    <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, proxy: true })); setProxyInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
+                  )}
+                  {clearFlags.proxy && <span className="text-danger">{s.willClearDb}</span>}
+                  <button
+                    type="button"
+                    onClick={runProxyTest}
+                    disabled={proxyTesting}
+                    className="hud-btn !py-1 !px-2 text-xs inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircleIcon className="size-3.5" aria-hidden /> {proxyTesting ? s.proxyTesting : s.proxyTest}
+                  </button>
+                </div>
+                {proxyTestMsg?.ok && <p className="text-xs text-military">✓ {proxyTestMsg.ok}</p>}
+                {proxyTestMsg?.error && <p className="text-xs text-danger" role="alert">{proxyTestMsg.error}</p>}
+              </div>
+            </div>
 
             <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> RAWG <Badge variant={providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "military" : "dim"} size="sm">{providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? s.providerActive : s.providerNotSet}</Badge></p>
-                  <p className="mt-1 text-xs text-zinc-500">{s.freeKeyFrom} <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-amber underline">rawg.io/apidocs</a> · used for catalog search & hybrid pools</p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.freeKeyFrom} <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-amber underline">rawg.io/apidocs</a> · {s.providerUsageHint}</p>
                 </div>
                 {providerKeys.rawgApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.rawgApiKeyMasked}</span>}
               </div>
@@ -489,6 +565,52 @@ export function GlobalSettingsForm({
                   <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, steam: true })); setSteamInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
                 )}
                 {clearFlags.steam && <span className="text-danger">{s.willClearDb}</span>}
+              </div>
+            </div>
+
+            <div className="border border-military/25 bg-military/[0.06] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-military" /> {s.freetogameLabel} <Badge variant="military" size="sm">{s.freetogameBadge}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.freetogameHint}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 border border-military/40 bg-military/10 px-2 py-1 font-mono text-military [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"><CheckCircleIcon className="size-3.5" aria-hidden /> {s.freetogameActive}</span>
+                <span className="font-mono text-zinc-500">{s.freetogameDocs} <a href="https://www.freetogame.com/api-doc" target="_blank" rel="noreferrer" className="text-amber underline">freetogame.com/api-doc</a></span>
+              </div>
+            </div>
+
+            <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> GameSpot <Badge variant={providerKeys.hasDb.gamespot || providerKeys.hasEnv.gamespot ? "military" : "dim"} size="sm">{providerKeys.hasDb.gamespot || providerKeys.hasEnv.gamespot ? s.providerActive : s.providerNotSet}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.freeKeyFrom} <a href="https://www.gamespot.com/api" target="_blank" rel="noreferrer" className="text-amber underline">gamespot.com/api</a> · {s.providerUsageHint}</p>
+                </div>
+                {providerKeys.gamespotApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.gamespotApiKeyMasked}</span>}
+              </div>
+              <div className="mt-3">
+                <Field label={s.gamespotApiKeyLabel}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.gamespot ? "text" : "password"}
+                      placeholder={providerKeys.gamespotApiKeyMasked ? "••••" + providerKeys.gamespotApiKeyMasked.slice(-4) + " — enter new to replace" : "Enter GAMESPOT_API_KEY"}
+                      value={clearFlags.gamespot ? "" : gamespotInput}
+                      onChange={(e) => { setGameSpotInput(e.target.value); setClearFlags((p) => ({ ...p, gamespot: false })); }}
+                      disabled={clearFlags.gamespot}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, gamespot: !p.gamespot }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.gamespot ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-zinc-500">{s.sourceLabel} {providerKeys.hasDb.gamespot ? <span className="text-amber">{s.dbOverride}</span> : providerKeys.hasEnv.gamespot ? <span className="text-military">{s.envLabel}</span> : <span className="text-dim">{s.noneLabel}</span>}</span>
+                {providerKeys.hasDb.gamespot && !clearFlags.gamespot && (
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, gamespot: true })); setGameSpotInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
+                )}
+                {clearFlags.gamespot && <span className="text-danger">{s.willClearDb}</span>}
               </div>
             </div>
 

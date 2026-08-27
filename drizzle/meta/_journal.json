@@ -78,6 +78,20 @@
       "when": 1787871835109,
       "tag": "0010_spicy_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787872441141,
+      "tag": "0011_swift_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787873569579,
+      "tag": "0012_nifty_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

@@ -36,5 +36,7 @@ export function isProviderConfigured(provider: string): boolean {
   if (provider === "rawg") return Boolean(process.env.RAWG_API_KEY);
   if (provider === "igdb") return Boolean(process.env.IGDB_CLIENT_ID && process.env.IGDB_CLIENT_SECRET);
   if (provider === "steam") return Boolean(process.env.STEAM_WEB_API_KEY);
+  if (provider === "gamespot") return Boolean(process.env.GAMESPOT_API_KEY);
+  if (provider === "freetogame") return true; // no key required
   return true; // internal always configured
 }

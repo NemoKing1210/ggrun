@@ -93,8 +93,10 @@ export const GAME_POOL_SOURCES = [
 export const GAME_PROVIDERS = [
   { value: "internal", label: "Internal (catalog)" },
   { value: "rawg", label: "RAWG" },
+  { value: "freetogame", label: "FreeToGame" },
   { value: "igdb", label: "IGDB" },
   { value: "steam", label: "Steam" },
+  { value: "gamespot", label: "GameSpot" },
 ] as const;
 
 export const BOARD_DISTRIBUTIONS = [

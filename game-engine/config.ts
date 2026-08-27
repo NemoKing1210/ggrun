@@ -130,7 +130,9 @@ export const GamePoolCatalogSchema = z.object({
 
 export const GamePoolConfigSchema = z.object({
   source: z.enum(["catalog", "api", "hybrid"]).default(DEFAULT_SEASON_CONFIG.gamePool.source),
-  provider: z.enum(["internal", "rawg", "igdb", "steam"]).default(DEFAULT_SEASON_CONFIG.gamePool.provider),
+  provider: z
+    .enum(["internal", "rawg", "igdb", "steam", "freetogame", "gamespot"])
+    .default(DEFAULT_SEASON_CONFIG.gamePool.provider),
   templateId: z.union([z.string(), z.null()]).default(null),
   filters: GamePoolFiltersSchema.default(DEFAULT_SEASON_CONFIG.gamePool.filters),
   catalog: GamePoolCatalogSchema.default(DEFAULT_SEASON_CONFIG.gamePool.catalog),

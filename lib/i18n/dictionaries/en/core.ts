@@ -235,6 +235,7 @@ export const errors = {
   adminSeasonNotFound: "Season not found",
   adminInvalidTransition: "Invalid status transition {from} → {to}",
   adminActiveSeasonExists: "Another run “{title}” is already active. Only one season can run at a time — finish or archive it first.",
+  proxyUrlInvalid: "Proxy URL must start with http:// or https://",
   adminPlayerNotFound: "Participant not found",
   adminSelfBlock: "You cannot block yourself",
   adminSelfDemote: "You cannot demote yourself",

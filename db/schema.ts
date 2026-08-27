@@ -376,6 +376,10 @@ export const siteSettings = pgTable("site_settings", {
   igdbClientId: text("igdb_client_id"),
   igdbClientSecret: text("igdb_client_secret"),
   steamApiKey: text("steam_api_key"),
+  gamespotApiKey: text("gamespot_api_key"),
+  /** Outbound proxy for external APIs (game providers). DB overrides env PROXY_URL. */
+  proxyEnabled: boolean("proxy_enabled").notNull().default(false),
+  proxyUrl: text("proxy_url"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
 });

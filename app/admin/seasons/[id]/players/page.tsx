@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   BanknotesIcon,
   MapPinIcon,
@@ -53,12 +53,15 @@ export default async function SeasonPlayersPage({
     .select({
       id: users.id,
       username: users.username,
-      inSeason: seasonPlayers.id,
+      inThisSeason: seasonPlayers.id,
     })
     .from(users)
-    .leftJoin(seasonPlayers, eq(seasonPlayers.playerId, users.id));
+    .leftJoin(
+      seasonPlayers,
+      and(eq(seasonPlayers.playerId, users.id), eq(seasonPlayers.seasonId, seasonId)),
+    );
 
-  const candidates = allUsers.filter((u) => u.inSeason === null);
+  const candidates = allUsers.filter((u) => u.inThisSeason === null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,12 +90,11 @@ export default async function SeasonPlayersPage({
           <UserPlusIcon className="h-5 w-5 text-amber" aria-hidden />
           {t.admin.players.addHeading}
         </h2>
-        <p className="mt-1 font-mono text-xs text-dim">{candidates.length} users available to add</p>
+        <p className="mt-1 font-mono text-xs text-dim">{format(t.admin.players.availableCount, { count: candidates.length })}</p>
         <div className="mt-3">
           <FormShell
             action={addPlayerToSeasonAction}
-            submitLabel={t.core.common.add}
-            submitClassName="hud-btn hud-btn-primary inline-flex items-center gap-1.5 !py-2 !px-4 text-xs"
+            hideSubmit
             className="flex flex-col gap-3 sm:flex-row sm:items-end"
           >
             <input type="hidden" name="seasonId" value={seasonId} />

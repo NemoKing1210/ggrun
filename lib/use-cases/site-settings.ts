@@ -36,6 +36,9 @@ export const providerKeysSchema = z.object({
   igdbClientId: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
   igdbClientSecret: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
   steamApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  gamespotApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  proxyEnabled: z.boolean().optional(),
+  proxyUrl: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
 });
 
 export async function getSiteSettingsUseCase() {
@@ -61,10 +64,15 @@ export async function updateProviderKeysUseCase(input: unknown) {
   const actor = await requireAdmin();
   const parsed = providerKeysSchema.parse(input);
   // Normalize: undefined -> do not update, null -> clear, string -> set
-  const patch: Record<string, string | null> = {};
-  for (const k of ["rawgApiKey", "igdbClientId", "igdbClientSecret", "steamApiKey"] as const) {
-    if (parsed[k] !== undefined) patch[k] = parsed[k] ?? null;
+  const patch: Record<string, string | null | boolean> = {};
+  for (const k of ["rawgApiKey", "igdbClientId", "igdbClientSecret", "steamApiKey", "gamespotApiKey"] as const) {
+    if (parsed[k] !== undefined) patch[k] = (parsed[k] ?? null) as string | null;
   }
+  if (parsed.proxyEnabled !== undefined) patch.proxyEnabled = parsed.proxyEnabled;
+  if (parsed.proxyUrl !== undefined) patch.proxyUrl = (parsed.proxyUrl ?? null) as string | null;
+  // Proxy changed through the form -> drop the cached ProxyAgent on next use.
+  const { resetProxyAgent } = await import("@/lib/external-fetch");
+  if (parsed.proxyEnabled !== undefined || parsed.proxyUrl !== undefined) resetProxyAgent();
   const updated = await updateSiteSettings({ ...patch, updatedBy: actor.id } as never);
   await logAdminAction({
     actorId: actor.id,
@@ -152,6 +160,35 @@ export async function rejectUserUseCase(userId: string) {
     targetId: userId,
   });
   log.info("site.user.rejected", { actorId: actor.id, userId });
+}
+
+/** Tests a proxy endpoint by performing a small request to RAWG through it. */
+export async function testProxyUseCase(proxyUrl: string): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  let url = proxyUrl.trim();
+  if (url === "__USE_CURRENT__") {
+    const effective = await (await import("@/lib/external-fetch")).getEffectiveProxy();
+    url = effective.url ?? "";
+  }
+  if (!url) throw new AdminError("proxyUrlInvalid");
+  if (!/^https?:\/\//i.test(url)) throw new AdminError("proxyUrlInvalid");
+  const { ProxyAgent } = await import("undici");
+  const agent = new ProxyAgent(url);
+  try {
+    const res = await fetch("https://api.rawg.io/api/games?page_size=1", {
+      // ignore auth errors — connectivity through the proxy is what matters
+      dispatcher: agent,
+      signal: AbortSignal.timeout(15000),
+    } as RequestInit & { dispatcher?: unknown });
+    if (res.status === 401 || res.status === 200) {
+      return { ok: true };
+    }
+    return { ok: false, error: `proxyTestHttp ${res.status}` };
+  } catch (e) {
+    return { ok: false, error: `proxyTestFailed ${(e as Error).message}` };
+  } finally {
+    agent.close?.().catch(() => undefined);
+  }
 }
 
 // Email verification
