@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FeedList } from "@/components/feed/feed-list";
+import { SeasonUptime } from "@/components/landing/SeasonUptime";
 import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
@@ -47,14 +48,21 @@ export default async function HomePage() {
             <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
           </div>
           {season.startedAt ? (
-            <p className="mt-2 font-mono text-sm text-dim">
-              {t.landing.startedAt}{" "}
-              {new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }).format(season.startedAt)}
-            </p>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 font-mono text-sm text-dim">
+              <p>
+                {t.landing.startedAt}{" "}
+                {new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                }).format(season.startedAt)}
+              </p>
+              <SeasonUptime
+                label={t.landing.uptime}
+                startedAtIso={season.startedAt.toISOString()}
+                initialSeconds={Math.max(0, Math.floor((Date.now() - season.startedAt.getTime()) / 1000))}
+              />
+            </div>
           ) : null}
         </div>
       </section>

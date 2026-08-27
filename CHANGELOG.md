@@ -10,6 +10,11 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- Live season uptime on the landing hero: `SeasonUptime`
+  (`components/landing/SeasonUptime.tsx`) shows how long the current season
+  has been running (`Dd HH:MM:SS`) and ticks once per second on the client.
+  The server-computed elapsed seconds seed the initial state, so there is no
+  hydration mismatch; label is localized (`landing.uptime` in en/ru/uk).
 - Database helper scripts with short `pnpm` aliases: `db:status`
   (connectivity check + server info + per-table row counts), `db:push`,
   `db:generate`, `db:seed`, `db:admin`, `db:reset` (destructive, requires

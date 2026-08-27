@@ -5,6 +5,7 @@ export const landing: Widen<typeof LandingEn.landing> = {
   metaTitle: "GGRun — ігровий забіг",
   currentSeason: "// поточний сезон",
   startedAt: "Старт:",
+  uptime: "У забігу:",
   topHeading: "Топ-5",
   fullTableLink: "вся таблиця →",
   emptyTop: "Учасників ще немає.",

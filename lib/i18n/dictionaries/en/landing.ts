@@ -3,6 +3,7 @@ export const landing = {
   metaTitle: "GGRun — game run",
   currentSeason: "// current season",
   startedAt: "Start:",
+  uptime: "In run:",
   topHeading: "Top 5",
   fullTableLink: "full table →",
   emptyTop: "No participants yet.",
