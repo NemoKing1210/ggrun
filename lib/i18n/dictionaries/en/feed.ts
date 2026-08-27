@@ -2,7 +2,9 @@
 export const feed = {
   metaTitle: "Feed — GGRun",
   pageTitle: "Event feed",
+  kicker: "live log",
   empty: "No events yet — the season is just getting started.",
+  emptyHint: "Rolls, moves and joins will appear here in real time.",
   fallbackPlayer: "Player",
   unknownTitle: "???",
   actions: {
@@ -18,4 +20,22 @@ export const feed = {
   adminAdjustmentPrefix: "Administrative adjustment for ",
   adminAdjustmentReason: ": {reason}",
   defaultEvent: "Event: {type}",
+  filters: {
+    all: "All",
+    rolled: "Rolls",
+    passed: "Passes",
+    dropped: "Drops",
+    moved: "Moves",
+    joined: "Joins",
+    system: "System",
+  },
+  live: "LIVE",
+  today: "Today",
+  yesterday: "Yesterday",
+  noFilterResults: "No events match this filter.",
+  clearFilter: "Clear filter",
+  stats: {
+    events: "events",
+    players: "active players",
+  },
 } as const;

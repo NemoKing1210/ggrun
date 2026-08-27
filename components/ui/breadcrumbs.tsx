@@ -13,8 +13,18 @@ function getLabel(
   segments: string[],
   t: Dictionary,
 ): string {
-  const key = segment.toLowerCase();
   const prev = segments[index - 1]?.toLowerCase();
+  // Username segment after /players/ — must win over reserved keywords like "admin", "board", etc.
+  if (prev === "players") {
+    let decoded = segment;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      // keep raw
+    }
+    return `@${decoded}`;
+  }
+  const key = segment.toLowerCase();
 
   switch (key) {
     case "admin": {
@@ -64,12 +74,9 @@ function getLabel(
       }
 
       // UUID-like season id — shorten to keep breadcrumbs compact
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded)) {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded)) {
         return `${decoded.slice(0, 8)}…`;
       }
-
-      // username segment after /players/
-      if (prev === "players") return `@${decoded}`;
 
       // keep slug as-is (run-1, my-season etc.); avoid replacing hyphens
       return decoded;

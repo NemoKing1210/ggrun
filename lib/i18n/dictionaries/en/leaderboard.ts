@@ -11,4 +11,18 @@ export const leaderboard = {
     streaks: "Streaks",
     status: "Status",
   },
+  kicker: "standings",
+  champion: "Champion",
+  runnerUp: "Runner-up",
+  thirdPlace: "Third place",
+  progress: "Progress",
+  cellLabel: "cell",
+  viewProfile: "Profile",
+  stats: {
+    leader: "Leader",
+    contenders: "Contenders",
+    total: "Total players",
+    boardSize: "Board size",
+  },
+  emptyHint: "Join the season to appear here when it starts.",
 } as const;

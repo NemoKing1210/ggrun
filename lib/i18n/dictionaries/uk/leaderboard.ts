@@ -13,4 +13,18 @@ export const leaderboard: Widen<typeof LeaderboardEn.leaderboard> = {
     streaks: "Стрики",
     status: "Статус",
   },
+  kicker: "таблиця",
+  champion: "Чемпіон",
+  runnerUp: "Друге місце",
+  thirdPlace: "Третє місце",
+  progress: "Прогрес",
+  cellLabel: "клітинка",
+  viewProfile: "Профіль",
+  stats: {
+    leader: "Лідер",
+    contenders: "Претенденти",
+    total: "Всього гравців",
+    boardSize: "Розмір поля",
+  },
+  emptyHint: "Долучайтесь до сезону, щоб зʼявитися тут.",
 };

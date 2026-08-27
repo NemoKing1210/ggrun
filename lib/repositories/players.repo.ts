@@ -17,6 +17,9 @@ export type LeaderboardRow = SeasonPlayer & {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  links: unknown;
 };
 
 const leaderboardSelection = {
@@ -24,6 +27,9 @@ const leaderboardSelection = {
   username: users.username,
   displayName: users.displayName,
   avatarUrl: users.avatarUrl,
+  bannerUrl: users.bannerUrl,
+  bio: users.bio,
+  links: users.links,
 } as const;
 
 function flattenLeaderboardRows(
@@ -32,6 +38,9 @@ function flattenLeaderboardRows(
     username: string;
     displayName: string | null;
     avatarUrl: string | null;
+    bannerUrl: string | null;
+    bio: string | null;
+    links: unknown;
   }>,
 ): LeaderboardRow[] {
   return rows.map((r) => ({
@@ -39,6 +48,9 @@ function flattenLeaderboardRows(
     username: r.username,
     displayName: r.displayName,
     avatarUrl: r.avatarUrl,
+    bannerUrl: r.bannerUrl,
+    bio: r.bio,
+    links: r.links,
   }));
 }
 
@@ -145,6 +157,7 @@ export async function getPlayerLedger(
 export type FeedRow = typeof eventLog.$inferSelect & {
   username: string | null;
   displayName: string | null;
+  avatarUrl: string | null;
 };
 
 export async function getEventFeed(
@@ -156,6 +169,7 @@ export async function getEventFeed(
       entry: eventLog,
       username: users.username,
       displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
     })
     .from(eventLog)
     .leftJoin(seasonPlayers, eq(seasonPlayers.id, eventLog.seasonPlayerId))
@@ -167,6 +181,7 @@ export async function getEventFeed(
     ...r.entry,
     username: r.username,
     displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
   }));
 }
 

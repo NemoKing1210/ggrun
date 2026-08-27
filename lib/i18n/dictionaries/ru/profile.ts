@@ -2,6 +2,19 @@ import type * as ProfileEn from "../en/profile";
 import type { Widen } from "@/lib/i18n/widen";
 
 export const profile: Widen<typeof ProfileEn.profile> = {
+  listing: {
+    metaTitle: "Игроки — GGRun",
+    title: "Игроки",
+    kicker: "состав",
+    description: "Все зарегистрированные бойцы — найдите тиммейтов, соперников и легенд.",
+    searchPlaceholder: "Поиск по имени или нику…",
+    roleAll: "Все роли",
+    count: "{count} бойцов",
+    empty: "Никого не нашли по вашему запросу.",
+    emptyHint: "Попробуйте другое имя или сбросьте фильтры.",
+    viewProfile: "Профиль",
+    joined: "С нами с {date}",
+  },
   metaTitle: "@{username} — GGRun",
   streak: "стрик",
   balance: "баланс",

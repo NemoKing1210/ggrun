@@ -4,7 +4,9 @@ import type { Widen } from "@/lib/i18n/widen";
 export const feed: Widen<typeof FeedEn.feed> = {
   metaTitle: "Стрічка — GGRun",
   pageTitle: "Стрічка подій",
+  kicker: "прямий ефір",
   empty: "Подій поки немає — сезон тільки починається.",
+  emptyHint: "Роли, ходи та вступи зʼявляться тут у реальному часі.",
   fallbackPlayer: "Гравець",
   unknownTitle: "???",
   actions: {
@@ -20,4 +22,22 @@ export const feed: Widen<typeof FeedEn.feed> = {
   adminAdjustmentPrefix: "Адміністративне коригування для ",
   adminAdjustmentReason: ": {reason}",
   defaultEvent: "Подія: {type}",
+  filters: {
+    all: "Всі",
+    rolled: "Роли",
+    passed: "Паси",
+    dropped: "Дропи",
+    moved: "Ходи",
+    joined: "Вступи",
+    system: "Система",
+  },
+  live: "LIVE",
+  today: "Сьогодні",
+  yesterday: "Вчора",
+  noFilterResults: "Немає подій за цим фільтром.",
+  clearFilter: "Скинути фільтр",
+  stats: {
+    events: "подій",
+    players: "активних гравців",
+  },
 };

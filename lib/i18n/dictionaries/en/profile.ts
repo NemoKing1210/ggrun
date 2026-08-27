@@ -1,5 +1,18 @@
-/** Public player profile (/players/<username>). */
+/** Public player profile (/players/<username>) + roster (/players). */
 export const profile = {
+  listing: {
+    metaTitle: "Players — GGRun",
+    title: "Players",
+    kicker: "roster",
+    description: "All registered operatives — find teammates, rivals and legends.",
+    searchPlaceholder: "Search by name or username…",
+    roleAll: "All roles",
+    count: "{count} operatives",
+    empty: "No players match your search.",
+    emptyHint: "Try a different name or clear filters.",
+    viewProfile: "View profile",
+    joined: "Joined {date}",
+  },
   metaTitle: "@{username} — GGRun",
   streak: "streak",
   balance: "balance",
