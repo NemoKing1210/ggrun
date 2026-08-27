@@ -64,6 +64,8 @@ export const auth: Widen<typeof CoreEn.auth> = {
   signIn: "Войти",
   signingIn: "Входим…",
   registerTitle: "Регистрация",
+  loginMetaTitle: "Вход — GGRun",
+  registerMetaTitle: "Регистрация — GGRun",
   email: "Email",
   displayName: "Отображаемое имя",
   createAccount: "Создать аккаунт",
@@ -81,6 +83,7 @@ export const auth: Widen<typeof CoreEn.auth> = {
 /** Player dashboard (/dashboard). */
 export const dashboard: Widen<typeof CoreEn.dashboard> = {
   heading: "Штаб игрока",
+  metaTitle: "Дашборд — GGRun",
   seasonLine: "{season} · {player}",
   statsAria: "Показатели участника",
   statPosition: "Позиция",

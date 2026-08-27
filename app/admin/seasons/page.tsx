@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -17,6 +18,11 @@ const statusFlow: Record<string, string[]> = {
   finished: ["archived"],
   archived: [],
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.seasons} — GGRun` };
+}
 
 export default async function AdminPage() {
   const user = await getCurrentUser();

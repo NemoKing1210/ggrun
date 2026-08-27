@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { count, sql } from "drizzle-orm";
 
@@ -12,6 +13,11 @@ import {
 } from "@/db/schema";
 import { getActiveSeason } from "@/lib/repositories/seasons.repo";
 import { getT } from "@/lib/i18n/server";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.console} — GGRun` };
+}
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (

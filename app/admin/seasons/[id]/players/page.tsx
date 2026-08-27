@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 
@@ -15,6 +16,18 @@ import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 
 const playerStatuses = ["active", "finished", "eliminated", "withdrawn"] as const;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { t } = await getT();
+  const season = await getSeasonById(id);
+  const base = season ? season.title : t.admin.nav.seasons;
+  return { title: `${base} · ${t.core.breadcrumbs.players}` };
+}
 
 export default async function SeasonPlayersPage({
   params,

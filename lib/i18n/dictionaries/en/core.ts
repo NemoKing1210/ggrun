@@ -74,11 +74,14 @@ export const auth = {
   devAsAdmin: "Login as admin",
   devAsPlayer: "Login as player",
   loginPlaceholder: "player / email",
+  loginMetaTitle: "Log in — GGRun",
+  registerMetaTitle: "Sign up — GGRun",
 } as const;
 
 /** Player dashboard (/dashboard). */
 export const dashboard = {
   heading: "Player HQ",
+  metaTitle: "Dashboard — GGRun",
   seasonLine: "{season} · {player}",
   statsAria: "Player stats",
   statPosition: "Position",

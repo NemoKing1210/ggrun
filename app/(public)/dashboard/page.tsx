@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import RollCard from "@/components/dashboard/RollCard";
@@ -30,6 +31,11 @@ function StatTile({ label, value, accent }: { label: string; value: string; acce
       </div>
     </div>
   );
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t.core.dashboard.metaTitle };
 }
 
 export default async function DashboardPage() {

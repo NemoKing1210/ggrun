@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
@@ -6,6 +7,11 @@ import { approveRerollAction, rejectRerollAction } from "@/lib/use-cases/admin-a
 import { FormShell } from "@/components/admin/FormShell";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.rerolls} — GGRun` };
+}
 
 export default async function AdminRerollsPage() {
   const { t } = await getT();

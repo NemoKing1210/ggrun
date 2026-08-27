@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
@@ -7,6 +8,18 @@ import { FormShell } from "@/components/admin/FormShell";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { t } = await getT();
+  const season = await getSeasonById(id);
+  const base = season ? season.title : t.admin.nav.seasons;
+  return { title: `${base} · ${t.board.pageTitle}` };
+}
 
 const cellTypes = [
   "normal",

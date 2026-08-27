@@ -10,6 +10,13 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- Browser tab titles on every page: `/dashboard`, `/login`, `/register`
+  and all `/admin/*` pages now set a localized `<title>` via
+  `generateMetadata` (previously they fell back to the generic site title
+  from the root layout). Login/register forms were extracted into client
+  components (`components/auth/LoginForm.tsx`, `RegisterForm.tsx`) so their
+  routes can stay server components that own the metadata; admin season
+  pages include the season title in the tab title.
 - Live season uptime on the landing hero: `SeasonUptime`
   (`components/landing/SeasonUptime.tsx`) shows how long the current season
   has been running (`Dd HH:MM:SS`) and ticks once per second on the client.

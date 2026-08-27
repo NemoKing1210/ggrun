@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -13,6 +14,11 @@ import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
 const roles = ["admin", "judge", "player", "viewer"] as const;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.users} — GGRun` };
+}
 
 export default async function AdminUsersPage({
   searchParams,

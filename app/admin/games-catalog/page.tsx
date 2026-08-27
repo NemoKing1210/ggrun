@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { listCatalogGames } from "@/lib/repositories/games.repo";
 import { getT } from "@/lib/i18n/server";
 import GamesCatalogManager from "@/components/admin/GamesCatalogManager";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.catalog} — GGRun` };
+}
 
 export default async function GamesCatalogPage() {
   const user = await getCurrentUser();

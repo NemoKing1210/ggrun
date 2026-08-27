@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { adminAuditLog, users } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/config";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.admin.nav.audit} — GGRun` };
+}
 
 const dateLocales: Record<Locale, string> = {
   en: "en-US",
