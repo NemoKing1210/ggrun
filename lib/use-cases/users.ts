@@ -187,15 +187,25 @@ export async function adminDeleteUser(userId: string): Promise<void> {
 
 // --- Self-service settings -------------------------------------------------
 
-import { NETWORKS, type Network } from "@/lib/networks";
+import { NETWORKS, isValidUrlForNetwork, type Network } from "@/lib/networks";
 export type { Network };
 
 export const userLinksSchema = z
   .array(
-    z.object({
-      network: z.enum(NETWORKS),
-      url: z.string().url().max(500),
-    }),
+    z
+      .object({
+        network: z.enum(NETWORKS),
+        url: z.string().url().max(500),
+      })
+      .superRefine((val, ctx) => {
+        if (!isValidUrlForNetwork(val.network as Network, val.url)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["url"],
+            message: `URL must be a ${val.network} link`,
+          });
+        }
+      }),
   )
   .max(6);
 

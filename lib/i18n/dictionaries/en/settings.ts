@@ -38,6 +38,7 @@ export const settings = {
   urlPlaceholder: "https://…",
   addLink: "Add link",
   removeLink: "Remove",
+  linkUrlMismatch: "URL must be a {network} link",
   network: {
     twitch: "Twitch",
     steam: "Steam",

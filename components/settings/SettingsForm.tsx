@@ -14,8 +14,9 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 import { DebugError } from "@/components/ui/DebugError";
-import { NETWORKS } from "@/lib/networks";
+import { NETWORKS, isValidUrlForNetwork, type Network as NetworkType } from "@/lib/networks";
 import { MAX_BIO_LENGTH } from "@/lib/profile";
+import { format } from "@/lib/i18n/format";
 
 type LinkRow = { network: string; url: string };
 
@@ -70,6 +71,7 @@ export function SettingsForm({
   const [avatar, setAvatar] = useState(avatarUrl ?? "");
   const [banner, setBanner] = useState(bannerUrl ?? "");
   const [imageError, setImageError] = useState<string | null>(null);
+  const [linksError, setLinksError] = useState<string | null>(null);
   const [accentKey, setAccentKey] = useState<AccentKey>(
     (accent && accent in ACCENTS ? accent : "amber") as AccentKey,
   );
@@ -146,12 +148,26 @@ export function SettingsForm({
     closeCropper();
   };
 
-  const setRow = (i: number, patch: Partial<LinkRow>) =>
+  const setRow = (i: number, patch: Partial<LinkRow>) => {
+    setLinksError(null);
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  };
 
-  const removeRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
-
+  const removeRow = (i: number) => {
+    setLinksError(null);
+    setRows((rs) => rs.filter((_, j) => j !== i));
+  };
   const handleSubmit = (formData: FormData) => {
+    const invalid = rows.find(
+      (r) => r.url.trim() && !isValidUrlForNetwork(r.network as NetworkType, r.url),
+    );
+    if (invalid) {
+      const label =
+        t.settings.network[invalid.network as keyof typeof t.settings.network] ?? invalid.network;
+      setLinksError(format(t.settings.linkUrlMismatch, { network: label }));
+      return;
+    }
+    setLinksError(null);
     formData.set("displayName", name);
     formData.set("bio", bioText);
     formData.set("avatarUrl", avatar);
@@ -378,39 +394,55 @@ export function SettingsForm({
           <p className="mt-4 text-sm text-zinc-500">{t.settings.linksHint}</p>
         ) : (
           <div className="mt-4 flex flex-col gap-2">
-            {rows.map((row, i) => (
-              <div key={i} className="grid grid-cols-[8rem_1fr_auto] items-end gap-2">
-                <Field label={t.settings.networkLabel}>
-                  <Select
-                    value={row.network}
-                    onChange={(e) => setRow(i, { network: e.target.value })}
+            {rows.map((row, i) => {
+              const mismatch =
+                row.url.trim() && !isValidUrlForNetwork(row.network as NetworkType, row.url);
+              const mismatchMsg = mismatch
+                ? format(t.settings.linkUrlMismatch, {
+                    network:
+                      t.settings.network[row.network as keyof typeof t.settings.network] ??
+                      row.network,
+                  })
+                : undefined;
+              return (
+                <div key={i} className="grid grid-cols-[8rem_1fr_auto] items-end gap-2">
+                  <Field label={t.settings.networkLabel}>
+                    <Select
+                      value={row.network}
+                      onChange={(e) => setRow(i, { network: e.target.value })}
+                    >
+                      {NETWORKS.map((n) => (
+                        <option key={n} value={n}>
+                          {t.settings.network[n]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label={t.settings.urlLabel} error={mismatchMsg}>
+                    <Input
+                      type="url"
+                      value={row.url}
+                      onChange={(e) => setRow(i, { url: e.target.value })}
+                      placeholder={t.settings.urlPlaceholder}
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    className="hud-btn hud-btn-danger !px-2 !py-2"
+                    aria-label={t.settings.removeLink}
                   >
-                    {NETWORKS.map((n) => (
-                      <option key={n} value={n}>
-                        {t.settings.network[n]}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label={t.settings.urlLabel}>
-                  <Input
-                    type="url"
-                    value={row.url}
-                    onChange={(e) => setRow(i, { url: e.target.value })}
-                    placeholder={t.settings.urlPlaceholder}
-                  />
-                </Field>
-                <button
-                  type="button"
-                  onClick={() => removeRow(i)}
-                  className="hud-btn hud-btn-danger !px-2 !py-2"
-                  aria-label={t.settings.removeLink}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
+        )}
+        {linksError && (
+          <p className="mt-3 text-xs text-danger" role="alert">
+            {linksError}
+          </p>
         )}
         <div className="mt-3 flex flex-wrap gap-1.5">
           {rows

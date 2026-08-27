@@ -38,6 +38,7 @@ export const settings = {
   urlPlaceholder: "https://…",
   addLink: "Додати посилання",
   removeLink: "Видалити",
+  linkUrlMismatch: "Посилання має вести на {network}",
   network: {
     twitch: "Twitch",
     steam: "Steam",

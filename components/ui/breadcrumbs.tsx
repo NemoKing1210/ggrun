@@ -53,6 +53,8 @@ function getLabel(
       return t.admin.nav.audit;
     case "rerolls":
       return t.admin.nav.rerolls;
+    case "settings":
+      return t.settings.heading;
     default: {
       let decoded = segment;
       try {
