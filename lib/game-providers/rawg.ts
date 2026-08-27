@@ -1,12 +1,13 @@
 import type { ExternalGame, GameProvider, ProviderSearchParams } from "./provider";
 import { PLATFORMS } from "@/lib/game-pool/constants";
+import { getEffectiveProviderKeys } from "./keys";
 
 const RAWG_BASE = "https://api.rawg.io/api";
 
-function buildQuery(filters: ProviderSearchParams["filters"], pageSize: number, page: number): string {
+async function buildQuery(filters: ProviderSearchParams["filters"], pageSize: number, page: number): Promise<string> {
   const p = new URLSearchParams();
-  const key = process.env.RAWG_API_KEY;
-  if (key) p.set("key", key);
+  const { rawgApiKey } = await getEffectiveProviderKeys();
+  if (rawgApiKey) p.set("key", rawgApiKey);
   p.set("page_size", String(pageSize));
   p.set("page", String(page));
   if (filters.genres.length) p.set("genres", filters.genres.join(","));
@@ -36,12 +37,12 @@ function buildQuery(filters: ProviderSearchParams["filters"], pageSize: number, 
 export const rawgProvider: GameProvider = {
   id: "rawg",
   async search({ filters, pageSize = 20, page = 1 }): Promise<ExternalGame[]> {
-    const key = process.env.RAWG_API_KEY;
+    const { rawgApiKey: key } = await getEffectiveProviderKeys();
     if (!key) {
-      // mock fallback when no key is configured — return empty and caller will fallback
+      // no key configured — caller will fallback to catalog
       return [];
     }
-    const qs = buildQuery(filters, pageSize, page);
+    const qs = await buildQuery(filters, pageSize, page);
     const res = await fetch(`${RAWG_BASE}/games?${qs}`, { next: { revalidate: 3600 } });
     if (!res.ok) {
       console.warn(`[rawg] search failed ${res.status}`);
@@ -75,7 +76,7 @@ export const rawgProvider: GameProvider = {
     }));
   },
   async getById(id: string): Promise<ExternalGame | null> {
-    const key = process.env.RAWG_API_KEY;
+    const { rawgApiKey: key } = await getEffectiveProviderKeys();
     if (!key) return null;
     const rawId = id.replace(/^rawg:/, "");
     const res = await fetch(`${RAWG_BASE}/games/${rawId}?key=${key}`, { next: { revalidate: 3600 } });

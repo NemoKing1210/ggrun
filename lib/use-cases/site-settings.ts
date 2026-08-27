@@ -31,6 +31,13 @@ export const siteSettingsSchema = z.object({
   maintenanceMode: z.boolean(),
 });
 
+export const providerKeysSchema = z.object({
+  rawgApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  igdbClientId: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  igdbClientSecret: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  steamApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+});
+
 export async function getSiteSettingsUseCase() {
   return getSiteSettings();
 }
@@ -47,6 +54,26 @@ export async function updateSiteSettingsUseCase(input: unknown) {
     payload: parsed as Record<string, unknown>,
   });
   log.info("site.settings.updated", { actorId: actor.id, ...parsed });
+  return updated;
+}
+
+export async function updateProviderKeysUseCase(input: unknown) {
+  const actor = await requireAdmin();
+  const parsed = providerKeysSchema.parse(input);
+  // Normalize: undefined -> do not update, null -> clear, string -> set
+  const patch: Record<string, string | null> = {};
+  for (const k of ["rawgApiKey", "igdbClientId", "igdbClientSecret", "steamApiKey"] as const) {
+    if (parsed[k] !== undefined) patch[k] = parsed[k] ?? null;
+  }
+  const updated = await updateSiteSettings({ ...patch, updatedBy: actor.id } as never);
+  await logAdminAction({
+    actorId: actor.id,
+    actionType: "provider_keys_updated",
+    targetType: "site_settings",
+    targetId: updated.id,
+    payload: { keys: Object.keys(patch) },
+  });
+  log.info("site.provider_keys.updated", { actorId: actor.id, keys: Object.keys(patch) });
   return updated;
 }
 

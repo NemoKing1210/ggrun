@@ -27,8 +27,8 @@ export interface GameProvider {
 }
 
 /**
- * Totally free key to read RAWG API would normally be in RAWG_API_KEY.
- * When not present we transparently fall back to mock/local data.
+ * Sync check against env only (used at build-time). For request-time DB-aware
+ * check use isProviderConfiguredAsync from ./keys.
  */
 export function isProviderConfigured(provider: string): boolean {
   if (provider === "rawg") return Boolean(process.env.RAWG_API_KEY);

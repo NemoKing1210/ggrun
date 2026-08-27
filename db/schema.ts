@@ -360,6 +360,11 @@ export const siteSettings = pgTable("site_settings", {
   registrationEnabled: boolean("registration_enabled").notNull().default(true),
   registrationMode: registrationModeEnum("registration_mode").notNull().default("open"),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  // External game provider API keys — DB overrides env when set. Null/empty means fallback to env.
+  rawgApiKey: text("rawg_api_key"),
+  igdbClientId: text("igdb_client_id"),
+  igdbClientSecret: text("igdb_client_secret"),
+  steamApiKey: text("steam_api_key"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
 });

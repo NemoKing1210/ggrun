@@ -13,11 +13,21 @@ import {
   ExclamationTriangleIcon,
   ClipboardDocumentIcon,
   TrashIcon,
+  KeyIcon,
+  GlobeAltIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 
-import { updateSiteSettingsAction, createInviteAction } from "@/lib/use-cases/site-settings-actions";
+import {
+  updateSiteSettingsAction,
+  updateProviderKeysAction,
+  createInviteAction,
+} from "@/lib/use-cases/site-settings-actions";
 import { Switch } from "@/components/ui/Switch";
 import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
+import { Field } from "@/components/ui/Field";
 import { DebugError } from "@/components/ui/DebugError";
 import { format } from "@/lib/i18n/format";
 
@@ -47,14 +57,25 @@ type PendingUser = {
   createdAt: string;
 };
 
+type ProviderKeysMeta = {
+  rawgApiKeyMasked: string | null;
+  igdbClientIdMasked: string | null;
+  igdbClientSecretMasked: string | null;
+  steamApiKeyMasked: string | null;
+  hasDb: { rawg: boolean; igdb: boolean; steam: boolean };
+  hasEnv: { rawg: boolean; igdb: boolean; steam: boolean };
+};
+
 export function GlobalSettingsForm({
   initial,
+  providerKeys,
   invites,
   pending,
   t,
   baseUrl,
 }: {
   initial: Settings;
+  providerKeys?: ProviderKeysMeta;
   invites: Invite[];
   pending: PendingUser[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,11 +86,20 @@ export function GlobalSettingsForm({
   const [registrationEnabled, setRegistrationEnabled] = useState(initial.registrationEnabled);
   const [registrationMode, setRegistrationMode] = useState<Settings["registrationMode"]>(initial.registrationMode);
   const [maintenanceMode, setMaintenanceMode] = useState(initial.maintenanceMode);
-  const [activeTab, setActiveTab] = useState<"general" | "registration" | "invites" | "pending">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "registration" | "invites" | "pending" | "integrations">("general");
   const [copied, setCopied] = useState<string | null>(null);
 
   const [state, formAction, pendingAction] = useActionState(updateSiteSettingsAction, {});
   const [inviteState, inviteAction, invitePending] = useActionState(createInviteAction, {});
+
+  // Provider keys form
+  const [providerState, providerFormAction, providerPending] = useActionState(updateProviderKeysAction, {});
+  const [rawgInput, setRawgInput] = useState("");
+  const [igdbIdInput, setIgdbIdInput] = useState("");
+  const [igdbSecretInput, setIgdbSecretInput] = useState("");
+  const [steamInput, setSteamInput] = useState("");
+  const [clearFlags, setClearFlags] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false });
+  const [showKeys, setShowKeys] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false });
 
   const copy = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
@@ -83,9 +113,14 @@ export function GlobalSettingsForm({
   const tabs = [
     { id: "general", label: s.tabs.general, icon: Cog6ToothIcon },
     { id: "registration", label: s.tabs.registration, icon: UserPlusIcon },
+    { id: "integrations", label: s.tabs?.integrations ?? "Integrations", icon: KeyIcon },
     { id: "invites", label: s.tabs.invites, icon: LinkIcon },
     { id: "pending", label: `${s.tabs.pending} ${pending.length ? `(${pending.length})` : ""}`, icon: ClockIcon },
   ] as const;
+
+  const hasAnyProvider = providerKeys
+    ? providerKeys.hasDb.rawg || providerKeys.hasDb.igdb || providerKeys.hasDb.steam || providerKeys.hasEnv.rawg || providerKeys.hasEnv.igdb || providerKeys.hasEnv.steam
+    : false;
 
   return (
     <div className="flex flex-col gap-6">
@@ -131,6 +166,21 @@ export function GlobalSettingsForm({
           </div>
         </div>
       </div>
+      {providerKeys && (
+        <div className={`hud-card p-3 flex items-center gap-3 ${hasAnyProvider ? "border-amber/20 bg-amber/5" : "border-[#3d3d34] bg-raised/20"}`}>
+          <div className="size-8 flex items-center justify-center border border-amber/30 bg-amber/10 text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+            <GlobeAltIcon className="size-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-xs uppercase tracking-widest">API Providers</p>
+            <p className="text-xs text-zinc-500 truncate">
+              {providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "RAWG ✓" : "RAWG —"} · {providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "IGDB ✓" : "IGDB —"} · {providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "Steam ✓" : "Steam —"}
+              {!hasAnyProvider ? " — no keys configured, catalog search disabled" : " — catalog search uses configured providers"}
+            </p>
+          </div>
+          <button type="button" onClick={() => setActiveTab("integrations")} className="hud-btn !py-1 !px-2 text-xs">Configure</button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1.5 border-b border-[#3d3d34] pb-1">
@@ -307,6 +357,157 @@ export function GlobalSettingsForm({
             {state.ok && <p className="text-sm text-military">✓ {state.ok}</p>}
             <button type="submit" className="hud-btn hud-btn-primary self-start" disabled={pendingAction}>
               {pendingAction ? "Saving…" : s.saveButton}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* INTEGRATIONS */}
+      {activeTab === "integrations" && providerKeys && (
+        <section className="hud-card p-5 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+          <div className="flex items-center gap-2">
+            <KeyIcon className="size-5 text-amber" aria-hidden />
+            <h2 className="font-display text-sm uppercase tracking-widest">{s.integrationsHeading ?? "API Integrations"}</h2>
+            <Badge variant="dim" size="sm" className="ml-2 font-mono">{hasAnyProvider ? "configured" : "empty"}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">{s.integrationsHint ?? "Add API keys for RAWG / IGDB / Steam. DB values override .env. Only configured providers appear in Games → Search."}</p>
+
+          <form action={providerFormAction} className="mt-6 flex flex-col gap-5">
+            <input type="hidden" name="rawgApiKey" value={clearFlags.rawg ? "" : rawgInput.trim() ? rawgInput.trim() : "__KEEP__"} />
+            <input type="hidden" name="igdbClientId" value={clearFlags.igdbId ? "" : igdbIdInput.trim() ? igdbIdInput.trim() : "__KEEP__"} />
+            <input type="hidden" name="igdbClientSecret" value={clearFlags.igdbSecret ? "" : igdbSecretInput.trim() ? igdbSecretInput.trim() : "__KEEP__"} />
+            <input type="hidden" name="steamApiKey" value={clearFlags.steam ? "" : steamInput.trim() ? steamInput.trim() : "__KEEP__"} />
+
+            <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> RAWG <Badge variant={providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "military" : "dim"} size="sm">{providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "active" : "not set"}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">Free key from <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-amber underline">rawg.io/apidocs</a> · used for catalog search & hybrid pools</p>
+                </div>
+                {providerKeys.rawgApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.rawgApiKeyMasked}</span>}
+              </div>
+              <div className="mt-3">
+                <Field label={s.rawgApiKeyLabel ?? "RAWG API Key"}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.rawg ? "text" : "password"}
+                      placeholder={providerKeys.rawgApiKeyMasked ? "••••" + providerKeys.rawgApiKeyMasked.slice(-4) + " — enter new to replace" : "Enter RAWG_API_KEY"}
+                      value={clearFlags.rawg ? "" : rawgInput}
+                      onChange={(e) => { setRawgInput(e.target.value); setClearFlags((p) => ({ ...p, rawg: false })); }}
+                      disabled={clearFlags.rawg}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, rawg: !p.rawg }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.rawg ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.rawg ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.rawg ? <span className="text-military">ENV</span> : <span className="text-dim">none</span>}</span>
+                {providerKeys.hasDb.rawg && !clearFlags.rawg && (
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, rawg: true })); setRawgInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override → fallback to ENV</button>
+                )}
+                {clearFlags.rawg && <span className="text-danger">Will clear DB value on save</span>}
+                {providerKeys.hasEnv.rawg && <Badge variant="dim" size="sm" className="font-mono">env present</Badge>}
+              </div>
+            </div>
+
+            <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><KeyIcon className="size-4 text-amber" /> IGDB <Badge variant={providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "military" : "dim"} size="sm">{providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "active" : "not set"}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">Twitch app credentials · <a href="https://api-docs.igdb.com" target="_blank" rel="noreferrer" className="text-amber underline">api-docs.igdb.com</a></p>
+                </div>
+                <span className="font-mono text-xs text-amber">{providerKeys.igdbClientIdMasked ? providerKeys.igdbClientIdMasked : ""} {providerKeys.igdbClientSecretMasked ? "/ " + providerKeys.igdbClientSecretMasked : ""}</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label={s.igdbClientIdLabel ?? "IGDB Client ID"}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.igdbId ? "text" : "password"}
+                      placeholder={providerKeys.igdbClientIdMasked ? "••••" + providerKeys.igdbClientIdMasked.slice(-4) : "Client ID"}
+                      value={clearFlags.igdbId ? "" : igdbIdInput}
+                      onChange={(e) => { setIgdbIdInput(e.target.value); setClearFlags((p) => ({ ...p, igdbId: false })); }}
+                      disabled={clearFlags.igdbId}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, igdbId: !p.igdbId }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.igdbId ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+                <Field label={s.igdbClientSecretLabel ?? "IGDB Client Secret"}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.igdbSecret ? "text" : "password"}
+                      placeholder={providerKeys.igdbClientSecretMasked ? "••••" + providerKeys.igdbClientSecretMasked.slice(-4) : "Client Secret"}
+                      value={clearFlags.igdbSecret ? "" : igdbSecretInput}
+                      onChange={(e) => { setIgdbSecretInput(e.target.value); setClearFlags((p) => ({ ...p, igdbSecret: false })); }}
+                      disabled={clearFlags.igdbSecret}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, igdbSecret: !p.igdbSecret }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.igdbSecret ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.igdb ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.igdb ? <span className="text-military">ENV</span> : <span className="text-dim">none (needs both ID & Secret)</span>}</span>
+                {providerKeys.hasDb.igdb && (
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, igdbId: true, igdbSecret: true })); setIgdbIdInput(""); setIgdbSecretInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override</button>
+                )}
+                {(clearFlags.igdbId || clearFlags.igdbSecret) && <span className="text-danger">Will clear on save</span>}
+              </div>
+            </div>
+
+            <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> Steam <Badge variant={providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "military" : "dim"} size="sm">{providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "active" : "not set"}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">Web API key · <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer" className="text-amber underline">steamcommunity.com/dev/apikey</a></p>
+                </div>
+                {providerKeys.steamApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.steamApiKeyMasked}</span>}
+              </div>
+              <div className="mt-3">
+                <Field label={s.steamApiKeyLabel ?? "Steam Web API Key"}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.steam ? "text" : "password"}
+                      placeholder={providerKeys.steamApiKeyMasked ? "••••" + providerKeys.steamApiKeyMasked.slice(-4) + " — enter new to replace" : "Enter STEAM_WEB_API_KEY"}
+                      value={clearFlags.steam ? "" : steamInput}
+                      onChange={(e) => { setSteamInput(e.target.value); setClearFlags((p) => ({ ...p, steam: false })); }}
+                      disabled={clearFlags.steam}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, steam: !p.steam }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.steam ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.steam ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.steam ? <span className="text-military">ENV</span> : <span className="text-dim">none</span>}</span>
+                {providerKeys.hasDb.steam && !clearFlags.steam && (
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, steam: true })); setSteamInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override → fallback to ENV</button>
+                )}
+                {clearFlags.steam && <span className="text-danger">Will clear DB value on save</span>}
+              </div>
+            </div>
+
+            <div className="rounded border border-amber/20 bg-amber/5 p-3 text-xs leading-relaxed text-zinc-400 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-amber">How it works</p>
+              <p className="mt-1">DB values take precedence over <span className="font-mono text-amber">.env</span>. Leave a field blank to keep current value. Clear override to fall back to env. Only providers with a key are shown in <span className="font-mono text-amber">/admin/games → Search</span>; unconfigured APIs are hidden from the list.</p>
+            </div>
+
+            {providerState.error && (
+              <div>
+                <p className="border border-danger/30 bg-danger/10 p-2 text-sm text-danger [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]" role="alert">{providerState.error}</p>
+                <DebugError debug={providerState.debug} title="provider keys" />
+              </div>
+            )}
+            {providerState.ok && (
+              <p className="border border-military/30 bg-military/10 p-2 text-sm text-military [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">✓ {providerState.ok}</p>
+            )}
+            <button type="submit" className="hud-btn hud-btn-primary self-start" disabled={providerPending}>
+              {providerPending ? "Saving…" : s.saveButton}
             </button>
           </form>
         </section>

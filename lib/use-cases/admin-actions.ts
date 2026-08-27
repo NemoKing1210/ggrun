@@ -439,6 +439,7 @@ export async function addCatalogGameAction(
       esrb: String(formData.get("esrb") || "") || null,
     });
     log.info("catalog.game_add", { actorId: actor?.id ?? null, title });
+    revalidatePath("/admin/games");
     revalidatePath("/admin/games-catalog");
     return {
       ok: format((await getT()).t.admin.feedback.gameAdded, { title }),
@@ -468,6 +469,7 @@ export async function toggleBlacklistAction(formData: FormData): Promise<void> {
     });
     throw e;
   }
+  revalidatePath("/admin/games");
   revalidatePath("/admin/games-catalog");
 }
 
@@ -485,6 +487,7 @@ export async function deleteGameAction(formData: FormData): Promise<void> {
     });
     throw e;
   }
+  revalidatePath("/admin/games");
   revalidatePath("/admin/games-catalog");
 }
 
@@ -499,6 +502,13 @@ export async function searchExternalGamesAction(
   const platform = String(formData.get("platform") || "").trim();
   const ordering = String(formData.get("ordering") || "-metacritic");
   try {
+    const { isProviderConfiguredAsync } = await import("@/lib/game-providers/keys");
+    const configured = await isProviderConfiguredAsync(providerId);
+    if (!configured) {
+      const { t } = await getT();
+      const msg = (t.admin.catalog as unknown as Record<string, string>).providerNotConfigured ?? `Provider "${providerId}" is not configured. Add its API key in Settings → Integrations or .env.`;
+      return { error: msg };
+    }
     const { getProvider } = await import("@/lib/game-providers");
     const provider = getProvider(providerId);
     const filters: import("@/game-engine/types").GamePoolFilters = {
@@ -587,6 +597,7 @@ export async function importExternalGameAction(
       title,
       provider,
     });
+    revalidatePath("/admin/games");
     revalidatePath("/admin/games-catalog");
     return { ok: format((await getT()).t.admin.feedback.gameAdded, { title }) };
   } catch (e) {

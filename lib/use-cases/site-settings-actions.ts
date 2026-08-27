@@ -7,6 +7,7 @@ import { AdminError } from "@/lib/use-cases/admin";
 import { makeToError, type ActionState } from "@/lib/use-cases/action-error";
 import {
   updateSiteSettingsUseCase,
+  updateProviderKeysUseCase,
   createInviteUseCase,
   deleteInviteUseCase,
   approveUserUseCase,
@@ -16,6 +17,36 @@ import {
 import { log } from "@/lib/log";
 
 const toError = makeToError(AdminError);
+
+export async function updateProviderKeysAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    // Empty string means "clear" -> null; missing field means keep as-is.
+    // Frontend sends all 4 fields; if user left masked placeholder unchanged we treat as undefined.
+    const get = (k: string): string | null | undefined => {
+      if (!formData.has(k)) return undefined;
+      const v = String(formData.get(k) ?? "");
+      // Sentinel "__KEEP__" means don't touch
+      if (v === "__KEEP__") return undefined;
+      const t = v.trim();
+      return t ? t : null;
+    };
+    await updateProviderKeysUseCase({
+      rawgApiKey: get("rawgApiKey"),
+      igdbClientId: get("igdbClientId"),
+      igdbClientSecret: get("igdbClientSecret"),
+      steamApiKey: get("steamApiKey"),
+    });
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/games");
+    const { t } = await getT();
+    return { ok: t.admin.siteSettings.saved };
+  } catch (e) {
+    return await toError(e, "site.provider_keys.update", { actorId: (await getCurrentUser())?.id ?? null });
+  }
+}
 
 export async function updateSiteSettingsAction(
   _prev: ActionState,

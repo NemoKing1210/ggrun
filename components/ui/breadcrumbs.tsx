@@ -58,6 +58,7 @@ function getLabel(
     case "users":
       return t.admin.nav.users;
     case "games-catalog":
+    case "games":
       return t.admin.nav.catalog;
     case "audit":
       return t.admin.nav.audit;

@@ -243,7 +243,7 @@ export const admin = {
   reasonPlaceholder: "Manual referee adjustment",
  },
 
- /** Games catalog (/admin/games-catalog). */
+ /** Games catalog (/admin/games). */
  catalog: {
   heading: "Games catalog",
   intro: "Flexible pool: manual adds, external API search (RAWG/IGDB/Steam), and per-season filters. Imported games are enriched with metacritic, rating and cover.",
@@ -263,7 +263,7 @@ export const admin = {
   unblockButton: "Unblock",
   blockButton: "Blacklist",
   searchHeading: "Search external API",
-  searchHint: "Uses the season's provider config if available, otherwise RAWG. Needs RAWG_API_KEY in .env — without it you'll get an empty result and the catalog fallback remains.",
+  searchHint: "Uses the season's provider config if available, otherwise RAWG. Needs a key in Settings → Integrations or RAWG_API_KEY in .env — without it you'll get an empty result and the catalog fallback remains.",
   importButton: "Import",
   noResults: "No results.",
   filterPlaceholder: "Filter pool…",
@@ -285,6 +285,10 @@ export const admin = {
   noCover: "no cover",
   poolHeadingFull: "Game pool ({shown}/{total})",
   deleteButton: "Delete",
+  providerNotConfigured: "Provider is not configured. Add its API key in Settings → Integrations or .env.",
+  noProvidersTitle: "No API providers configured",
+  noProvidersHint: "Add a key in Settings → Integrations or via env (RAWG_API_KEY / IGDB_… / STEAM_WEB_API_KEY).",
+  goToSettings: "Go to Settings",
   orderingMetacritic: "Metacritic ↓",
   orderingRating: "Rating ↓",
   orderingNewest: "Newest",
@@ -309,6 +313,7 @@ export const admin = {
   tabs: {
    general: "General",
    registration: "Registration",
+   integrations: "Integrations",
    invites: "Invites",
    pending: "Pending",
   },
@@ -368,6 +373,12 @@ export const admin = {
   verificationLinkLabel: "Verification link",
   showLink: "Show link",
   noPendingHint: "Switch registration mode to Manual or Email link to see users here.",
+  integrationsHeading: "API Integrations",
+  integrationsHint: "Add API keys for RAWG / IGDB / Steam. DB values override .env. Only configured providers appear in Games → Search.",
+  rawgApiKeyLabel: "RAWG API Key",
+  igdbClientIdLabel: "IGDB Client ID",
+  igdbClientSecretLabel: "IGDB Client Secret",
+  steamApiKeyLabel: "Steam Web API Key",
  },
 
  /** Reroll requests (/admin/rerolls). */

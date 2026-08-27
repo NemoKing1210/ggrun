@@ -291,7 +291,7 @@ export default async function AdminPage() {
           <span className="font-mono text-[11px] uppercase tracking-widest text-dim">NAVIGATE</span>
           <span className="h-3 w-px bg-dim/20" aria-hidden />
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin/games-catalog" className="hud-btn !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5">
+            <Link href="/admin/games" className="hud-btn !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5">
               {t.admin.overview.catalogLink}
               <ArrowRightIcon className="h-3 w-3" aria-hidden />
             </Link>

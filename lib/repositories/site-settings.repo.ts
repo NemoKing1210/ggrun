@@ -17,9 +17,11 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 }
 
 export async function updateSiteSettings(
-  patch: Partial<Pick<SiteSettings, "registrationEnabled" | "registrationMode" | "maintenanceMode">> & {
-    updatedBy?: string | null;
-  },
+  patch: Partial<
+    Pick<SiteSettings, "registrationEnabled" | "registrationMode" | "maintenanceMode" | "rawgApiKey" | "igdbClientId" | "igdbClientSecret" | "steamApiKey"> & {
+      updatedBy?: string | null;
+    }
+  >,
 ): Promise<SiteSettings> {
   const current = await getSiteSettings();
   const [updated] = await db

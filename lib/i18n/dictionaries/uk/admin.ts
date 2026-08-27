@@ -246,7 +246,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   reasonPlaceholder: "Ручне коригування суддею",
  },
 
- /** Games catalog (/admin/games-catalog). */
+ /** Games catalog (/admin/games). */
  catalog: {
   heading: "Каталог ігор",
   addHeading: "Додати гру вручну",
@@ -266,7 +266,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   unblockButton: "Розблокувати",
   blockButton: "У блеклист",
   searchHeading: "Пошук у зовнішньому API",
-  searchHint: "Використовує конфіг провайдера сезону, якщо є, інакше RAWG. Потрібен RAWG_API_KEY у .env — без нього результат буде порожнім, залишиться фолбек на каталог.",
+  searchHint: "Використовує конфіг провайдера сезону, якщо є, інакше RAWG. Потрібен ключ у Налаштування → Інтеграції або RAWG_API_KEY у .env — без нього результат порожній, залишиться фолбек на каталог.",
   importButton: "Імпорт",
   noResults: "Нічого не знайдено.",
   filterPlaceholder: "Фільтр пулу…",
@@ -288,6 +288,10 @@ export const admin: Widen<typeof AdminEn.admin> = {
   noCover: "немає обкладинки",
   poolHeadingFull: "Пул ігор ({shown}/{total})",
   deleteButton: "Видалити",
+  providerNotConfigured: "Провайдер не налаштований. Додайте ключ у Налаштування → Інтеграції або в .env.",
+  noProvidersTitle: "Немає налаштованих API",
+  noProvidersHint: "Додайте ключ у Налаштування → Інтеграції або через env (RAWG_API_KEY / IGDB_… / STEAM_WEB_API_KEY).",
+  goToSettings: "Перейти в налаштування",
   orderingMetacritic: "Metacritic ↓",
   orderingRating: "Рейтинг ↓",
   orderingNewest: "Нові",
@@ -311,6 +315,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   tabs: {
    general: "Загальні",
    registration: "Реєстрація",
+   integrations: "Інтеграції",
    invites: "Запрошення",
    pending: "Очікують",
   },
@@ -370,6 +375,12 @@ export const admin: Widen<typeof AdminEn.admin> = {
   verificationLinkLabel: "Посилання підтвердження",
   showLink: "Показати посилання",
   noPendingHint: "Перемкніть режим на Ручне або Посилання, щоб побачити користувачів тут.",
+  integrationsHeading: "Інтеграції API",
+  integrationsHint: "Додайте ключі RAWG / IGDB / Steam. Значення з БД перекривають .env. У пошуку ігор показуються лише налаштовані провайдери.",
+  rawgApiKeyLabel: "RAWG API Key",
+  igdbClientIdLabel: "IGDB Client ID",
+  igdbClientSecretLabel: "IGDB Client Secret",
+  steamApiKeyLabel: "Steam Web API Key",
  },
 
  /** Completion requests */
