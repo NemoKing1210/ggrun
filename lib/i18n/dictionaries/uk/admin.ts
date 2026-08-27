@@ -11,6 +11,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
  feedback: {
   seasonCreated: "Сезон створено ({id})",
   statusChanged: "Статус змінено на {status}",
+  seasonReset: "Сезон скинуто — весь прогрес очищено",
   settingsSaved: "Налаштування збережено",
   cellSaved: "Клітинку {position} оновлено",
   playerAdded: "Учасника додано",
@@ -93,6 +94,8 @@ export const admin: Widen<typeof AdminEn.admin> = {
   linkPlayers: "Гравці",
   catalogLink: "Каталог ігор",
   auditLink: "Журнал аудиту",
+  resetButton: "Скидання",
+  resetConfirm: "Скинути {season}? Усі кидки, ходи та очки буде видалено й сезон розпочнеться заново.",
  },
 
  /** Season creation form on /admin. */

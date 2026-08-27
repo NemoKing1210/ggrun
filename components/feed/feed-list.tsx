@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   CubeIcon,
   FlagIcon,
+  StarIcon,
   UserPlusIcon,
   WrenchScrewdriverIcon,
   XCircleIcon,
@@ -315,7 +316,7 @@ export async function FeedTimeline({
                   {/* top accent line by variant */}
                   <div className={`h-px w-full ${meta.variant === "amber" ? "bg-amber/40" : meta.variant === "military" ? "bg-military/40" : meta.variant === "danger" ? "bg-danger/40" : meta.variant === "sky" ? "bg-sky-400/40" : meta.variant === "violet" ? "bg-violet-400/40" : "bg-dim/20"}`} aria-hidden />
 
-                  <div className="flex flex-wrap items-start gap-3 p-3 sm:p-4">
+                  <div className="flex flex-wrap items-start gap-3 p-4 sm:p-5">
                     {/* avatar + time */}
                     <div className="flex items-center gap-3">
                       <Avatar entry={entry} fallback={t.feed.fallbackPlayer} />
@@ -336,25 +337,51 @@ export async function FeedTimeline({
                       {/* payload chips */}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {title ? (
-                          <span className="inline-flex max-w-full items-center gap-1.5 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber">
+                          <span className="inline-flex max-w-full items-center gap-1.5 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
                             <CubeIcon className="h-3 w-3 shrink-0" aria-hidden />
                             <span className="truncate">“{title}”</span>
                           </span>
                         ) : null}
                         {dice ? (
-                          <span className={`inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs tracking-widest ${meta.variant === "military" ? "border-military/30 bg-military/10 text-military" : meta.variant === "danger" ? "border-danger/30 bg-danger/10 text-danger" : "border-dim/20 bg-raised text-amber"}`}>
+                          <span className={`inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${meta.variant === "military" ? "border-military/30 bg-military/10 text-military" : meta.variant === "danger" ? "border-danger/30 bg-danger/10 text-danger" : "border-dim/20 bg-raised text-amber"}`}>
                             {dice} <span className="text-dim/60">dice</span>
                           </span>
                         ) : null}
                         {cellType ? (
-                          <span className="border border-sky-400/20 bg-sky-500/10 px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-sky-300">
+                          <span className="border border-sky-400/20 bg-sky-500/10 px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-sky-300 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
                             {cellType}
                           </span>
                         ) : null}
-                        <span className={`hidden sm:inline-flex border px-2 py-0.5 font-display text-[11px] uppercase tracking-widest ${variantStyles[meta.variant]}`}>
-                          {meta.label}
-                        </span>
+                        {(() => {
+                          const rating = num(p.rating);
+                          const notes = str(p.notes) ?? str(p.comment) ?? str(p.reason);
+                          return (
+                            <>
+                              {rating ? (
+                                <span className="inline-flex items-center gap-1 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                                  <StarIcon className="h-3 w-3" aria-hidden /> {rating}/10
+                                </span>
+                              ) : null}
+                              <span className={`hidden sm:inline-flex border px-2 py-0.5 font-display text-[11px] uppercase tracking-widest ${variantStyles[meta.variant]}`}>
+                                {meta.label}
+                              </span>
+                            </>
+                          );
+                        })()}
                       </div>
+                      {(() => {
+                        const notes = str(p.notes) ?? str(p.comment) ?? str(p.reason);
+                        const rating = num(p.rating);
+                        // only show notes block for passed/dropped where it exists and not already shown as chip
+                        if (!notes && rating === null) return null;
+                        // for game_passed/dropped show full comment
+                        if (entry.eventType === "game_passed" || entry.eventType === "game_dropped") {
+                          return notes ? (
+                            <p className="mt-3 line-clamp-3 border-l-2 border-amber/20 pl-3 text-sm leading-snug text-dim">“{notes}”</p>
+                          ) : null;
+                        }
+                        return null;
+                      })()}
                     </div>
 
                     {/* player badge on mobile */}

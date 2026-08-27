@@ -25,9 +25,10 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
+  getCatalogPreview,
   getOpenRoll,
-  getRecentRolls,
   getPendingRerollForPlayer,
+  getRecentRolls,
 } from "@/lib/repositories/games.repo";
 import {
   getPlayerMoves,
@@ -130,12 +131,13 @@ export default async function DashboardPage() {
     );
   }
 
-  const [openRoll, pendingReroll, lastMoves, recentRolls, board] = await Promise.all([
+  const [openRoll, pendingReroll, lastMoves, recentRolls, board, catalogPreview] = await Promise.all([
     getOpenRoll(seasonPlayer.id),
     getPendingRerollForPlayer(seasonPlayer.id),
     getPlayerMoves(seasonPlayer.id, 12),
     getRecentRolls(seasonPlayer.id, 12),
     getMainBoard(season.id),
+    getCatalogPreview(20),
   ]);
 
   const cells = board ? await getBoardCells(board.id) : [];
@@ -241,7 +243,7 @@ export default async function DashboardPage() {
               return (
                 <div
                   key={cell.id}
-                  className={`group relative flex aspect-square flex-col items-center justify-center border p-1 text-center transition-all [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} ${isHere ? "ring-2 ring-amber ring-offset-1 ring-offset-[#121210] z-10 scale-[1.04]" : isPast ? "opacity-70" : ""}`}
+                  className={`group relative flex aspect-square flex-col items-center justify-center border p-1 text-center transition-all [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} ${isHere ? "ring-2 ring-amber ring-offset-1 ring-offset-[#121210] z-10 scale-[1.04] shadow-[0_0_12px_rgba(242,169,0,0.35)]" : isPast ? "opacity-70" : ""}`}
                   title={cell.label ? `${t.core.cellTypes[cell.cellType]}: ${cell.label}` : t.core.cellTypes[cell.cellType]}
                 >
                   {cell.cellType !== "normal" ? (
@@ -250,12 +252,35 @@ export default async function DashboardPage() {
                     </span>
                   ) : null}
                   <span className={`absolute right-1 top-1 size-1 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
-                  <span className="ammo-counter relative text-xs leading-none">{String(cell.position).padStart(2, "0")}</span>
-                  {cell.cellType !== "normal" ? (
-                    <span className="relative mt-0.5">
-                      <CellMiniIcon type={cell.cellType} className="size-3 opacity-60" />
+                  {isHere ? (
+                    <span className="absolute inset-[3px] flex items-center justify-center bg-amber/12 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" aria-hidden>
+                      <span className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(242,169,0,0.18),transparent_70%)]" aria-hidden />
                     </span>
                   ) : null}
+                  {isHere ? (
+                    <span className="relative flex flex-col items-center">
+                      <span className="relative inline-flex size-7 items-center justify-center overflow-hidden border border-amber bg-amber/20 shadow-[0_0_8px_rgba(242,169,0,0.4)] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                        {user.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+                        ) : (
+                          <span className="font-display text-[10px] font-bold leading-none tracking-wider text-amber">
+                            {(user.displayName ?? user.username).slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                      <span className="ammo-counter mt-0.5 text-[9px] font-bold leading-none text-amber">{String(cell.position).padStart(2, "0")}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="ammo-counter relative text-xs leading-none">{String(cell.position).padStart(2, "0")}</span>
+                      {cell.cellType !== "normal" ? (
+                        <span className="relative mt-0.5">
+                          <CellMiniIcon type={cell.cellType} className="size-3 opacity-60" />
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                   {isHere ? (
                     <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap bg-amber px-1 font-mono text-[8px] font-bold leading-none tracking-widest text-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                       {t.core.dashboard.youHere}
@@ -307,6 +332,7 @@ export default async function DashboardPage() {
         }
         rerollsUsed={seasonPlayer.rerollsUsed}
         lastDice={lastMoves[0]?.diceResults ?? null}
+        catalogGames={catalogPreview.map((g) => ({ title: g.title, coverUrl: g.coverUrl, platform: g.platform }))}
       />
 
       {/* Game history */}
@@ -383,31 +409,31 @@ export default async function DashboardPage() {
                   return (
                     <li
                       key={roll.id}
-                      className="hud-card group p-3 transition-colors hover:border-amber/20"
+                      className="hud-card group min-h-[96px] p-4 transition-all hover:border-amber/30 hover:brightness-[1.02]"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-tight">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-snug">
                           {roll.game?.title ?? t.core.dashboard.missingCatalogEntry}
                         </span>
                         <span
-                          className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${statusTone}`}
+                          className={`shrink-0 border px-2 py-1 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${statusTone}`}
                         >
                           {roll.status}
                         </span>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {roll.game?.platform ? (
-                          <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                          <span className="border border-dim/30 bg-background/40 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                             {roll.game.platform}
                           </span>
                         ) : null}
                         {roll.rating ? (
-                          <span className="inline-flex items-center gap-1 border border-amber/30 bg-amber/10 px-1.5 py-0.5 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                            <StarSolid className="size-3" aria-hidden /> {roll.rating}/10
+                          <span className="inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs font-semibold text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                            <StarSolid className="size-3.5" aria-hidden /> {roll.rating}/10
                           </span>
                         ) : null}
                       </div>
-                      {roll.notes ? <p className="mt-2 line-clamp-2 border-l-2 border-amber/20 pl-2 text-sm leading-snug text-dim">“{roll.notes}”</p> : null}
+                      {roll.notes ? <p className="mt-3 line-clamp-3 border-l-2 border-amber/25 pl-3 text-sm leading-relaxed text-zinc-300">“{roll.notes}”</p> : null}
                       <time dateTime={roll.rolledAt.toISOString()} className="mt-2 block font-mono text-[11px] tracking-wide text-dim">
                         {dateFormatter.format(roll.rolledAt)}
                         {roll.resolvedAt ? ` → ${dateFormatter.format(roll.resolvedAt)}` : ""}

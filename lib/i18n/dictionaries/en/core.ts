@@ -191,6 +191,7 @@ export const errors = {
   gameRerollPending: "A reroll request is already pending for this game",
   gameRerollRequestNotFound: "Reroll request not found",
   gameLoginRequired: "Login required",
+  catalogEmpty: "No games available in the catalog. Add games or check your filters.",
   formReasonRequired: "Please provide a reason (at least 5 characters)",
   formRatingInvalid: "Rating must be an integer from 1 to 10",
 

@@ -23,13 +23,24 @@ export default function DiceRoller({
   const { t } = useI18n();
   const [display, setDisplay] = useState<number[]>(() => values ?? []);
   const [spinning, setSpinning] = useState(false);
-  // Keyed by values: the array reference changes on every server re-render.
-  const valuesKey = values?.join(",") ?? "";
-  const prevKey = useRef(valuesKey);
+  const prevValuesRef = useRef<number[] | null>(null);
+  const hasMountedRef = useRef(false);
 
   useEffect(() => {
-    if (prevKey.current === valuesKey) return;
-    prevKey.current = valuesKey;
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      prevValuesRef.current = values;
+      if (!values || values.length === 0) {
+        setDisplay([]);
+        setSpinning(false);
+      } else {
+        setDisplay(values);
+        setSpinning(false);
+      }
+      return;
+    }
+    if (prevValuesRef.current === values) return;
+    prevValuesRef.current = values;
 
     if (!values || values.length === 0) {
       setDisplay([]);
@@ -55,7 +66,8 @@ export default function DiceRoller({
       setDisplay(values.map(() => 1 + Math.floor(Math.random() * sides)));
     }, TICK_MS);
     return () => window.clearInterval(timer);
-  }, [valuesKey, values, sides]);
+  }, [values, sides]);
+
 
   if (display.length === 0) return null;
 

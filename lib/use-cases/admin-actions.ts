@@ -7,6 +7,7 @@ import {
   adminAdjustPlayer,
   changeSeasonStatus,
   createSeason,
+  resetSeason,
   setBoardCell,
   updateSeasonSettings,
   AdminError,
@@ -102,6 +103,38 @@ export async function changeStatusAction(
       newStatus,
     });
   }
+}
+
+export async function resetSeasonAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const actor = await getCurrentUser();
+  const seasonId = String(formData.get("seasonId"));
+  try {
+    await resetSeason(seasonId);
+    log.info("season.reset", { actorId: actor?.id ?? null, seasonId });
+    revalidateAdmin(seasonId);
+    revalidatePath("/board");
+    revalidatePath("/dashboard");
+    revalidatePath("/leaderboard");
+    revalidatePath("/feed");
+    return { ok: (await getT()).t.admin.feedback.seasonReset ?? "Season reset" };
+  } catch (e) {
+    return await toError(e, "season.reset", { actorId: actor?.id ?? null, seasonId });
+  }
+}
+
+export async function resetSeasonDirectAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  const seasonId = String(formData.get("seasonId"));
+  await resetSeason(seasonId);
+  log.info("season.reset", { actorId: actor?.id ?? null, seasonId });
+  revalidateAdmin(seasonId);
+  revalidatePath("/board");
+  revalidatePath("/dashboard");
+  revalidatePath("/leaderboard");
+  revalidatePath("/feed");
 }
 
 export async function updateSeasonSettingsAction(

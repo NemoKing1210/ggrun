@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { eventLog, gameRolls, ledgerEntries, moves, rerollRequests, seasonPlayers } from "@/db/schema";
+import { eventLog, gameRolls, gamesCatalog, ledgerEntries, moves, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/repositories/seasons.repo";
 import {
@@ -84,19 +84,22 @@ export async function rollNewGame(seasonPlayerId: string): Promise<string> {
   }
 
   const game = await rollRandomGame(sp.id);
-  const roll = await createRoll(sp.id, game?.id ?? null);
+  if (!game) {
+    log.debug("game.roll.no_game_available", { seasonPlayerId: sp.id });
+    throw new GameLoopError("catalogEmpty");
+  }
+  const roll = await createRoll(sp.id, game.id);
   log.debug("game.roll.chosen", {
     seasonPlayerId: sp.id,
     rollId: roll.id,
-    gameId: game?.id ?? null,
+    gameId: game.id,
   });
   await logEvent({
     seasonId: sp.seasonId,
     seasonPlayerId: sp.id,
     eventType: "game_rolled",
-    payload: { gameId: game?.id ?? null, title: game?.title ?? null },
+    payload: { gameId: game.id, title: game.title },
   });
-  void updateRollStatus; // the status is already 'rolled' at creation time
   return roll.id;
 }
 /**
@@ -243,6 +246,13 @@ export async function resolveGameRoll(params: {
 
   const newStatus = nextRollStatus(effectiveStatus, params.outcome);
 
+  // fetch game title for feed payload
+  let gameTitle: string | null = null;
+  if (roll.gameId) {
+    const g = await db.select({ title: gamesCatalog.title }).from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1);
+    gameTitle = g[0]?.title ?? null;
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(gameRolls)
@@ -286,7 +296,13 @@ export async function resolveGameRoll(params: {
         seasonId: sp.seasonId,
         seasonPlayerId: sp.id,
         eventType: params.outcome === "passed" ? "game_passed" : "game_dropped",
-        payload: { gameId: roll.gameId, dice: result.diceResults },
+        payload: {
+          gameId: roll.gameId,
+          title: gameTitle,
+          dice: result.diceResults,
+          notes: notesToSave,
+          rating: ratingToSave,
+        },
       },
       {
         seasonId: sp.seasonId,

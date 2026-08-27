@@ -34,6 +34,15 @@ export async function listCatalogGames(): Promise<CatalogGame[]> {
   return db.select().from(gamesCatalog).orderBy(gamesCatalog.title);
 }
 
+export async function getCatalogPreview(limit = 18): Promise<CatalogGame[]> {
+  return db
+    .select()
+    .from(gamesCatalog)
+    .where(eq(gamesCatalog.isBlacklisted, false))
+    .orderBy(sql`random()`)
+    .limit(limit);
+}
+
 export async function addCatalogGame(game: {
   title: string;
   platform?: string | null;
@@ -311,9 +320,19 @@ export async function rollRandomGame(
     .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
     .orderBy(sql`random()`)
     .limit(1);
-  return anyFallback[0] ?? null;
+  if (anyFallback[0]) return anyFallback[0];
+  // All games have been played — allow replay of any non-blacklisted game
+  if (playedIds.length > 0) {
+    const replayFallback = await db
+      .select()
+      .from(gamesCatalog)
+      .where(eq(gamesCatalog.isBlacklisted, false) as never)
+      .orderBy(sql`random()`)
+      .limit(1);
+    return replayFallback[0] ?? null;
+  }
+  return null;
 }
-
 
 export async function getGameById(id: string): Promise<CatalogGame | null> {
   const rows = await db

@@ -189,6 +189,7 @@ export const errors: Widen<typeof CoreEn.errors> = {
   gameRerollPending: "Запит на рерол уже на розгляді",
   gameRerollRequestNotFound: "Запит на рерол не знайдено",
   gameLoginRequired: "Потрібен вхід",
+  catalogEmpty: "У каталозі немає доступних ігор. Додайте ігри або перевірте фільтри.",
   formReasonRequired: "Вкажіть причину (мінімум 5 символів)",
   formRatingInvalid: "Оцінка має бути цілим числом від 1 до 10",
 

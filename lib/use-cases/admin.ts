@@ -1,8 +1,18 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { boardCells, boards, seasons, seasonPlayers } from "@/db/schema";
+import {
+  boardCells,
+  boards,
+  eventLog,
+  gameRolls,
+  ledgerEntries,
+  moves,
+  rerollRequests,
+  seasons,
+  seasonPlayers,
+} from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getSeasonById } from "@/lib/repositories/seasons.repo";
 import {
@@ -177,6 +187,57 @@ export async function changeSeasonStatus(
     seasonId,
     newStatus,
   });
+}
+
+/** Full reset: clears rolls/moves/ledger/rerolls/events and resets all participants to start. */
+export async function resetSeason(seasonId: string): Promise<void> {
+  const actor = await requireStaff();
+  const season = await getSeasonById(seasonId);
+  if (!season) {
+    log.debug("season.reset.season_not_found", { actorId: actor.id, seasonId });
+    throw new AdminError("adminSeasonNotFound");
+  }
+  const parsed = SeasonConfigSchema.safeParse(season.config);
+  const cfg = parsed.success ? parsed.data : (await import("@/game-engine")).DEFAULT_SEASON_CONFIG;
+  const startingBalance = cfg.points.startingBalance ?? 0;
+
+  await db.transaction(async (tx) => {
+    const players = await tx.select({ id: seasonPlayers.id }).from(seasonPlayers).where(eq(seasonPlayers.seasonId, seasonId));
+    const ids = players.map((p) => p.id);
+    if (ids.length > 0) {
+      await tx.delete(rerollRequests).where(inArray(rerollRequests.seasonPlayerId, ids));
+      await tx.delete(ledgerEntries).where(inArray(ledgerEntries.seasonPlayerId, ids));
+      await tx.delete(moves).where(inArray(moves.seasonPlayerId, ids));
+      await tx.delete(gameRolls).where(inArray(gameRolls.seasonPlayerId, ids));
+      await tx.delete(eventLog).where(eq(eventLog.seasonId, seasonId));
+      await tx
+        .update(seasonPlayers)
+        .set({
+          position: 0,
+          balancePoints: startingBalance,
+          streakPass: 0,
+          streakDrop: 0,
+          rerollsUsed: 0,
+          status: "active",
+        })
+        .where(eq(seasonPlayers.seasonId, seasonId));
+    } else {
+      await tx.delete(eventLog).where(eq(eventLog.seasonId, seasonId));
+    }
+    await tx
+      .update(seasons)
+      .set({ status: "active", startedAt: new Date(), finishedAt: null })
+      .where(eq(seasons.id, seasonId));
+  });
+
+  await logAdminAction({
+    actorId: actor.id,
+    actionType: "season_reset",
+    targetType: "season",
+    targetId: seasonId,
+  });
+  await logEvent({ seasonId, eventType: "season_reset", payload: { by: actor.id } });
+  log.info("season.reset.persisted", { actorId: actor.id, seasonId });
 }
 
 export async function updateSeasonSettings(input: {

@@ -7,6 +7,7 @@ export const admin = {
  feedback: {
   seasonCreated: "Season created ({id})",
   statusChanged: "Status changed to {status}",
+  seasonReset: "Season reset — all progress cleared",
   settingsSaved: "Settings saved",
   cellSaved: "Cell {position} updated",
   playerAdded: "Participant added",
@@ -90,6 +91,8 @@ export const admin = {
   linkPlayers: "Players",
   catalogLink: "Games catalog",
   auditLink: "Audit log",
+  resetButton: "Reset",
+  resetConfirm: "Reset {season}? All rolls, moves and points will be wiped and the season will start anew.",
  },
 
  /** Season creation form on /admin. */

@@ -10,8 +10,8 @@ export type EventType =
   | "moved"
   | "season_started"
   | "player_joined"
-  | "admin_adjustment";
-
+  | "admin_adjustment"
+  | "season_reset";
 export async function logEvent(entry: {
   seasonId: string;
   seasonPlayerId?: string | null;
