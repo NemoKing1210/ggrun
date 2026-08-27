@@ -103,19 +103,19 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-amber">{leaderboard.length}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">players</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statPlayers}</div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-amber">{stats.totalMoves}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">moves</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statMoves}</div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-military">{stats.passedRolls}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">passed</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statPassed}</div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-danger">{stats.droppedRolls}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">dropped</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statDropped}</div>
             </div>
           </div>
         </div>

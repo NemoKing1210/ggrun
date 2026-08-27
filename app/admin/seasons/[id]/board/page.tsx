@@ -73,14 +73,14 @@ export default async function BoardEditorPage({
       <div className="hazard-tape" aria-hidden />
       <p className="text-dim text-sm">{t.admin.boardEditor.hint}</p>
       <p className="text-xs text-zinc-500">
-        Config target: bonus {cfg.board.bonusCount} · penalty {cfg.board.penaltyCount} · teleport {cfg.board.teleportCount} · event {cfg.board.eventCount} · size {cfg.board.size} · {cfg.board.distribution}
+        {t.admin.boardEditor.configTarget}: bonus {cfg.board.bonusCount} · penalty {cfg.board.penaltyCount} · teleport {cfg.board.teleportCount} · event {cfg.board.eventCount} · size {cfg.board.size} · {cfg.board.distribution}
         {" · "}
-        Actual: {(Object.entries(counts) as [string, number][]).map(([k, v]) => `${k} ${v}`).join(" · ")}
+        {t.admin.boardEditor.actualCounts}: {(Object.entries(counts) as [string, number][]).map(([k, v]) => `${k} ${v}`).join(" · ")}
       </p>
 
       {/* Visual strip */}
       <section className="hud-card p-4">
-        <h3 className="font-display uppercase tracking-wider text-sm mb-2">Board preview (click to edit position in form below)</h3>
+        <h3 className="font-display uppercase tracking-wider text-sm mb-2">{t.admin.boardEditor.previewHeading}</h3>
         <div className="flex flex-wrap gap-1">
           {cells
             .slice()
@@ -146,7 +146,7 @@ export default async function BoardEditorPage({
               <th className="p-2">#</th>
               <th className="p-2">{t.core.common.type}</th>
               <th className="p-2">{t.core.common.label}</th>
-              <th className="p-2">Config</th>
+              <th className="p-2">{t.admin.boardEditor.colConfig}</th>
             </tr>
           </thead>
           <tbody>

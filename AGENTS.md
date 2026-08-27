@@ -9,6 +9,8 @@ GGRun — a web platform for a seasonal gaming event (HPG genre): seasons
 dice rolls and movement across the board, a leaderboard, an event feed, and an
 admin console.
 
+> **Design System:** All UI must follow [`DESIGN.md`](./DESIGN.md) — HUD tactical style (square beveled, clipped corners, `hud-card`/`hud-btn`/`hud-input`/`Badge`/`Chip`/`Switch`/`Range`). Do not introduce rounded pills, soft shadows, or raw checkboxes/inputs outside `components/ui/*` and `app/globals.css`. See `DESIGN.md` §9 for Do/Don’t.
+
 ## Language Policy (always applies)
 
 This is an international project. **English is the only language for:**

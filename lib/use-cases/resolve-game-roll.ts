@@ -15,6 +15,7 @@ import {
 } from "@/lib/repositories/games.repo";
 import { getSeasonPlayerById } from "@/lib/repositories/players.repo";
 import { logEvent } from "@/lib/repositories/events.repo";
+import { log } from "@/lib/log";
 import {
   applyCellEffect,
   canReroll,
@@ -59,18 +60,36 @@ async function assertActorAllowed(
  */
 export async function rollNewGame(seasonPlayerId: string): Promise<string> {
   const sp = await getSeasonPlayerById(seasonPlayerId);
-  if (!sp) throw new GameLoopError("gameParticipantNotFound");
+  if (!sp) {
+    log.debug("game.roll.participant_not_found", { seasonPlayerId });
+    throw new GameLoopError("gameParticipantNotFound");
+  }
   await assertActorAllowed(sp.id, sp.playerId);
 
   const season = await getSeasonById(sp.seasonId);
   if (!season || season.status !== "active") {
+    log.debug("game.roll.season_not_active", {
+      seasonId: sp.seasonId,
+      status: season?.status ?? "missing",
+    });
     throw new GameLoopError("gameSeasonNotActive");
   }
   const open = await getOpenRollRow(sp.id);
-  if (open) throw new GameLoopError("gameAlreadyHaveRoll");
+  if (open) {
+    log.debug("game.roll.already_have_roll", {
+      seasonPlayerId: sp.id,
+      openRollId: open.id,
+    });
+    throw new GameLoopError("gameAlreadyHaveRoll");
+  }
 
   const game = await rollRandomGame(sp.id);
   const roll = await createRoll(sp.id, game?.id ?? null);
+  log.debug("game.roll.chosen", {
+    seasonPlayerId: sp.id,
+    rollId: roll.id,
+    gameId: game?.id ?? null,
+  });
   await logEvent({
     seasonId: sp.seasonId,
     seasonPlayerId: sp.id,
@@ -80,7 +99,6 @@ export async function rollNewGame(seasonPlayerId: string): Promise<string> {
   void updateRollStatus; // the status is already 'rolled' at creation time
   return roll.id;
 }
-
 /**
  * Resolves a roll by the player: passed / dropped / rerolled (request).
  * - dropped requires `reason` (why the game was not liked)
@@ -283,7 +301,12 @@ export async function resolveGameRoll(params: {
       },
     ]);
   });
-
+  log.debug("game.resolve.completed", {
+    rollId: roll.id,
+    outcome: params.outcome,
+    to: finalPosition,
+    balanceDelta: finalBalance - sp.balancePoints,
+  });
   return {
     diceResults: result.diceResults,
     fromPosition: sp.position,

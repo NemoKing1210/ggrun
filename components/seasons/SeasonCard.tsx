@@ -37,7 +37,7 @@ export function SeasonCard({
   return (
     <Link
       href={`/seasons/${season.slug}`}
-      className="hud-card group flex flex-col p-5 transition hover:brightness-110"
+      className="hud-card hud-lift group flex flex-col p-5"
     >
       <div className="flex items-start justify-between gap-2">
         <div>

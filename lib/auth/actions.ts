@@ -7,13 +7,17 @@ import { authenticate, AuthError, registerUser } from "@/lib/use-cases/auth";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { errorText } from "@/lib/i18n/errors";
+import { log } from "@/lib/log";
+import { makeToError, type ActionState } from "@/lib/use-cases/action-error";
 
 const credentialsSchema = z.object({
   login: z.string().min(1),
   password: z.string().min(1),
 });
 
-export type FormState = { error?: string };
+export type FormState = ActionState;
+
+const toError = makeToError(AuthError);
 
 export async function loginAction(
   _prev: FormState,
@@ -27,19 +31,22 @@ export async function loginAction(
   });
   if (!parsed.success) {
     const field = parsed.error.issues[0]?.path[0];
+    const code = field === "password" ? "formPasswordRequired" : "formLoginRequired";
+    log.debug("auth.login.invalid_input", { field });
     return {
-      error: errorText(
-        errors,
-        field === "password" ? "formPasswordRequired" : "formLoginRequired",
-      ),
+      error: errorText(errors, code),
+      debug:
+        process.env.NODE_ENV === "development"
+          ? JSON.stringify(parsed.error.issues, null, 2)
+          : undefined,
     };
   }
   try {
     const user = await authenticate(parsed.data.login, parsed.data.password);
     await createSession(user.id);
+    log.info("auth.login", { userId: user.id });
   } catch (e) {
-    if (e instanceof AuthError) return { error: errorText(errors, e.code) };
-    throw e;
+    return await toError(e, "auth.login", { login: parsed.data.login });
   }
   redirect("/dashboard");
 }
@@ -48,21 +55,22 @@ export async function registerAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const { t } = await getT();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("displayName") ?? "");
   try {
     const user = await registerUser({ email, password, displayName });
     await createSession(user.id);
+    log.info("auth.register", { userId: user.id, email });
   } catch (e) {
-    if (e instanceof AuthError) return { error: errorText(t.core.errors, e.code) };
-    throw e;
+    return await toError(e, "auth.register", { email });
   }
   redirect("/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {
+  // Best-effort: don't have a session id easily here, just log the event.
+  log.info("auth.logout");
   await destroySession();
   redirect("/login");
 }

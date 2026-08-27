@@ -22,11 +22,13 @@ export const common: Widen<typeof CoreEn.common> = {
   reason: "Причина",
   seasonKicker: "сезон «{season}»",
   notFound: "Не найдено",
+  githubLabel: "GitHub — NemoKing1210/ggrun",
 };
 
 /** Header navigation. */
 export const nav: Widen<typeof CoreEn.nav> = {
   home: "Главная",
+  dashboard: "Дашборд",
   board: "Поле",
   leaderboard: "Лидерборд",
   feed: "Лента",
@@ -35,6 +37,7 @@ export const nav: Widen<typeof CoreEn.nav> = {
   admin: "Админка",
   login: "Войти",
   logout: "Выход",
+  settings: "Настройки",
   language: "Язык",
   menu: "Меню",
 };
@@ -43,6 +46,13 @@ export const footer: Widen<typeof CoreEn.footer> = {
   tagline: "GGRun · сезонный игровой забег",
   metaTitle: "GGRun — сезонный игровой забег",
   metaDescription: "Платформа командного игрового ивента: сезоны, поле, кубики, лидерборд",
+  aboutTitle: "О забеге",
+  aboutText: "Сезонное игровое событие: ролльте игры, двигайтесь по полю, поднимайтесь в лидерборде.",
+  navTitle: "Навигация",
+  linksTitle: "Ссылки",
+  rights: "© {year} GGRun. Все права защищены.",
+  version: "v{version}",
+  admin: "Консоль администратора",
 };
 
 /** Login and registration. */
@@ -65,6 +75,7 @@ export const auth: Widen<typeof CoreEn.auth> = {
   devQuick: "Быстрый вход (dev)",
   devAsAdmin: "Войти как админ",
   devAsPlayer: "Войти как игрок",
+  loginPlaceholder: "ник / email",
 };
 
 /** Player dashboard (/dashboard). */
@@ -121,6 +132,8 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   boardProgressTitle: "Прогресс на поле",
   awaitingModeration: "На модерации",
   statsTitle: "Ваш забег",
+  youHere: "ВЫ",
+  games: "Игры",
 };
 
 /** Season and participant statuses. */
@@ -191,11 +204,21 @@ export const errors: Widen<typeof CoreEn.errors> = {
   authUsernameFailed: "Не удалось подобрать уникальный username",
   authInvalidCredentials: "Неверный логин или пароль",
   authBlocked: "Этот аккаунт заблокирован",
+  authLoginRequired: "Войдите в аккаунт",
 
   formLoginRequired: "Укажите логин",
   formPasswordRequired: "Укажите пароль",
   formSlugFormat: "slug: строчные латинские буквы, цифры, дефис",
   formConfigInvalidJson: "config — некорректный JSON",
   formTitleRequired: "Укажите название игры",
+  formInvalid: "Некоторые поля заполнены неверно",
   formUnknown: "Неизвестная ошибка",
+};
+
+/** Full-screen "site temporarily unavailable" state (DB unreachable). */
+export const siteUnavailable: Widen<typeof CoreEn.siteUnavailable> = {
+  kicker: "соединение потеряно",
+  title: "Сайт временно недоступен",
+  text: "Сейчас нет связи с базой данных. Пожалуйста, попробуйте зайти через несколько минут.",
+  retry: "Повторить",
 };

@@ -84,7 +84,7 @@ export function TopLoader() {
       style={{ opacity: loading || width === 100 ? 1 : 0 }}
     >
       <div
-        className="h-full bg-amber shadow-[0_0_10px_rgba(242,169,0,0.7)] transition-all ease-out"
+        className="h-full bg-amber shadow-[0_0_10px_rgb(var(--hud-amber-glow)/0.7)] transition-all ease-out"
         style={{
           width: `${width}%`,
           transitionDuration: width === 100 ? "300ms" : "400ms",

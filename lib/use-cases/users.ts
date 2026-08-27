@@ -6,6 +6,9 @@ import { users } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
 import { AdminError } from "@/lib/use-cases/admin";
 import { logAdminAction } from "@/lib/repositories/events.repo";
+import { MAX_BIO_LENGTH } from "@/lib/profile";
+import { ACCENT_KEYS, type AccentKey } from "@/lib/accent";
+import { LOCALES, type Locale } from "@/lib/i18n/config";
 
 /** User management — admin role only (not judge). */
 export async function requireAdmin() {
@@ -153,10 +156,7 @@ export async function adminUpdateUser(input: unknown): Promise<void> {
   });
 }
 
-export async function adminSetUserBlocked(
-  userId: string,
-  isBlocked: boolean,
-): Promise<void> {
+export async function adminSetUserBlocked(userId: string, isBlocked: boolean): Promise<void> {
   const actor = await requireAdmin();
   if (userId === actor.id) throw new AdminError("adminSelfBlock");
   const target = await getUserById(userId);
@@ -183,4 +183,61 @@ export async function adminDeleteUser(userId: string): Promise<void> {
     targetId: userId,
     payload: { username: target.username },
   });
+}
+
+// --- Self-service settings -------------------------------------------------
+
+import { NETWORKS, type Network } from "@/lib/networks";
+export type { Network };
+
+export const userLinksSchema = z
+  .array(
+    z.object({
+      network: z.enum(NETWORKS),
+      url: z.string().url().max(500),
+    }),
+  )
+  .max(6);
+
+export const updateUserSettingsSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+  bio: z.string().trim().max(MAX_BIO_LENGTH),
+  avatarUrl: z
+    .union([
+      z.string().url(),
+      // Inline resized avatar (data:image/...;base64, max ~256 KB)
+      z
+        .string()
+        .regex(/^data:image\/(png|jpe?g|webp);base64,/)
+        .max(300_000),
+      z.literal(""),
+    ])
+    .optional(),
+  accent: z.enum(ACCENT_KEYS),
+  locale: z.enum(LOCALES),
+  links: userLinksSchema,
+});
+
+/** Updates the current user's public profile & preferences. Self-service. */
+export async function updateUserSettings(input: unknown): Promise<void> {
+  const user = await requireLogin();
+  const data = updateUserSettingsSchema.parse(input);
+  await db
+    .update(users)
+    .set({
+      displayName: data.displayName,
+      bio: data.bio || null,
+      avatarUrl: data.avatarUrl === undefined ? undefined : data.avatarUrl || null,
+      accent: data.accent as AccentKey,
+      locale: data.locale as Locale,
+      links: data.links as unknown as Record<string, unknown>[],
+    })
+    .where(eq(users.id, user.id));
+}
+
+async function requireLogin() {
+  const { getCurrentUser } = await import("@/lib/auth/session");
+  const user = await getCurrentUser();
+  if (!user) throw new AdminError("authLoginRequired");
+  return user;
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { BoardCell, SeasonPlayer } from "@/db/schema";
 
 import { CELL_THEME } from "./cell-theme";
+import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
 
@@ -417,18 +418,9 @@ export function BoardView({
       )}
 
       {/* --- Cell details modal --- */}
-      {selected ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm sm:items-center"
-          onClick={() => setSelectedPos(null)}
-        >
-          <div
-            className="hud-card relative w-full max-w-lg p-5 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
+      <Modal open={selectedPos !== null} onClose={() => setSelectedPos(null)} labelledBy="cell-detail-modal">
+        {selected
+          ? (() => {
               const theme = CELL_THEME[selected.cellType];
               const here = byPosition[selected.position] ?? [];
               const cfg = (selected.config ?? {}) as Record<string, unknown>;
@@ -555,10 +547,9 @@ export function BoardView({
                   </div>
                 </>
               );
-            })()}
-          </div>
-        </div>
-      ) : null}
+            })()
+          : null}
+      </Modal>
     </div>
   );
 }

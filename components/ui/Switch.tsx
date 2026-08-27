@@ -37,7 +37,7 @@ export function Switch({
           ? "bg-military border-[#5a6b32] shadow-[0_0_10px_rgba(124,143,74,0.5),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-2px_0_rgba(0,0,0,0.35)]"
           : "bg-[#33332b] border-[#55554a] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),inset_0_-2px_0_rgba(0,0,0,0.35)]"
         : checked
-          ? "bg-amber border-[#c98f00] shadow-[0_0_10px_rgba(242,169,0,0.45),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-2px_0_rgba(0,0,0,0.3)]"
+          ? "bg-amber border-[var(--hud-amber-border)] shadow-[0_0_10px_rgb(var(--hud-amber-glow)/0.45),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-2px_0_rgba(0,0,0,0.3)]"
           : "bg-[#33332b] border-[#55554a] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),inset_0_-2px_0_rgba(0,0,0,0.35)]";
 
   const trackSize = size === "sm" ? "h-5 w-9" : "h-6 w-11";
@@ -69,7 +69,7 @@ export function Switch({
         disabled={disabled}
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
-        className={`relative inline-flex shrink-0 items-center border transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1b1a] ${trackClip} ${trackSize} ${trackVariant}`}
+        className={`relative inline-flex shrink-0 items-center border transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1b1a] active:brightness-90 ${trackClip} ${trackSize} ${trackVariant}`}
       >
         {/* hazard stripe overlay when ON */}
         <span

@@ -6,7 +6,34 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and [Semantic Versioning](https://semver.org/). Versioning rules — at the bottom
-of this file and in `AGENTS.md` (section "Versioning & Changelog").
+
+## [Unreleased]
+
+### Added
+- Graceful "site temporarily unavailable" screen when the database is
+  unreachable: a throttled `select 1` health probe (`lib/db-health.ts`)
+  gates the root layout, session resolution fails soft to anonymous during
+  outages, and `app/global-error.tsx` catches any page-level failure with the
+  same HUD-styled fallback (localized via locale cookie / navigator).
+- Server-side logger `lib/log.ts` (dev pretty / prod JSON, child contexts,
+  `LOG_LEVEL` env, `NO_COLOR` / `FORCE_COLOR` honoured). All "use server"
+  actions and the audit / event / season / game / auth use-cases log
+  meaningful events.
+- Dev-only error detail component `components/ui/DebugError.tsx`. Rendered
+  next to `state.error` in every form that goes through `useActionState`
+  (settings, login, register, dashboard roll/resolve, admin season settings
+  and games catalog).
+- Shared action error adapter `lib/use-cases/action-error.ts` with a
+  `makeToError(domainErrorClass)` factory and a `zodToMessage` helper.
+
+### Changed
+- Settings save no longer falls through to the generic "Unknown error" when
+  the payload fails Zod validation; the message targets the first issue
+  (e.g. `displayName: String must contain at most 100 character(s)`) and
+  the dev panel shows the full Zod issues JSON.
+- "Unknown error" fallback (`formUnknown`) reserved for genuinely unknown
+  throws; added `formInvalid` for non-field-specific zod fallbacks.
+
 
 ### Added
 - MIT license (`LICENSE`), `license` field in `package.json`.

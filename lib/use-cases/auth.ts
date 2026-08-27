@@ -3,6 +3,7 @@ import { eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { log } from "@/lib/log";
 
 export class AuthError extends Error {
   /** Error code; the text is resolved via the i18n dictionary in server actions. */
@@ -27,6 +28,10 @@ async function uniqueUsername(base: string): Promise<string> {
     if (existing.length === 0) return candidate;
     candidate = `${base}${Math.floor(Math.random() * 10000)}`;
   }
+  log.error("auth.username.exhausted", {
+    base,
+    err: new Error("Could not generate a unique username"),
+  });
   throw new AuthError("authUsernameFailed");
 }
 
@@ -45,7 +50,10 @@ export async function registerUser(params: {
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
-  if (existing.length > 0) throw new AuthError("authUserExists");
+  if (existing.length > 0) {
+    log.debug("auth.register.duplicate_email", { email });
+    throw new AuthError("authUserExists");
+  }
 
   const username = await uniqueUsername(deriveUsername(email));
   const passwordHash = await hashPassword(params.password);
@@ -59,6 +67,7 @@ export async function registerUser(params: {
       role: "player",
     })
     .returning({ id: users.id });
+  log.info("auth.register.created", { userId: created!.id, email, username });
   return created!;
 }
 
@@ -73,9 +82,14 @@ export async function authenticate(
     .where(or(eq(users.email, key), eq(users.username, key)))
     .limit(1);
   const user = rows[0];
-  if (user?.isBlocked) throw new AuthError("authBlocked");
+  if (user?.isBlocked) {
+    log.debug("auth.login.blocked", { userId: user.id });
+    throw new AuthError("authBlocked");
+  }
   if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    log.debug("auth.login.bad_credentials", { login: key });
     throw new AuthError("authInvalidCredentials");
   }
+  log.info("auth.login.verified", { userId: user.id });
   return { id: user.id };
 }

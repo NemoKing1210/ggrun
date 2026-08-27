@@ -8,10 +8,18 @@ import {
   resolveGameRoll,
   rollNewGame,
 } from "@/lib/use-cases/resolve-game-roll";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { errorText } from "@/lib/i18n/errors";
+import { log } from "@/lib/log";
+import {
+  makeToError,
+  type ActionState,
+} from "@/lib/use-cases/action-error";
 
-export type PlayerActionState = { error?: string };
+export type PlayerActionState = ActionState;
+
+const toError = makeToError(GameLoopError);
 
 const outcomes: readonly RollOutcome[] = ["passed", "dropped", "rerolled"];
 
@@ -25,27 +33,28 @@ function optionalString(formData: FormData, key: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
-async function loopError(e: unknown): Promise<PlayerActionState> {
-  const { t } = await getT();
-  if (e instanceof GameLoopError) {
-    return { error: errorText(t.core.errors, e.code) };
-  }
-  throw e;
-}
-
 export async function rollAction(
   _prev: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
+  const actor = await getCurrentUser();
   const { t } = await getT();
   const seasonPlayerId = requireString(formData, "seasonPlayerId");
   if (!seasonPlayerId) {
     return { error: errorText(t.core.errors, "gameParticipantNotFound") };
   }
   try {
-    await rollNewGame(seasonPlayerId);
+    const rollId = await rollNewGame(seasonPlayerId);
+    log.info("game.roll", {
+      actorId: actor?.id ?? null,
+      seasonPlayerId,
+      rollId,
+    });
   } catch (e) {
-    return await loopError(e);
+    return await toError(e, "game.roll", {
+      actorId: actor?.id ?? null,
+      seasonPlayerId,
+    });
   }
   revalidatePath("/dashboard");
   return {};
@@ -55,6 +64,7 @@ export async function resolveAction(
   _prev: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
+  const actor = await getCurrentUser();
   const { t } = await getT();
   const seasonPlayerId = requireString(formData, "seasonPlayerId");
   if (!seasonPlayerId) {
@@ -82,8 +92,19 @@ export async function resolveAction(
       comment,
       rating,
     });
+    log.info("game.resolve", {
+      actorId: actor?.id ?? null,
+      seasonPlayerId,
+      rollId,
+      outcome,
+    });
   } catch (e) {
-    return await loopError(e);
+    return await toError(e, "game.resolve", {
+      actorId: actor?.id ?? null,
+      seasonPlayerId,
+      rollId,
+      outcome,
+    });
   }
   revalidatePath("/dashboard");
   revalidatePath("/board");

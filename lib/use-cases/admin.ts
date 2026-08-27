@@ -11,6 +11,7 @@ import {
   updateSeasonPlayer,
 } from "@/lib/repositories/players.repo";
 import { logAdminAction, logEvent } from "@/lib/repositories/events.repo";
+import { log } from "@/lib/log";
 import { SeasonConfigSchema } from "@/game-engine";
 
 export class AdminError extends Error {
@@ -113,6 +114,7 @@ export async function createSeason(input: unknown): Promise<string> {
     targetId: created.id,
     payload: { title: parsed.title, slug: parsed.slug },
   });
+  log.info("season.create.persisted", { actorId: actor.id, seasonId: created.id });
   return created.id;
 }
 
@@ -131,8 +133,17 @@ export async function changeSeasonStatus(
 ): Promise<void> {
   const actor = await requireStaff();
   const season = await getSeasonById(seasonId);
-  if (!season) throw new AdminError("adminSeasonNotFound");
+  if (!season) {
+    log.debug("season.status_change.season_not_found", { actorId: actor.id, seasonId });
+    throw new AdminError("adminSeasonNotFound");
+  }
   if (!statusTransitions[season.status]!.includes(newStatus)) {
+    log.debug("season.status_change.invalid_transition", {
+      actorId: actor.id,
+      seasonId,
+      from: season.status,
+      to: newStatus,
+    });
     throw new AdminError("adminInvalidTransition", {
       from: season.status,
       to: newStatus,
@@ -158,8 +169,14 @@ export async function changeSeasonStatus(
     targetId: seasonId,
   });
   if (newStatus === "active") {
+    log.info("season.started", { actorId: actor.id, seasonId });
     await logEvent({ seasonId, eventType: "season_started", payload: {} });
   }
+  log.info("season.status_change.persisted", {
+    actorId: actor.id,
+    seasonId,
+    newStatus,
+  });
 }
 
 export async function updateSeasonSettings(input: {
@@ -204,10 +221,12 @@ export async function updateSeasonSettings(input: {
       await tx.update(seasons).set({ config: withoutRegen }).where(eq(seasons.id, input.seasonId));
     }
   });
-  await logAdminAction({
+  log.info("season.settings.update.persisted", { actorId: actor.id, seasonId: input.seasonId });
+   await logAdminAction({
     actorId: actor.id,
     actionType: "season_settings_updated",
     targetType: "season",
+
     targetId: input.seasonId,
     payload: { config },
   });
@@ -240,11 +259,18 @@ export async function setBoardCell(input: {
         label: input.label ?? null,
         config: input.config ?? {},
       },
-    });
-  await logAdminAction({
+  });
+  log.info("board.cell.persisted", {
+    actorId: actor.id,
+    boardId: input.boardId,
+    position: input.position,
+    cellType: input.cellType,
+  });
+   await logAdminAction({
     actorId: actor.id,
     actionType: "board_cell_set",
     targetType: "board_cell",
+
     payload: { ...input },
   });
 }
@@ -254,10 +280,12 @@ export async function setBoardCell(input: {
 export async function adminAddPlayer(seasonId: string, userId: string): Promise<void> {
   const actor = await requireStaff();
   await addPlayerToSeason(seasonId, userId);
-  await logAdminAction({
+  log.info("season.player_added.persisted", { actorId: actor.id, seasonId, userId });
+   await logAdminAction({
     actorId: actor.id,
     actionType: "player_added",
     targetType: "season_player",
+
     payload: { seasonId, userId },
   });
   await logEvent({ seasonId, eventType: "player_joined", payload: { userId } });
@@ -285,10 +313,10 @@ export async function adminAdjustPlayer(input: {
     targetId: sp.id,
     payload: { ...patch, reason: input.reason },
   });
-  await logEvent({
+  log.info("season.player_adjusted.persisted", {
+    actorId: actor.id,
     seasonId: sp.seasonId,
     seasonPlayerId: sp.id,
-    eventType: "admin_adjustment",
-    payload: { ...patch, reason: input.reason },
+    patch,
   });
-}
+ }

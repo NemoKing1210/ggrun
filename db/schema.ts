@@ -73,6 +73,14 @@ export const users = pgTable("users", {
   twitchLogin: text("twitch_login"),
   role: userRoleEnum("role").notNull().default("viewer"),
   isBlocked: boolean("is_blocked").notNull().default(false),
+  /** Short self-description shown on the public profile. */
+  bio: text("bio"),
+  /** External profile links: [{ network, url }] shown on the public profile. */
+  links: jsonb("links").notNull().default([]),
+  /** Accent color key from the ACCENTS palette (lib/accent.ts). */
+  accent: text("accent").notNull().default("amber"),
+  /** Preferred site language; overrides the locale cookie when set. */
+  locale: text("locale"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -10,6 +10,7 @@ import { profile as profileEn } from "./en/profile";
 import { rules as rulesEn } from "./en/rules";
 import { admin as adminEn } from "./en/admin";
 import { seasons as seasonsEn } from "./en/seasons";
+import { settings as settingsEn } from "./en/settings";
 import * as coreRu from "./ru/core";
 import { landing as landingRu } from "./ru/landing";
 import { board as boardRu } from "./ru/board";
@@ -19,6 +20,7 @@ import { profile as profileRu } from "./ru/profile";
 import { rules as rulesRu } from "./ru/rules";
 import { admin as adminRu } from "./ru/admin";
 import { seasons as seasonsRu } from "./ru/seasons";
+import { settings as settingsRu } from "./ru/settings";
 import * as coreUk from "./uk/core";
 import { landing as landingUk } from "./uk/landing";
 import { board as boardUk } from "./uk/board";
@@ -28,6 +30,7 @@ import { profile as profileUk } from "./uk/profile";
 import { rules as rulesUk } from "./uk/rules";
 import { admin as adminUk } from "./uk/admin";
 import { seasons as seasonsUk } from "./uk/seasons";
+import { settings as settingsUk } from "./uk/settings";
 
 /** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
@@ -42,6 +45,7 @@ function pickCore(core: Widen<typeof coreEn>) {
     playerStatuses: core.playerStatuses,
     breadcrumbs: core.breadcrumbs,
     errors: core.errors,
+    siteUnavailable: core.siteUnavailable,
   };
 }
 const coreEnDict = pickCore(coreEn);
@@ -62,6 +66,7 @@ export type Dictionary = {
   rules: Widen<typeof rulesEn>;
   admin: Widen<typeof adminEn>;
   seasons: Widen<typeof seasonsEn>;
+  settings: Widen<typeof settingsEn>;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -75,6 +80,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     rules: rulesEn,
     admin: adminEn,
     seasons: seasonsEn,
+    settings: settingsEn,
   },
   ru: {
     core: coreRuDict,
@@ -86,6 +92,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     rules: rulesRu,
     admin: adminRu,
     seasons: seasonsRu,
+    settings: settingsRu,
   },
   uk: {
     core: coreUkDict,
@@ -97,6 +104,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     rules: rulesUk,
     admin: adminUk,
     seasons: seasonsUk,
+    settings: settingsUk,
   },
 };
 

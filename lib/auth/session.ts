@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { db } from "@/lib/db";
+import { log } from "@/lib/log";
+import { isDbConnectionError } from "@/lib/db-health";
 import { sessions, users, type User } from "@/db/schema";
 
 export const SESSION_COOKIE = "ggrun_session";
@@ -37,18 +39,30 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const rows = await db
-    .select({ user: users })
-    .from(sessions)
-    .innerJoin(users, eq(users.id, sessions.userId))
-    .where(
-      and(
-        eq(sessions.tokenHash, tokenFingerprint(token)),
-        gt(sessions.expiresAt, new Date()),
-        eq(users.isBlocked, false),
-      ),
-    )
-    .limit(1);
+  let rows: { user: User }[];
+  try {
+    rows = await db
+      .select({ user: users })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .where(
+        and(
+          eq(sessions.tokenHash, tokenFingerprint(token)),
+          gt(sessions.expiresAt, new Date()),
+          eq(users.isBlocked, false),
+        ),
+      )
+      .limit(1);
+  } catch (error) {
+    // DB unreachable → treat as anonymous so the root layout can render the
+    // "site unavailable" screen instead of crashing on session resolution.
+    if (!isDbConnectionError(error)) throw error;
+    const authLog = log.child({ scope: "auth" });
+    authLog.warn("database unreachable while resolving session", {
+      err: error instanceof Error ? error : undefined,
+    });
+    return null;
+  }
   return rows[0]?.user ?? null;
 });
 

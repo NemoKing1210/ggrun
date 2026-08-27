@@ -19,11 +19,13 @@ export const common = {
   reason: "Reason",
   seasonKicker: "season “{season}”",
   notFound: "Not found",
+  githubLabel: "GitHub — NemoKing1210/ggrun",
 } as const;
 
 /** Header navigation. */
 export const nav = {
   home: "Home",
+  dashboard: "Dashboard",
   board: "Board",
   leaderboard: "Leaderboard",
   feed: "Feed",
@@ -32,6 +34,7 @@ export const nav = {
   admin: "Admin",
   login: "Log in",
   logout: "Log out",
+  settings: "Settings",
   language: "Language",
   menu: "Menu",
 } as const;
@@ -40,6 +43,14 @@ export const footer = {
   tagline: "GGRun · seasonal game run",
   metaTitle: "GGRun — seasonal game run",
   metaDescription: "Team gaming event platform: seasons, board, dice movement, leaderboard",
+  aboutTitle: "About the run",
+  aboutText:
+    "Seasonal gaming event: roll games, move across the board, climb the leaderboard.",
+  navTitle: "Navigation",
+  linksTitle: "Links",
+  rights: "© {year} GGRun. All rights reserved.",
+  version: "v{version}",
+  admin: "Admin console",
 } as const;
 
 /** Login and registration. */
@@ -62,6 +73,7 @@ export const auth = {
   devQuick: "Quick sign-in (dev)",
   devAsAdmin: "Login as admin",
   devAsPlayer: "Login as player",
+  loginPlaceholder: "player / email",
 } as const;
 
 /** Player dashboard (/dashboard). */
@@ -118,6 +130,8 @@ export const dashboard = {
   boardProgressTitle: "Board progress",
   awaitingModeration: "Awaiting moderation",
   statsTitle: "Your run",
+  youHere: "YOU",
+  games: "Games",
 } as const;
 /** Season and participant statuses. */
 export const seasonStatuses = {
@@ -192,6 +206,7 @@ export const errors = {
   authUsernameFailed: "Failed to generate a unique username",
   authInvalidCredentials: "Wrong login or password",
   authBlocked: "This account is blocked",
+  authLoginRequired: "Please log in",
 
   // --- forms ---
   formLoginRequired: "Enter your login",
@@ -199,5 +214,14 @@ export const errors = {
   formSlugFormat: "slug: lowercase latin letters, digits, hyphens",
   formConfigInvalidJson: "config — invalid JSON",
   formTitleRequired: "Enter the game title",
+  formInvalid: "Some fields are invalid",
   formUnknown: "Unknown error",
+} as const;
+
+/** Full-screen "site temporarily unavailable" state (DB unreachable). */
+export const siteUnavailable = {
+  kicker: "connection lost",
+  title: "Site temporarily unavailable",
+  text: "We cannot reach the game database right now. Please try again in a few minutes.",
+  retry: "Retry",
 } as const;

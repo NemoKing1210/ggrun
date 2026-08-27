@@ -3,16 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ExternalLink } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 import { logoutAction } from "@/lib/auth/actions";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
+import { AvatarBadge } from "@/components/ui/AvatarBadge";
 
 export interface SiteHeaderUser {
   displayName: string | null;
   username: string;
+  avatarUrl?: string | null;
   isStaff: boolean;
 }
 
@@ -30,6 +32,7 @@ export function SiteHeader({
   const pathname = usePathname();
   const navLinks = [
     { href: "/", label: t.core.nav.home },
+    ...(user ? [{ href: "/dashboard", label: t.core.nav.dashboard }] : []),
     { href: "/board", label: t.core.nav.board },
     { href: "/leaderboard", label: t.core.nav.leaderboard },
     { href: "/feed", label: t.core.nav.feed },
@@ -74,25 +77,26 @@ export function SiteHeader({
           </span>
 
           <span className="ml-auto flex items-center gap-2 sm:gap-3">
-            <a
-              href="https://github.com/NemoKing1210/ggrun"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub — NemoKing1210/ggrun"
-              className="hidden sm:inline-flex items-center justify-center rounded border border-[#3d3d34] p-1.5 text-dim transition-colors hover:border-amber hover:text-amber"
-              title="GitHub — NemoKing1210/ggrun"
-            >
-              <ExternalLink size={16} />
-            </a>
+
             <LocaleSwitcher current={locale} />
             {user ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href={"/players/" + user.username}
                   onClick={guard()}
-                  className="hidden max-w-[10rem] truncate hover:text-amber sm:inline"
+                  className="hidden no-underline items-center gap-2 hover:text-amber sm:inline-flex"
+                  title={user.displayName ?? user.username}
                 >
-                  {user.displayName ?? user.username}
+                  <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} />
+                  <span className="max-w-[10rem] truncate text-current">{user.displayName ?? user.username}</span>
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={guard()}
+                  className="hidden sm:inline hover:text-amber"
+                  title={t.core.nav.settings}
+                >
+                  ⚙
                 </Link>
                 {user.isStaff && (
                   <Link
@@ -148,25 +152,26 @@ export function SiteHeader({
                   </Link>
                 </li>
               ))}
-              <li>
-                <a
-                  href="https://github.com/NemoKing1210/ggrun"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest text-dim hover:text-foreground"
-                >
-                  GitHub — NemoKing1210/ggrun
-                </a>
-              </li>
+
               {user && (
                 <>
+                  <li className="sm:hidden">
+                    <Link
+                      href={"/players/" + user.username}
+                      onClick={guard()}
+                      className="flex no-underline items-center gap-2 border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest hover:text-amber"
+                    >
+                      <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} />
+                      {user.displayName ?? user.username}
+                    </Link>
+                  </li>
                   <li>
                     <Link
-                      href="/dashboard"
+                      href="/settings"
                       onClick={guard()}
-                      className="block border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest text-dim hover:text-foreground sm:hidden"
+                      className="block border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest text-dim hover:text-foreground"
                     >
-                      {user.displayName ?? user.username}
+                      {t.core.nav.settings}
                     </Link>
                   </li>
                   <li className="sm:hidden">

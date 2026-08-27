@@ -30,6 +30,10 @@ export const seasons = {
     viewLeaderboard: "Full leaderboard →",
     viewFeed: "View feed →",
     viewRules: "Read rules →",
+    statPlayers: "players",
+    statMoves: "moves",
+    statPassed: "passed",
+    statDropped: "dropped",
   },
   detail: {
     notFound: "Season not found",

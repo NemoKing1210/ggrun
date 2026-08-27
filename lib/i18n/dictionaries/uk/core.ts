@@ -22,11 +22,13 @@ export const common: Widen<typeof CoreEn.common> = {
   reason: "Причина",
   seasonKicker: "сезон «{season}»",
   notFound: "Не знайдено",
+  githubLabel: "GitHub — NemoKing1210/ggrun",
 };
 
 /** Header navigation. */
 export const nav: Widen<typeof CoreEn.nav> = {
   home: "Головна",
+  dashboard: "Дашборд",
   board: "Поле",
   leaderboard: "Таблиця лідерів",
   feed: "Стрічка",
@@ -35,6 +37,7 @@ export const nav: Widen<typeof CoreEn.nav> = {
   admin: "Адмінка",
   login: "Увійти",
   logout: "Вийти",
+  settings: "Налаштування",
   language: "Мова",
   menu: "Меню",
 };
@@ -43,6 +46,13 @@ export const footer: Widen<typeof CoreEn.footer> = {
   tagline: "GGRun · сезонний ігровий забіг",
   metaTitle: "GGRun — сезонний ігровий забіг",
   metaDescription: "Платформа командного ігрового івенту: сезони, поле, кубики, таблиця лідерів",
+  aboutTitle: "Про забіг",
+  aboutText: "Сезонна ігрова подія: ролте ігри, рухайтеся полем, піднімайтеся в таблиці лідерів.",
+  navTitle: "Навігація",
+  linksTitle: "Посилання",
+  rights: "© {year} GGRun. Усі права захищено.",
+  version: "v{version}",
+  admin: "Консоль адміністратора",
 };
 
 /** Login and registration. */
@@ -65,6 +75,7 @@ export const auth: Widen<typeof CoreEn.auth> = {
   devQuick: "Швидкий вхід (dev)",
   devAsAdmin: "Увійти як адмін",
   devAsPlayer: "Увійти як гравець",
+  loginPlaceholder: "нік / email",
 };
 
 /** Player dashboard (/dashboard). */
@@ -121,6 +132,8 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   boardProgressTitle: "Прогрес на полі",
   awaitingModeration: "На модерації",
   statsTitle: "Ваш забіг",
+  youHere: "ВИ",
+  games: "Ігри",
 };
 
 /** Season and participant statuses. */
@@ -189,11 +202,21 @@ export const errors: Widen<typeof CoreEn.errors> = {
   authUsernameFailed: "Не вдалося підібрати унікальний username",
   authInvalidCredentials: "Невірний логін або пароль",
   authBlocked: "Цей акаунт заблоковано",
+  authLoginRequired: "Увійдіть в акаунт",
 
   formLoginRequired: "Вкажіть логін",
   formPasswordRequired: "Вкажіть пароль",
   formSlugFormat: "slug: малі латинські літери, цифри, дефіс",
   formConfigInvalidJson: "config — некоректний JSON",
   formTitleRequired: "Вкажіть назву гри",
+  formInvalid: "Деякі поля заповнено некоректно",
   formUnknown: "Невідома помилка",
+};
+
+/** Full-screen "site temporarily unavailable" state (DB unreachable). */
+export const siteUnavailable: Widen<typeof CoreEn.siteUnavailable> = {
+  kicker: "з'єднання втрачено",
+  title: "Сайт тимчасово недоступний",
+  text: "Наразі немає зв'язку з базою даних. Будь ласка, спробуйте зайти за кілька хвилин.",
+  retry: "Повторити",
 };

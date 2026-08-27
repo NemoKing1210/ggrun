@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import RollCard from "@/components/dashboard/RollCard";
+import Link from "next/link";
+import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
@@ -85,6 +87,16 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+      <Link
+        href={"/players/" + user.username}
+        className="flex no-underline items-center gap-3 self-start transition hover:text-amber"
+        title={user.displayName ?? user.username}
+      >
+        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} size="md" />
+        <span className="font-display text-lg uppercase tracking-wide text-current">
+          {user.displayName ?? user.username}
+        </span>
+      </Link>
       <PageHeader
         kicker={kicker}
         title={t.core.dashboard.heading}
@@ -124,7 +136,7 @@ export default async function DashboardPage() {
                 >
                   <span className="ammo-counter text-xs leading-none">{cell.position}</span>
                   {isHere ? (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber px-1 font-mono text-[8px] leading-none text-background">YOU</span>
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber px-1 font-mono text-[8px] leading-none text-background">{t.core.dashboard.youHere}</span>
                   ) : null}
                 </div>
               );
@@ -198,7 +210,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="hud-card p-5">
-          <h2 className="font-display text-lg uppercase tracking-widest">Games</h2>
+          <h2 className="font-display text-lg uppercase tracking-widest">{t.core.dashboard.games}</h2>
           {recentRolls.length === 0 ? (
             <p className="mt-3 text-sm text-dim">{t.core.dashboard.historyEmpty}</p>
           ) : (

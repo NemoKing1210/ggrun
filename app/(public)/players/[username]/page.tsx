@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { count, desc, eq } from "drizzle-orm";
 
 import { EmptyState } from "@/components/ui/page-header";
@@ -69,23 +70,32 @@ export default async function PlayerProfilePage({ params }: Params) {
   return (
     <div className="mx-auto max-w-4xl">
       <header className="hud-card mb-8 flex flex-wrap items-center gap-5 p-6">
-        {user.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.avatarUrl}
-            alt=""
-            className="size-16 border border-dim/40 object-cover"
-          />
-        ) : (
-          <span className="inline-flex size-16 items-center justify-center border border-dim/40 bg-raised font-display text-2xl text-dim">
-            {(user.displayName ?? user.username).slice(0, 2).toUpperCase()}
-          </span>
-        )}
-        <div className="min-w-0">
+        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} className="!size-16 !rounded-none" square />
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-3xl uppercase tracking-wide text-amber">
             {user.displayName ?? user.username}
           </h1>
           <p className="font-mono text-sm text-dim">@{user.username}</p>
+          {user.bio ? (
+            <p className="mt-2 max-w-prose whitespace-pre-line text-sm text-zinc-300">
+              {user.bio}
+            </p>
+          ) : null}
+          {Array.isArray(user.links) && user.links.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(user.links as Array<{ network: string; url: string }>).map((l, i) => (
+                <a
+                  key={i}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hud-btn !px-3 !py-1 text-xs"
+                >
+                  {t.settings.network[l.network as keyof typeof t.settings.network] ?? l.network}
+                </a>
+              ))}
+            </div>
+          ) : null}
         </div>
         {activeParticipation ? (
           <div className="ml-auto flex gap-6 font-mono text-sm">

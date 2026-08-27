@@ -15,7 +15,7 @@ export default async function GamesCatalogPage() {
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-3xl uppercase tracking-widest text-amber">{t.admin.catalog.heading}</h1>
       <div className="hazard-tape" aria-hidden />
-      <p className="text-sm text-zinc-400">Flexible pool: manual adds, external API search (RAWG/IGDB/Steam), and per-season filters. Imported games are enriched with metacritic, rating and cover.</p>
+      <p className="text-sm text-zinc-400">{t.admin.catalog.intro}</p>
       <GamesCatalogManager games={games} />
     </div>
   );

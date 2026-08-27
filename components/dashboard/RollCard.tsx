@@ -10,6 +10,7 @@ import {
 } from "@/lib/use-cases/player-actions";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
+import { DebugError } from "@/components/ui/DebugError";
 
 export interface OpenRollView {
   id: string;
@@ -187,9 +188,10 @@ export default function RollCard({
       )}
 
       {error ? (
-        <p role="alert" className="mt-3 border-l-2 border-danger pl-3 text-sm text-danger">
-          {error}
-        </p>
+        <div role="alert">
+          <p className="mt-3 border-l-2 border-danger pl-3 text-sm text-danger">{error}</p>
+          <DebugError debug={openRoll ? resolveState.debug : rollState.debug} title="game" />
+        </div>
       ) : null}
 
       {!openRoll && (lastDice?.length ?? 0) > 0 ? (

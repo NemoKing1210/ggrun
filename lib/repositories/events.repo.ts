@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { adminAuditLog, eventLog } from "@/db/schema";
+import { log } from "@/lib/log";
 
 export type EventType =
   | "game_rolled"
@@ -17,6 +18,11 @@ export async function logEvent(entry: {
   eventType: EventType;
   payload?: Record<string, unknown>;
 }): Promise<void> {
+  log.debug("event.log.write", {
+    seasonId: entry.seasonId,
+    seasonPlayerId: entry.seasonPlayerId ?? null,
+    eventType: entry.eventType,
+  });
   await db.insert(eventLog).values({
     seasonId: entry.seasonId,
     seasonPlayerId: entry.seasonPlayerId ?? null,
@@ -32,6 +38,12 @@ export async function logAdminAction(entry: {
   targetId?: string | null;
   payload?: Record<string, unknown>;
 }): Promise<void> {
+  log.debug("event.admin_audit.write", {
+    actorId: entry.actorId,
+    actionType: entry.actionType,
+    targetType: entry.targetType,
+    targetId: entry.targetId ?? null,
+  });
   await db.insert(adminAuditLog).values({
     actorId: entry.actorId,
     actionType: entry.actionType,

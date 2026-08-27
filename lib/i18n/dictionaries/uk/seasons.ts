@@ -30,6 +30,10 @@ export const seasons = {
     viewLeaderboard: "Весь лідерборд →",
     viewFeed: "Відкрити стрічку →",
     viewRules: "Читати правила →",
+    statPlayers: "гравців",
+    statMoves: "ходів",
+    statPassed: "пройдено",
+    statDropped: "провалено",
   },
   detail: {
     notFound: "Сезон не знайдено",

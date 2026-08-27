@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import type { AdminFormState } from "@/lib/use-cases/admin-actions";
+import { DebugError } from "@/components/ui/DebugError";
 
 type Action = (
   prev: AdminFormState,
@@ -30,11 +31,13 @@ export function FormShell({
     <form action={formAction} className={className ?? "flex flex-col gap-3"}>
       {children}
       {state.error && (
-        <p className="text-danger text-sm" role="alert">
-          {state.error}
-        </p>
+        <div>
+          <p className="text-danger text-sm" role="alert">
+            {state.error}
+          </p>
+          <DebugError debug={state.debug} title="form" />
+        </div>
       )}
-      {state.ok && <p className="text-military text-sm">{state.ok}</p>}
       {!hideSubmit && (
         <button type="submit" className={submitClassName} disabled={pending}>
           {pending ? "..." : (submitLabel ?? "OK")}

@@ -9,6 +9,8 @@
   --hud-bg: #1b1b1a;
   --hud-bg-raised: #2a2a22;
   --hud-amber: #f2a900;
+  --hud-amber-border: #c98f00;
+  --hud-amber-glow: 242, 169, 0;
   --hud-green: #7c8f4a;
   --hud-red: #b0341f;
   --hud-text: #e6e1d3;
@@ -104,11 +106,14 @@ body {
   color: var(--hud-text);
   border: 1px solid #55554a;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
-  transition: filter 120ms ease;
+  transition: filter 120ms ease, transform 100ms ease;
   cursor: pointer;
 }
 .hud-btn:hover:not(:disabled) {
   filter: brightness(1.15);
+}
+.hud-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .hud-btn:disabled {
   opacity: 0.45;
@@ -117,12 +122,85 @@ body {
 .hud-btn-primary {
   background: var(--hud-amber);
   color: #171713;
-  border-color: #c98f00;
+  border-color: var(--hud-amber-border);
 }
 .hud-btn-danger {
   background: var(--hud-red);
   color: #ffe8de;
   border-color: #8a2817;
+}
+/*
+ * Motion: page transitions, modal open/close, lift-on-hover.
+ * Short durations (120-240ms), composited props only, respects reduced motion.
+ */
+@keyframes hud-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0% 0);
+  }
+}
+.animate-hud-page-in {
+  animation: hud-page-in 240ms ease-out both;
+}
+
+@keyframes hud-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hud-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.animate-hud-backdrop-in {
+  animation: hud-backdrop-in 160ms ease-out both;
+}
+.animate-hud-backdrop-out {
+  animation: hud-backdrop-out 160ms ease-in both;
+}
+
+@keyframes hud-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes hud-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+.animate-hud-panel-in {
+  animation: hud-panel-in 200ms ease-out both;
+}
+.animate-hud-panel-out {
+  animation: hud-panel-out 160ms ease-in both;
+}
+
+/* Interactive card lift */
+.hud-lift {
+  transition: transform 160ms ease, border-color 160ms ease, filter 160ms ease, background-color 160ms ease;
+}
+.hud-lift:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+.hud-lift:active {
+  transform: translateY(0);
 }
 
 /* Focus states for accessibility */
@@ -159,7 +237,7 @@ body {
 }
 *::-webkit-scrollbar-thumb:active {
   background: var(--hud-amber);
-  border-color: #c98f00;
+  border-color: var(--hud-amber-border);
 }
 *::-webkit-scrollbar-corner {
   background: #151514;
@@ -168,11 +246,26 @@ body {
 input,
 textarea,
 select {
-  background: #151514;
+  background: #1a1a1a;
   border: 1px solid #3d3d34;
   color: var(--hud-text);
   padding: 0.5rem 0.75rem;
   width: 100%;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--hud-amber);
+  box-shadow: 0 0 0 1px rgb(var(--hud-amber-glow) / 0.28);
+}
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* HUD loader animations */
@@ -212,5 +305,17 @@ select {
   .hud-loader-cell,
   .hud-loader-progress {
     animation: none;
+  }
+  .animate-hud-page-in,
+  .animate-hud-backdrop-in,
+  .animate-hud-backdrop-out,
+  .animate-hud-panel-in,
+  .animate-hud-panel-out {
+    animation: none;
+  }
+  .hud-btn:active:not(:disabled),
+  .hud-lift:hover,
+  .hud-lift:active {
+    transform: none;
   }
 }
