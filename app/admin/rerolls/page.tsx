@@ -48,7 +48,7 @@ export default async function AdminRerollsPage({
             </span>
             {t.admin.rerolls.heading}
           </h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{"// PENDING REVIEW"}</p>
+          <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{t.admin.rerolls.kicker}</p>
         </div>
         <span className="inline-flex items-center gap-2 border border-amber/30 bg-amber/10 px-3 py-1.5 font-mono text-xs uppercase tracking-widest text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <ClockIcon className="size-3.5" aria-hidden />
@@ -70,7 +70,7 @@ export default async function AdminRerollsPage({
         pending.length === 0 ? (
           <div className="hud-card border-dashed p-10 text-center">
             <InboxIcon className="mx-auto size-8 text-dim" aria-hidden />
-            <p className="mt-3 font-display text-sm uppercase tracking-widest text-dim">All clear</p>
+            <p className="mt-3 font-display text-sm uppercase tracking-widest text-dim">{t.admin.rerolls.allClear}</p>
             <p className="mt-1 font-mono text-xs tracking-wide text-dim">{t.admin.rerolls.empty}</p>
             <div className="mx-auto mt-4 h-px w-24 bg-dim/20" aria-hidden />
           </div>
@@ -171,7 +171,7 @@ export default async function AdminRerollsPage({
         pendingCompletions.length === 0 ? (
           <div className="hud-card border-dashed p-10 text-center">
             <InboxIcon className="mx-auto size-8 text-dim" aria-hidden />
-            <p className="mt-3 font-display text-sm uppercase tracking-widest text-dim">All clear</p>
+            <p className="mt-3 font-display text-sm uppercase tracking-widest text-dim">{t.admin.rerolls.allClear}</p>
             <p className="mt-1 font-mono text-xs tracking-wide text-dim">{t.admin.completions.empty}</p>
             <div className="mx-auto mt-4 h-px w-24 bg-dim/20" aria-hidden />
           </div>

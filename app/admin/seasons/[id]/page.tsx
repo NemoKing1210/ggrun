@@ -55,7 +55,7 @@ export default async function SeasonSettingsPage({
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
             {t.admin.settings.configHeading} · {t.admin.settings.rulesPlaceholder.slice(0, 48)}
           </p>
-          <p className="mt-1 max-w-2xl text-sm text-zinc-400">Flexible run settings: templates, dice, board cells and game pool — all editable at any time. No JSON required.</p>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-400">{t.admin.settings.flexibleHint}</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="dim" size="sm" className="font-mono">

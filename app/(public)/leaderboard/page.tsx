@@ -164,7 +164,7 @@ function ChampionCard({
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
               <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.balance}</div>
               <div className="ammo-counter mt-1 text-2xl leading-none text-amber">{row.balancePoints}</div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">pts</div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">{t.leaderboard.abbrev.points}</div>
             </div>
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
               <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.streaks}</div>
@@ -177,7 +177,7 @@ function ChampionCard({
                   <ChevronDownIcon className="h-3.5 w-3.5" /> {row.streakDrop}
                 </span>
               </div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">pass / drop</div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">{t.leaderboard.abbrev.passDrop}</div>
             </div>
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
               <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.place}</div>
@@ -237,15 +237,15 @@ function ChampionCard({
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">Bal</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.balanceShort}</div>
             <div className="ammo-counter text-sm text-amber">{row.balancePoints}</div>
           </div>
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">Pass</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.passShort}</div>
             <div className="font-mono text-sm text-military">+{row.streakPass}</div>
           </div>
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">Drop</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.dropShort}</div>
             <div className="font-mono text-sm text-danger">-{row.streakDrop}</div>
           </div>
         </div>

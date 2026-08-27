@@ -120,14 +120,14 @@ export default async function SeasonPlayersPage({
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-sm uppercase tracking-widest text-dim">Roster · {roster.length}</h2>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">sorted by position</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.players.sortedByPosition}</span>
         </div>
 
         {roster.length === 0 ? (
           <div className="hud-card p-8 text-center">
             <UserGroupIcon className="mx-auto h-8 w-8 text-dim/40" aria-hidden />
-            <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">No participants yet</p>
-            <p className="mt-1 text-sm text-dim">Add users above to start the run.</p>
+            <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{t.admin.players.noParticipants}</p>
+            <p className="mt-1 text-sm text-dim">{t.admin.players.addUsersHint}</p>
           </div>
         ) : (
           roster.map((p) => (

@@ -60,7 +60,7 @@ export default async function AuditLogPage() {
             </span>
             {audit.heading}
           </h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{"// AUDIT · LAST 200 EVENTS"}</p>
+          <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{t.admin.audit.kicker}</p>
         </div>
         <span className="inline-flex items-center gap-2 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs uppercase tracking-widest text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <ShieldCheckIcon className="size-3.5" aria-hidden />
@@ -75,13 +75,13 @@ export default async function AuditLogPage() {
             <ClockIcon className="size-4 text-amber" aria-hidden />
             Event log
           </h2>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">Most recent first</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.audit.mostRecent}</span>
         </div>
 
         {rows.length === 0 ? (
           <div className="m-4 border border-dashed border-dim/20 bg-background/20 p-8 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
             <ClockIcon className="mx-auto size-6 text-dim" aria-hidden />
-            <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">No audit entries yet</p>
+            <p className="mt-2 font-mono text-xs uppercase tracking-widest text-dim">{t.admin.audit.empty}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

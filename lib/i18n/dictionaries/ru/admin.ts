@@ -77,6 +77,14 @@ export const admin: Widen<typeof AdminEn.admin> = {
   saved: "Сохранено",
   userAdded: "Пользователь создан",
   userDeleted: "Пользователь удалён",
+  selectUser: "Выберите пользователя",
+  editUser: "Редактировать пользователя",
+  cannotBlockSelf: "Нельзя заблокировать себя.",
+  deleteWarning: "Аккаунт и все связанные данные будут удалены безвозвратно.",
+  cannotDeleteSelf: "Нельзя удалить себя.",
+  passwordHintKeep: "Оставьте пустым чтобы сохранить",
+  blockRestore: "Восстановить доступ для этого аккаунта.",
+  blockImmediate: "Заблокировать аккаунт немедленно. Он будет разлогинен.",
  },
 
  /** /admin */
@@ -97,6 +105,8 @@ export const admin: Widen<typeof AdminEn.admin> = {
   auditLink: "Аудит-лог",
   resetButton: "Сброс",
   resetConfirm: "Сбросить {season}? Все броски, ходы и очки будут удалены и сезон начнётся заново.",
+  emptyHint: "Создайте первый сезон выше — черновик → активен → завершён",
+  navigateLabel: "НАВИГАЦИЯ",
  },
 
  /** Season creation form on /admin. */
@@ -211,6 +221,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   cacheTtlLabel: "TTL кэша, часы",
   savingButton: "Сохраняем…",
   changesNote: "Все изменения применяются сразу — включая активные сезоны. Редактировать JSON не нужно.",
+  flexibleHint: "Гибкие настройки забега: шаблоны, кубики, клетки поля и пул игр — всё редактируется в любой момент. JSON не нужен.",
  },
 
  /** Board editor (/admin/seasons/[id]/board). */
@@ -231,6 +242,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   previewHeading: "Предпросмотр поля",
   configTarget: "Цель по конфигу",
   actualCounts: "Фактически",
+  sortedByNumber: "отсортировано по №",
  },
 
  /** Player management (/admin/seasons/[id]/players). */
@@ -244,6 +256,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
   keepStatusOption: "— не менять —",
   reasonLabel: "Причина (обязательно, попадает в аудит и ленту)",
   reasonPlaceholder: "Ручная корректировка судьи",
+  sortedByPosition: "отсортировано по позиции",
+  noParticipants: "Пока нет участников",
+  addUsersHint: "Добавьте пользователей выше чтобы начать забег.",
  },
 
  /** Games catalog (/admin/games). */
@@ -296,6 +311,21 @@ export const admin: Widen<typeof AdminEn.admin> = {
   orderingRating: "Рейтинг ↓",
   orderingNewest: "Новые",
   orderingName: "Название А-Я",
+  statsTotalLabel: "Всего игр",
+  statsActiveLabel: "Активно",
+  statsBlacklistedLabel: "Заблокировано",
+  poolLabel: "ПУЛ",
+  catalogKicker: "// КАТАЛОГ",
+  hudPool: "HUD · ПУЛ",
+  manualEntryHint: "Ручной ввод · сразу в пул",
+  clickImportHint: "Нажмите Импорт чтобы добавить в пул",
+  searchMobile: "Поиск",
+  esrbEveryone: "Для всех",
+  esrbEveryone10Plus: "Для всех 10+",
+  esrbTeen: "Подросток",
+  esrbMature: "Для взрослых",
+  esrbAdultsOnly: "Только для взрослых",
+  esrbRatingPending: "Ожидает оценки",
  },
  /** Audit log (/admin/audit). */
  audit: {
@@ -305,6 +335,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
   colAction: "Действие",
   colTarget: "Цель",
   colPayload: "Payload",
+  kicker: "// АУДИТ · ПОСЛЕДНИЕ 200 СОБЫТИЙ",
+  mostRecent: "Сначала новые",
+  empty: "Пока нет записей аудита",
  },
 
  /** Global site settings (/admin/settings). */
@@ -375,6 +408,33 @@ export const admin: Widen<typeof AdminEn.admin> = {
   verificationLinkLabel: "Ссылка подтверждения",
   showLink: "Показать ссылку",
   noPendingHint: "Переключите режим на Ручное или Ссылка, чтобы увидеть пользователей здесь.",
+  apiProvidersTitle: "API Провайдеры",
+  apiProvidersConfigured: "настроено",
+  apiProvidersEmpty: "пусто",
+  providerActive: "активен",
+  providerNotSet: "не задано",
+  inviteStatusExpired: "просрочено",
+  inviteStatusExhausted: "исчерпано",
+  inviteStatusActive: "активна",
+  configureButton: "Настроить",
+  liveBadge: "лайв",
+  sourceLabel: "Источник:",
+  dbOverride: "Переопределено в БД",
+  envLabel: "ENV",
+  noneLabel: "нет",
+  noneNeedsBoth: "нет (нужны ID и Secret)",
+  clearOverrideFallback: "Сбросить переопределение → вернуться к ENV",
+  clearOverride: "Сбросить",
+  willClearDb: "Значение БД будет очищено при сохранении",
+  willClear: "Будет очищено при сохранении",
+  envPresent: "env задано",
+  freeKeyFrom: "Бесплатный ключ с",
+  twitchCredentials: "Учётные данные Twitch-приложения ·",
+  webApiKeyShort: "Web API ключ ·",
+  howItWorks: "Как это работает",
+  howItWorksText: "Значения из БД приоритетнее .env. Оставьте поле пустым чтобы сохранить текущее. Сбросьте переопределение чтобы вернуться к env. В /admin/games → Поиск показываются только провайдеры с ключом.",
+  noKeysHint: " — нет ключей, поиск в каталоге отключён",
+  hasKeysHint: " — поиск использует настроенные провайдеры",
   integrationsHeading: "Интеграции API",
   integrationsHint: "Добавьте ключи RAWG / IGDB / Steam. Значения из БД перекрывают .env. В поиске игр показываются только настроенные провайдеры.",
   rawgApiKeyLabel: "RAWG API Key",
@@ -404,7 +464,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
  /** Reroll requests (/admin/rerolls). */
  rerolls: {
   heading: "Запросы на реролл",
+  kicker: "// НА РАССМОТРЕНИИ",
   empty: "Нет ожидающих запросов.",
+  allClear: "Всё чисто",
   colPlayer: "Игрок",
   colGame: "Игра",
   colReason: "Причина",

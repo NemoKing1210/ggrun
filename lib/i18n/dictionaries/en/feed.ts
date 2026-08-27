@@ -16,6 +16,7 @@ export const feed = {
     joined: " joined the season",
   },
   diceSuffix: "(dice {dice})",
+  diceLabel: "dice",
   seasonStarted: "The season has started. Good luck, everyone!",
   adminAdjustmentPrefix: "Administrative adjustment for ",
   adminAdjustmentReason: ": {reason}",

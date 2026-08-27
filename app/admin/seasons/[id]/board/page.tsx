@@ -266,7 +266,7 @@ export default async function BoardEditorPage({
       <section className="hud-card p-0 overflow-hidden">
         <div className="flex items-center justify-between border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
           <h3 className="font-display text-sm uppercase tracking-widest">{t.admin.boardEditor.colConfig} · {sorted.length}</h3>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">sorted by #</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.boardEditor.sortedByNumber}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

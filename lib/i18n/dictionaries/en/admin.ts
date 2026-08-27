@@ -74,6 +74,14 @@ export const admin = {
   saved: "Saved",
   userAdded: "User created",
   userDeleted: "User deleted",
+  selectUser: "Select a user",
+  editUser: "Edit user",
+  cannotBlockSelf: "You cannot block yourself.",
+  deleteWarning: "Permanently delete the account and all related data. This cannot be undone.",
+  cannotDeleteSelf: "You cannot delete yourself.",
+  passwordHintKeep: "Leave blank to keep",
+  blockRestore: "Restore access for this account.",
+  blockImmediate: "Block this account immediately. They will be logged out.",
  },
 
  /** /admin */
@@ -94,6 +102,8 @@ export const admin = {
   auditLink: "Audit log",
   resetButton: "Reset",
   resetConfirm: "Reset {season}? All rolls, moves and points will be wiped and the season will start anew.",
+  emptyHint: "Create your first season above — draft → active → finished",
+  navigateLabel: "NAVIGATE",
  },
 
  /** Season creation form on /admin. */
@@ -208,6 +218,7 @@ export const admin = {
   cacheTtlLabel: "Cache TTL hours",
   savingButton: "Saving…",
   changesNote: "All changes take effect immediately — including for active seasons. No JSON editing required.",
+  flexibleHint: "Flexible run settings: templates, dice, board cells and game pool — all editable at any time. No JSON required.",
  },
 
  /** Board editor (/admin/seasons/[id]/board). */
@@ -228,6 +239,7 @@ export const admin = {
   previewHeading: "Board preview",
   configTarget: "Config target",
   actualCounts: "Actual",
+  sortedByNumber: "sorted by #",
  },
 
  /** Player management (/admin/seasons/[id]/players). */
@@ -241,6 +253,9 @@ export const admin = {
   keepStatusOption: "— keep unchanged —",
   reasonLabel: "Reason (required, goes to audit log and feed)",
   reasonPlaceholder: "Manual referee adjustment",
+  sortedByPosition: "sorted by position",
+  noParticipants: "No participants yet",
+  addUsersHint: "Add users above to start the run.",
  },
 
  /** Games catalog (/admin/games). */
@@ -293,6 +308,21 @@ export const admin = {
   orderingRating: "Rating ↓",
   orderingNewest: "Newest",
   orderingName: "Name A-Z",
+  statsTotalLabel: "Total games",
+  statsActiveLabel: "Active",
+  statsBlacklistedLabel: "Blacklisted",
+  poolLabel: "POOL",
+  catalogKicker: "// CATALOG",
+  hudPool: "HUD · POOL",
+  manualEntryHint: "Manual entry · goes straight to pool",
+  clickImportHint: "Click Import to add to pool",
+  searchMobile: "Search",
+  esrbEveryone: "Everyone",
+  esrbEveryone10Plus: "Everyone 10+",
+  esrbTeen: "Teen",
+  esrbMature: "Mature",
+  esrbAdultsOnly: "Adults Only",
+  esrbRatingPending: "Rating Pending",
  },
 
  /** Audit log (/admin/audit). */
@@ -303,6 +333,9 @@ export const admin = {
   colAction: "Action",
   colTarget: "Target",
   colPayload: "Payload",
+  kicker: "// AUDIT · LAST 200 EVENTS",
+  mostRecent: "Most recent first",
+  empty: "No audit entries yet",
  },
 
  /** Global site settings (/admin/settings). */
@@ -373,6 +406,33 @@ export const admin = {
   verificationLinkLabel: "Verification link",
   showLink: "Show link",
   noPendingHint: "Switch registration mode to Manual or Email link to see users here.",
+  apiProvidersTitle: "API Providers",
+  apiProvidersConfigured: "configured",
+  apiProvidersEmpty: "empty",
+  providerActive: "active",
+  providerNotSet: "not set",
+  inviteStatusExpired: "expired",
+  inviteStatusExhausted: "exhausted",
+  inviteStatusActive: "active",
+  configureButton: "Configure",
+  liveBadge: "live",
+  sourceLabel: "Source:",
+  dbOverride: "DB override",
+  envLabel: "ENV",
+  noneLabel: "none",
+  noneNeedsBoth: "none (needs both ID & Secret)",
+  clearOverrideFallback: "Clear override → fallback to ENV",
+  clearOverride: "Clear override",
+  willClearDb: "Will clear DB value on save",
+  willClear: "Will clear on save",
+  envPresent: "env present",
+  freeKeyFrom: "Free key from",
+  twitchCredentials: "Twitch app credentials ·",
+  webApiKeyShort: "Web API key ·",
+  howItWorks: "How it works",
+  howItWorksText: "DB values take precedence over .env. Leave a field blank to keep current value. Clear override to fall back to env. Only providers with a key are shown in /admin/games → Search.",
+  noKeysHint: " — no keys configured, catalog search disabled",
+  hasKeysHint: " — catalog search uses configured providers",
   integrationsHeading: "API Integrations",
   integrationsHint: "Add API keys for RAWG / IGDB / Steam. DB values override .env. Only configured providers appear in Games → Search.",
   rawgApiKeyLabel: "RAWG API Key",
@@ -384,7 +444,9 @@ export const admin = {
  /** Reroll requests (/admin/rerolls). */
  rerolls: {
   heading: "Reroll requests",
+  kicker: "// PENDING REVIEW",
   empty: "No pending requests.",
+  allClear: "All clear",
   colPlayer: "Player",
   colGame: "Game",
   colReason: "Reason",

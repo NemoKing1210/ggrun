@@ -25,4 +25,11 @@ export const leaderboard = {
     boardSize: "Board size",
   },
   emptyHint: "Join the season to appear here when it starts.",
+  abbrev: {
+    points: "pts",
+    passDrop: "pass / drop",
+    balanceShort: "Bal",
+    passShort: "Pass",
+    dropShort: "Drop",
+  },
 } as const;

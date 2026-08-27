@@ -344,7 +344,7 @@ export async function FeedTimeline({
                         ) : null}
                         {dice ? (
                           <span className={`inline-flex items-center gap-1 border px-2 py-1 font-mono text-xs tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${meta.variant === "military" ? "border-military/30 bg-military/10 text-military" : meta.variant === "danger" ? "border-danger/30 bg-danger/10 text-danger" : "border-dim/20 bg-raised text-amber"}`}>
-                            {dice} <span className="text-dim/60">dice</span>
+                            {dice} <span className="text-dim/60">{t.feed.diceLabel}</span>
                           </span>
                         ) : null}
                         {cellType ? (

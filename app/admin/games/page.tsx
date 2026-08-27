@@ -38,7 +38,7 @@ export default async function GamesPage() {
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">{t.admin.catalog.intro}</p>
             </div>
           </div>
-          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">{"// CATALOG"}</span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">{t.admin.catalog.catalogKicker}</span>
         </div>
         <div className="hazard-tape mt-4" aria-hidden />
       </section>
@@ -49,17 +49,17 @@ export default async function GamesPage() {
             <CircleStackIcon className="size-5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">Total games</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.catalog.statsTotalLabel}</div>
             <div className="ammo-counter text-2xl leading-none text-amber">{total}</div>
           </div>
-          <span className="ml-auto hidden font-mono text-[10px] uppercase tracking-widest text-dim/60 sm:inline">POOL</span>
+          <span className="ml-auto hidden font-mono text-[10px] uppercase tracking-widest text-dim/60 sm:inline">{t.admin.catalog.poolLabel}</span>
         </div>
         <div className="hud-card flex items-center gap-3 p-4 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
           <span className="inline-flex size-9 items-center justify-center bg-emerald-950/30 border border-emerald-800 text-emerald-400 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
             <ShieldCheckIcon className="size-5" aria-hidden />
           </span>
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">Active</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.catalog.statsActiveLabel}</div>
             <div className="ammo-counter text-2xl leading-none text-emerald-400">{active}</div>
           </div>
           <div className="ml-auto h-1.5 w-16 overflow-hidden border border-emerald-800 bg-emerald-950/40 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" aria-hidden>
@@ -71,7 +71,7 @@ export default async function GamesPage() {
             <NoSymbolIcon className="size-5" aria-hidden />
           </span>
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">Blacklisted</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.admin.catalog.statsBlacklistedLabel}</div>
             <div className="ammo-counter text-2xl leading-none text-red-400">{blacklisted}</div>
           </div>
           <div className="ml-auto h-1.5 w-16 overflow-hidden border border-red-900 bg-red-950/40 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" aria-hidden>

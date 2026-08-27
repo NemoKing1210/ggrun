@@ -73,6 +73,10 @@ export const auth: Widen<typeof CoreEn.auth> = {
   registerTitle: "Регистрация",
   loginMetaTitle: "Вход — GGRun",
   registerMetaTitle: "Регистрация — GGRun",
+  registrationClosed: "Регистрация закрыта",
+  registrationClosedHint: "Можно зарегистрироваться по приглашению.",
+  verificationLinkDev: "Ссылка подтверждения (dev)",
+  openVerificationLink: "Открыть ссылку подтверждения",
   email: "Email",
   displayName: "Отображаемое имя",
   createAccount: "Создать аккаунт",
@@ -243,4 +247,19 @@ export const siteUnavailable: Widen<typeof CoreEn.siteUnavailable> = {
   title: "Сайт временно недоступен",
   text: "Сейчас нет связи с базой данных. Пожалуйста, попробуйте зайти через несколько минут.",
   retry: "Повторить",
+};
+
+/** Email verification (/verify-email). */
+export const verification: Widen<typeof CoreEn.verification> = {
+  metaTitle: "Подтверждение почты — GGRun",
+  missingTokenTitle: "Нет токена",
+  missingTokenText: "Токен подтверждения не предоставлен.",
+  invalidLinkTitle: "Недействительная ссылка",
+  invalidLinkText: "Эта ссылка недействительна или уже использована.",
+  linkExpiredTitle: "Срок истёк",
+  linkExpiredText: "Срок действия ссылки истёк. Попросите администратора выслать новую.",
+  verifiedBadge: "Подтверждено",
+  emailVerifiedTitle: "Почта подтверждена",
+  emailVerifiedText: "Ваш аккаунт {username} активирован. Теперь можно войти.",
+  goToLogin: "Перейти к входу",
 };

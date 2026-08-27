@@ -83,6 +83,10 @@ export const auth = {
   loginPlaceholder: "player / email",
   loginMetaTitle: "Log in — GGRun",
   registerMetaTitle: "Sign up — GGRun",
+  registrationClosed: "Registration closed",
+  registrationClosedHint: "An invite link can still be used to sign up.",
+  verificationLinkDev: "Verification link (dev)",
+  openVerificationLink: "Open verification link",
 } as const;
 
 /** Player dashboard (/dashboard). */
@@ -246,4 +250,19 @@ export const siteUnavailable = {
   title: "Site temporarily unavailable",
   text: "We cannot reach the game database right now. Please try again in a few minutes.",
   retry: "Retry",
+} as const;
+
+/** Email verification (/verify-email). */
+export const verification = {
+  metaTitle: "Verify email — GGRun",
+  missingTokenTitle: "Missing token",
+  missingTokenText: "No verification token provided.",
+  invalidLinkTitle: "Invalid link",
+  invalidLinkText: "This verification link is invalid or already used.",
+  linkExpiredTitle: "Link expired",
+  linkExpiredText: "This link has expired. Ask an admin to resend a new one.",
+  verifiedBadge: "Verified",
+  emailVerifiedTitle: "Email verified",
+  emailVerifiedText: "Your account {username} is now active. You can log in.",
+  goToLogin: "Go to login",
 } as const;

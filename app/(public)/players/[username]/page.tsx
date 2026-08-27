@@ -108,7 +108,7 @@ export default async function PlayerProfilePage({ params }: Params) {
           {/* top row badges */}
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <Badge variant={roleVariant(user.role)}>{t.admin.users.roles[user.role as keyof typeof t.admin.users.roles] ?? user.role}</Badge>
-            {user.isBlocked ? <Badge variant="danger">blocked</Badge> : null}
+            {user.isBlocked ? <Badge variant="danger">{t.profile.blocked}</Badge> : null}
             <span className="hidden border border-white/15 bg-black/35 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-white/80 backdrop-blur sm:inline-flex">
               {format(t.profile.hero.joined, { date: joinedFmt.format(user.createdAt) })}
             </span>
@@ -345,7 +345,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 border border-amber/20 bg-amber/10 px-2 py-0.5 font-mono text-xs text-amber">
-                          {move.diceResults.join(" + ")} <span className="text-dim/60">dice</span>
+                          {move.diceResults.join(" + ")} <span className="text-dim/60">{t.profile.diceLabel}</span>
                         </span>
                         <span className="font-mono text-[11px] text-dim">ID {move.id.slice(0, 8)}…</span>
                       </div>

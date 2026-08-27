@@ -18,6 +18,7 @@ export const feed: Widen<typeof FeedEn.feed> = {
     joined: " присоединился к сезону",
   },
   diceSuffix: "(кубики {dice})",
+  diceLabel: "кубики",
   seasonStarted: "Сезон начался. Всем удачи!",
   adminAdjustmentPrefix: "Административная корректировка для ",
   adminAdjustmentReason: ": {reason}",

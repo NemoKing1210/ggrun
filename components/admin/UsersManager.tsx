@@ -98,7 +98,7 @@ export default function UsersManager({
               <Input name="password" type="password" required minLength={8} placeholder="••••••••" />
             </Field>
             <Field label={t.core.auth.displayName}>
-              <Input name="displayName" placeholder="Display name" />
+              <Input name="displayName" placeholder={t.core.auth.displayName} />
             </Field>
             <Field label={u.roleLabel}>
               <Select name="role" defaultValue="player">
@@ -183,7 +183,7 @@ export default function UsersManager({
         {!selected ? (
           <section className="hud-card flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
             <UsersIcon className="h-12 w-12 text-dim/50" aria-hidden />
-            <h3 className="mt-3 font-display text-lg uppercase tracking-widest text-dim">Select a user</h3>
+            <h3 className="mt-3 font-display text-lg uppercase tracking-widest text-dim">{t.admin.users.selectUser}</h3>
             <p className="mt-2 max-w-sm font-mono text-xs leading-relaxed text-dim">
               Choose a user from the list to edit their profile, change role, or manage access. Use the search to filter by email, username or display name.
             </p>
@@ -219,7 +219,7 @@ export default function UsersManager({
 
                   <div className="flex items-center gap-2">
                     <PencilSquareIcon className="h-5 w-5 text-amber" aria-hidden />
-                    <h4 className="font-display text-sm uppercase tracking-widest">Edit user</h4>
+                    <h4 className="font-display text-sm uppercase tracking-widest">{t.admin.users.editUser}</h4>
                   </div>
 
                   <div className="mt-3">
@@ -231,7 +231,7 @@ export default function UsersManager({
                     >
                       <input type="hidden" name="userId" value={selected.id} />
                       <Field label={t.core.auth.displayName}>
-                        <Input name="displayName" defaultValue={selected.displayName ?? ""} placeholder="Display name" />
+                        <Input name="displayName" defaultValue={selected.displayName ?? ""} placeholder={t.core.auth.displayName} />
                       </Field>
                       <Field label={u.usernameLabel}>
                         <Input name="username" defaultValue={selected.username} required />
@@ -246,7 +246,7 @@ export default function UsersManager({
                           ))}
                         </Select>
                       </Field>
-                      <Field label={t.core.auth.password} hint="Leave blank to keep">
+                      <Field label={t.core.auth.password} hint={t.admin.users.passwordHintKeep}>
                         <Input name="password" type="password" placeholder="••••••••" />
                       </Field>
                     </FormShell>
@@ -261,7 +261,7 @@ export default function UsersManager({
                         <span className="font-display text-xs uppercase tracking-widest">{selected.isBlocked ? u.unblockButton : u.blockButton}</span>
                       </div>
                       <p className="mt-2 font-mono text-xs leading-relaxed text-dim">
-                        {selected.isBlocked ? "Restore access for this account." : "Block this account immediately. They will be logged out."}
+                        {selected.isBlocked ? t.admin.users.blockRestore : t.admin.users.blockImmediate}
                       </p>
                       <ConfirmButton
                         message={`${selected.isBlocked ? u.unblockButton : u.blockButton}: ${selected.username}?`}
@@ -270,7 +270,7 @@ export default function UsersManager({
                       >
                         {selected.isBlocked ? u.unblockButton : u.blockButton}
                       </ConfirmButton>
-                      {isSelf && <p className="mt-2 font-mono text-xs text-danger">You cannot block yourself.</p>}
+                      {isSelf && <p className="mt-2 font-mono text-xs text-danger">{t.admin.users.cannotBlockSelf}</p>}
                     </form>
 
                     <form action={deleteUserAction} className="hud-card bg-danger/5 p-3">
@@ -278,7 +278,7 @@ export default function UsersManager({
                         <TrashIcon className="h-4 w-4 text-danger" aria-hidden />
                         <span className="font-display text-xs uppercase tracking-widest text-danger">{u.deleteButton}</span>
                       </div>
-                      <p className="mt-2 font-mono text-xs leading-relaxed text-dim">Permanently delete the account and all related data. This cannot be undone.</p>
+                      <p className="mt-2 font-mono text-xs leading-relaxed text-dim">{t.admin.users.deleteWarning}</p>
                       <ConfirmButton
                         message={`${u.deleteButton}: ${selected.username}?`}
                         className="hud-btn hud-btn-danger mt-3 w-full text-xs"
@@ -286,7 +286,7 @@ export default function UsersManager({
                       >
                         {u.deleteButton}
                       </ConfirmButton>
-                      {isSelf && <p className="mt-2 font-mono text-xs text-danger">You cannot delete yourself.</p>}
+                      {isSelf && <p className="mt-2 font-mono text-xs text-danger">{t.admin.users.cannotDeleteSelf}</p>}
                     </form>
                   </div>
                 </>

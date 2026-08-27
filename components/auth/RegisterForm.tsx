@@ -26,9 +26,9 @@ export function RegisterForm({ invite, registrationEnabled, maintenanceMode }: {
       )}
       {isClosed ? (
         <div className="hud-card border-danger/30 bg-danger/10 p-4 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
-          <p className="font-display uppercase tracking-widest text-danger">Registration closed</p>
+          <p className="font-display uppercase tracking-widest text-danger">{t.core.auth.registrationClosed}</p>
           <p className="mt-2 text-sm text-zinc-400">{t.core.errors.authRegistrationDisabled}</p>
-          <p className="mt-1 text-xs text-zinc-500">An invite link can still be used to sign up.</p>
+          <p className="mt-1 text-xs text-zinc-500">{t.core.auth.registrationClosedHint}</p>
         </div>
       ) : (
       <form action={formAction} className="flex flex-col gap-4">
@@ -60,9 +60,9 @@ export function RegisterForm({ invite, registrationEnabled, maintenanceMode }: {
             <p className="text-sm font-medium text-military">{t.core.errors[state.ok as keyof typeof t.core.errors] ?? state.ok}</p>
             {state.debug && (
               <div className="mt-2">
-                <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">Verification link (dev)</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">{t.core.auth.verificationLinkDev}</p>
                 <p className="mt-1 break-all font-mono text-xs text-amber">{state.debug}</p>
-                <a href={state.debug} className="mt-2 inline-flex hud-btn !py-1 !px-2 text-xs">Open verification link</a>
+                <a href={state.debug} className="mt-2 inline-flex hud-btn !py-1 !px-2 text-xs">{t.core.auth.openVerificationLink}</a>
               </div>
             )}
             <DebugError debug={state.debug} title="register" />

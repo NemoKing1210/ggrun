@@ -113,7 +113,7 @@ export function GlobalSettingsForm({
   const tabs = [
     { id: "general", label: s.tabs.general, icon: Cog6ToothIcon },
     { id: "registration", label: s.tabs.registration, icon: UserPlusIcon },
-    { id: "integrations", label: s.tabs?.integrations ?? "Integrations", icon: KeyIcon },
+    { id: "integrations", label: s.tabs.integrations, icon: KeyIcon },
     { id: "invites", label: s.tabs.invites, icon: LinkIcon },
     { id: "pending", label: `${s.tabs.pending} ${pending.length ? `(${pending.length})` : ""}`, icon: ClockIcon },
   ] as const;
@@ -172,13 +172,13 @@ export function GlobalSettingsForm({
             <GlobeAltIcon className="size-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-xs uppercase tracking-widest">API Providers</p>
+            <p className="font-display text-xs uppercase tracking-widest">{s.apiProvidersTitle}</p>
             <p className="text-xs text-zinc-500 truncate">
               {providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "RAWG ✓" : "RAWG —"} · {providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "IGDB ✓" : "IGDB —"} · {providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "Steam ✓" : "Steam —"}
-              {!hasAnyProvider ? " — no keys configured, catalog search disabled" : " — catalog search uses configured providers"}
+              {!hasAnyProvider ? s.noKeysHint : s.hasKeysHint}
             </p>
           </div>
-          <button type="button" onClick={() => setActiveTab("integrations")} className="hud-btn !py-1 !px-2 text-xs">Configure</button>
+          <button type="button" onClick={() => setActiveTab("integrations")} className="hud-btn !py-1 !px-2 text-xs">{s.configureButton}</button>
         </div>
       )}
 
@@ -205,7 +205,7 @@ export function GlobalSettingsForm({
           <div className="flex items-center gap-2">
             <Cog6ToothIcon className="size-5 text-amber" aria-hidden />
             <h2 className="font-display text-sm uppercase tracking-widest">{s.generalHeading}</h2>
-            <Badge variant="dim" size="sm" className="ml-2 font-mono">live</Badge>
+            <Badge variant="dim" size="sm" className="ml-2 font-mono">{s.liveBadge}</Badge>
           </div>
           <p className="mt-1 text-xs text-zinc-500">{s.generalHint}</p>
 
@@ -367,10 +367,10 @@ export function GlobalSettingsForm({
         <section className="hud-card p-5 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
           <div className="flex items-center gap-2">
             <KeyIcon className="size-5 text-amber" aria-hidden />
-            <h2 className="font-display text-sm uppercase tracking-widest">{s.integrationsHeading ?? "API Integrations"}</h2>
-            <Badge variant="dim" size="sm" className="ml-2 font-mono">{hasAnyProvider ? "configured" : "empty"}</Badge>
+            <h2 className="font-display text-sm uppercase tracking-widest">{s.integrationsHeading}</h2>
+            <Badge variant="dim" size="sm" className="ml-2 font-mono">{hasAnyProvider ? s.apiProvidersConfigured : s.apiProvidersEmpty}</Badge>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">{s.integrationsHint ?? "Add API keys for RAWG / IGDB / Steam. DB values override .env. Only configured providers appear in Games → Search."}</p>
+          <p className="mt-1 text-xs text-zinc-500">{s.integrationsHint}</p>
 
           <form action={providerFormAction} className="mt-6 flex flex-col gap-5">
             <input type="hidden" name="rawgApiKey" value={clearFlags.rawg ? "" : rawgInput.trim() ? rawgInput.trim() : "__KEEP__"} />
@@ -381,13 +381,13 @@ export function GlobalSettingsForm({
             <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> RAWG <Badge variant={providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "military" : "dim"} size="sm">{providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "active" : "not set"}</Badge></p>
-                  <p className="mt-1 text-xs text-zinc-500">Free key from <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-amber underline">rawg.io/apidocs</a> · used for catalog search & hybrid pools</p>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> RAWG <Badge variant={providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? "military" : "dim"} size="sm">{providerKeys.hasDb.rawg || providerKeys.hasEnv.rawg ? s.providerActive : s.providerNotSet}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.freeKeyFrom} <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-amber underline">rawg.io/apidocs</a> · used for catalog search & hybrid pools</p>
                 </div>
                 {providerKeys.rawgApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.rawgApiKeyMasked}</span>}
               </div>
               <div className="mt-3">
-                <Field label={s.rawgApiKeyLabel ?? "RAWG API Key"}>
+                <Field label={s.rawgApiKeyLabel}>
                   <div className="relative flex items-center">
                     <Input
                       type={showKeys.rawg ? "text" : "password"}
@@ -403,25 +403,25 @@ export function GlobalSettingsForm({
                 </Field>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.rawg ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.rawg ? <span className="text-military">ENV</span> : <span className="text-dim">none</span>}</span>
+                <span className="font-mono text-zinc-500">{s.sourceLabel} {providerKeys.hasDb.rawg ? <span className="text-amber">{s.dbOverride}</span> : providerKeys.hasEnv.rawg ? <span className="text-military">{s.envLabel}</span> : <span className="text-dim">{s.noneLabel}</span>}</span>
                 {providerKeys.hasDb.rawg && !clearFlags.rawg && (
-                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, rawg: true })); setRawgInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override → fallback to ENV</button>
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, rawg: true })); setRawgInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
                 )}
-                {clearFlags.rawg && <span className="text-danger">Will clear DB value on save</span>}
-                {providerKeys.hasEnv.rawg && <Badge variant="dim" size="sm" className="font-mono">env present</Badge>}
+                {clearFlags.rawg && <span className="text-danger">{s.willClearDb}</span>}
+                {providerKeys.hasEnv.rawg && <Badge variant="dim" size="sm" className="font-mono">{s.envPresent}</Badge>}
               </div>
             </div>
 
             <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><KeyIcon className="size-4 text-amber" /> IGDB <Badge variant={providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "military" : "dim"} size="sm">{providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "active" : "not set"}</Badge></p>
-                  <p className="mt-1 text-xs text-zinc-500">Twitch app credentials · <a href="https://api-docs.igdb.com" target="_blank" rel="noreferrer" className="text-amber underline">api-docs.igdb.com</a></p>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><KeyIcon className="size-4 text-amber" /> IGDB <Badge variant={providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? "military" : "dim"} size="sm">{providerKeys.hasDb.igdb || providerKeys.hasEnv.igdb ? s.providerActive : s.providerNotSet}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.twitchCredentials} <a href="https://api-docs.igdb.com" target="_blank" rel="noreferrer" className="text-amber underline">api-docs.igdb.com</a></p>
                 </div>
                 <span className="font-mono text-xs text-amber">{providerKeys.igdbClientIdMasked ? providerKeys.igdbClientIdMasked : ""} {providerKeys.igdbClientSecretMasked ? "/ " + providerKeys.igdbClientSecretMasked : ""}</span>
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label={s.igdbClientIdLabel ?? "IGDB Client ID"}>
+                <Field label={s.igdbClientIdLabel}>
                   <div className="relative flex items-center">
                     <Input
                       type={showKeys.igdbId ? "text" : "password"}
@@ -435,7 +435,7 @@ export function GlobalSettingsForm({
                     </button>
                   </div>
                 </Field>
-                <Field label={s.igdbClientSecretLabel ?? "IGDB Client Secret"}>
+                <Field label={s.igdbClientSecretLabel}>
                   <div className="relative flex items-center">
                     <Input
                       type={showKeys.igdbSecret ? "text" : "password"}
@@ -451,24 +451,24 @@ export function GlobalSettingsForm({
                 </Field>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.igdb ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.igdb ? <span className="text-military">ENV</span> : <span className="text-dim">none (needs both ID & Secret)</span>}</span>
+                <span className="font-mono text-zinc-500">{s.sourceLabel} {providerKeys.hasDb.igdb ? <span className="text-amber">{s.dbOverride}</span> : providerKeys.hasEnv.igdb ? <span className="text-military">{s.envLabel}</span> : <span className="text-dim">{s.noneNeedsBoth}</span>}</span>
                 {providerKeys.hasDb.igdb && (
-                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, igdbId: true, igdbSecret: true })); setIgdbIdInput(""); setIgdbSecretInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override</button>
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, igdbId: true, igdbSecret: true })); setIgdbIdInput(""); setIgdbSecretInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverride}</button>
                 )}
-                {(clearFlags.igdbId || clearFlags.igdbSecret) && <span className="text-danger">Will clear on save</span>}
+                {(clearFlags.igdbId || clearFlags.igdbSecret) && <span className="text-danger">{s.willClear}</span>}
               </div>
             </div>
 
             <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> Steam <Badge variant={providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "military" : "dim"} size="sm">{providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "active" : "not set"}</Badge></p>
-                  <p className="mt-1 text-xs text-zinc-500">Web API key · <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer" className="text-amber underline">steamcommunity.com/dev/apikey</a></p>
+                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2"><GlobeAltIcon className="size-4 text-amber" /> Steam <Badge variant={providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? "military" : "dim"} size="sm">{providerKeys.hasDb.steam || providerKeys.hasEnv.steam ? s.providerActive : s.providerNotSet}</Badge></p>
+                  <p className="mt-1 text-xs text-zinc-500">{s.webApiKeyShort} <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer" className="text-amber underline">steamcommunity.com/dev/apikey</a></p>
                 </div>
                 {providerKeys.steamApiKeyMasked && <span className="font-mono text-xs text-amber">{providerKeys.steamApiKeyMasked}</span>}
               </div>
               <div className="mt-3">
-                <Field label={s.steamApiKeyLabel ?? "Steam Web API Key"}>
+                <Field label={s.steamApiKeyLabel}>
                   <div className="relative flex items-center">
                     <Input
                       type={showKeys.steam ? "text" : "password"}
@@ -484,17 +484,17 @@ export function GlobalSettingsForm({
                 </Field>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-mono text-zinc-500">Source: {providerKeys.hasDb.steam ? <span className="text-amber">DB override</span> : providerKeys.hasEnv.steam ? <span className="text-military">ENV</span> : <span className="text-dim">none</span>}</span>
+                <span className="font-mono text-zinc-500">{s.sourceLabel} {providerKeys.hasDb.steam ? <span className="text-amber">{s.dbOverride}</span> : providerKeys.hasEnv.steam ? <span className="text-military">{s.envLabel}</span> : <span className="text-dim">{s.noneLabel}</span>}</span>
                 {providerKeys.hasDb.steam && !clearFlags.steam && (
-                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, steam: true })); setSteamInput(""); }} className="hud-btn !py-1 !px-2 text-xs">Clear override → fallback to ENV</button>
+                  <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, steam: true })); setSteamInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
                 )}
-                {clearFlags.steam && <span className="text-danger">Will clear DB value on save</span>}
+                {clearFlags.steam && <span className="text-danger">{s.willClearDb}</span>}
               </div>
             </div>
 
             <div className="rounded border border-amber/20 bg-amber/5 p-3 text-xs leading-relaxed text-zinc-400 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-              <p className="font-mono text-[11px] uppercase tracking-widest text-amber">How it works</p>
-              <p className="mt-1">DB values take precedence over <span className="font-mono text-amber">.env</span>. Leave a field blank to keep current value. Clear override to fall back to env. Only providers with a key are shown in <span className="font-mono text-amber">/admin/games → Search</span>; unconfigured APIs are hidden from the list.</p>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-amber">{s.howItWorks}</p>
+              <p className="mt-1">{s.howItWorksText}</p>
             </div>
 
             {providerState.error && (
@@ -566,7 +566,7 @@ export function GlobalSettingsForm({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-amber truncate">{link}</span>
                         <span className={`inline-flex items-center gap-1 border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${isExpired ? "border-danger/40 bg-danger/10 text-danger" : isExhausted ? "border-zinc-600 bg-zinc-800 text-zinc-400" : "border-military/40 bg-military/10 text-military"}`}>
-                          {isExpired ? "expired" : isExhausted ? "exhausted" : "active"} · {format(s.inviteUses, { used: String(inv.usesCount), max: String(inv.maxUses) })}
+                          {isExpired ? s.inviteStatusExpired : isExhausted ? s.inviteStatusExhausted : s.inviteStatusActive} · {format(s.inviteUses, { used: String(inv.usesCount), max: String(inv.maxUses) })}
                         </span>
                       </div>
                       <p className="mt-1 font-mono text-[11px] text-zinc-500">

@@ -73,6 +73,10 @@ export const auth: Widen<typeof CoreEn.auth> = {
   registerTitle: "Реєстрація",
   loginMetaTitle: "Вхід — GGRun",
   registerMetaTitle: "Реєстрація — GGRun",
+  registrationClosed: "Реєстрацію закрито",
+  registrationClosedHint: "Можна зареєструватися за запрошенням.",
+  verificationLinkDev: "Посилання підтвердження (dev)",
+  openVerificationLink: "Відкрити посилання підтвердження",
   email: "Email",
   displayName: "Псевдонім для показу",
   createAccount: "Створити акаунт",
@@ -241,4 +245,19 @@ export const siteUnavailable: Widen<typeof CoreEn.siteUnavailable> = {
   title: "Сайт тимчасово недоступний",
   text: "Наразі немає зв'язку з базою даних. Будь ласка, спробуйте зайти за кілька хвилин.",
   retry: "Повторити",
+};
+
+/** Email verification (/verify-email). */
+export const verification: Widen<typeof CoreEn.verification> = {
+  metaTitle: "Підтвердження пошти — GGRun",
+  missingTokenTitle: "Немає токена",
+  missingTokenText: "Токен підтвердження не надано.",
+  invalidLinkTitle: "Недійсне посилання",
+  invalidLinkText: "Це посилання недійсне або вже використане.",
+  linkExpiredTitle: "Строк минув",
+  linkExpiredText: "Строк дії посилання минув. Попросіть адміністратора надіслати нове.",
+  verifiedBadge: "Підтверджено",
+  emailVerifiedTitle: "Пошту підтверджено",
+  emailVerifiedText: "Ваш акаунт {username} активовано. Тепер можна увійти.",
+  goToLogin: "Перейти до входу",
 };

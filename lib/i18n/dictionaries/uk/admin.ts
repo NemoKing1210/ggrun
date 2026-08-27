@@ -77,6 +77,14 @@ export const admin: Widen<typeof AdminEn.admin> = {
   saved: "Збережено",
   userAdded: "Користувача створено",
   userDeleted: "Користувача видалено",
+  selectUser: "Виберіть користувача",
+  editUser: "Редагувати користувача",
+  cannotBlockSelf: "Не можна заблокувати себе.",
+  deleteWarning: "Акаунт і всі пов'язані дані буде видалено безповоротно.",
+  cannotDeleteSelf: "Не можна видалити себе.",
+  passwordHintKeep: "Залиште порожнім щоб зберегти",
+  blockRestore: "Відновити доступ для цього акаунта.",
+  blockImmediate: "Заблокувати акаунт негайно. Його буде розлогінено.",
  },
 
  /** /admin */
@@ -97,6 +105,8 @@ export const admin: Widen<typeof AdminEn.admin> = {
   auditLink: "Журнал аудиту",
   resetButton: "Скидання",
   resetConfirm: "Скинути {season}? Усі кидки, ходи та очки буде видалено й сезон розпочнеться заново.",
+  emptyHint: "Створіть перший сезон вище — чернетка → активний → завершено",
+  navigateLabel: "НАВІГАЦІЯ",
  },
 
  /** Season creation form on /admin. */
@@ -211,6 +221,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   cacheTtlLabel: "TTL кешу, години",
   savingButton: "Зберігаємо…",
   changesNote: "Усі зміни застосовуються одразу — включно з активними сезонами. Редагувати JSON не потрібно.",
+  flexibleHint: "Гнучкі налаштування забігу: шаблони, кубики, клітинки поля та пул ігор — все редагується будь-коли. JSON не потрібен.",
  },
 
  /** Board editor (/admin/seasons/[id]/board). */
@@ -231,6 +242,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   previewHeading: "Попередній перегляд поля",
   configTarget: "Ціль за конфігом",
   actualCounts: "Фактично",
+  sortedByNumber: "відсортовано за №",
  },
 
  /** Player management (/admin/seasons/[id]/players). */
@@ -244,6 +256,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
   keepStatusOption: "— не змінювати —",
   reasonLabel: "Причина (обов'язково, потрапляє в аудит і стрічку)",
   reasonPlaceholder: "Ручне коригування суддею",
+  sortedByPosition: "відсортовано за позицією",
+  noParticipants: "Поки немає учасників",
+  addUsersHint: "Додайте користувачів вище щоб почати забіг.",
  },
 
  /** Games catalog (/admin/games). */
@@ -296,6 +311,21 @@ export const admin: Widen<typeof AdminEn.admin> = {
   orderingRating: "Рейтинг ↓",
   orderingNewest: "Нові",
   orderingName: "Назва А-Я",
+  statsTotalLabel: "Всього ігор",
+  statsActiveLabel: "Активно",
+  statsBlacklistedLabel: "Заблоковано",
+  poolLabel: "ПУЛ",
+  catalogKicker: "// КАТАЛОГ",
+  hudPool: "HUD · ПУЛ",
+  manualEntryHint: "Ручне введення · одразу в пул",
+  clickImportHint: "Натисніть Імпорт щоб додати в пул",
+  searchMobile: "Пошук",
+  esrbEveryone: "Для всіх",
+  esrbEveryone10Plus: "Для всіх 10+",
+  esrbTeen: "Підліток",
+  esrbMature: "Для дорослих",
+  esrbAdultsOnly: "Тільки для дорослих",
+  esrbRatingPending: "Очікує оцінки",
  },
  /** Audit log (/admin/audit). */
  audit: {
@@ -305,6 +335,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
   colAction: "Дія",
   colTarget: "Ціль",
   colPayload: "Payload",
+  kicker: "// АУДИТ · ОСТАННІ 200 ПОДІЙ",
+  mostRecent: "Спочатку нові",
+  empty: "Поки немає записів аудиту",
  },
 
  /** Global site settings (/admin/settings). */
@@ -375,6 +408,33 @@ export const admin: Widen<typeof AdminEn.admin> = {
   verificationLinkLabel: "Посилання підтвердження",
   showLink: "Показати посилання",
   noPendingHint: "Перемкніть режим на Ручне або Посилання, щоб побачити користувачів тут.",
+  apiProvidersTitle: "API Провайдери",
+  apiProvidersConfigured: "налаштовано",
+  apiProvidersEmpty: "порожньо",
+  providerActive: "активний",
+  providerNotSet: "не задано",
+  inviteStatusExpired: "прострочено",
+  inviteStatusExhausted: "вичерпано",
+  inviteStatusActive: "активне",
+  configureButton: "Налаштувати",
+  liveBadge: "лайв",
+  sourceLabel: "Джерело:",
+  dbOverride: "Перевизначено в БД",
+  envLabel: "ENV",
+  noneLabel: "немає",
+  noneNeedsBoth: "немає (потрібні ID та Secret)",
+  clearOverrideFallback: "Скинути перевизначення → повернутись до ENV",
+  clearOverride: "Скинути",
+  willClearDb: "Значення БД буде очищено при збереженні",
+  willClear: "Буде очищено при збереженні",
+  envPresent: "env задано",
+  freeKeyFrom: "Безкоштовний ключ з",
+  twitchCredentials: "Облікові дані Twitch-додатку ·",
+  webApiKeyShort: "Web API ключ ·",
+  howItWorks: "Як це працює",
+  howItWorksText: "Значення з БД пріоритетніші за .env. Залиште поле порожнім щоб зберегти поточне. Скиньте перевизначення щоб повернутись до env. В /admin/games → Пошук показуються лише провайдери з ключем.",
+  noKeysHint: " — немає ключів, пошук у каталозі вимкнено",
+  hasKeysHint: " — пошук використовує налаштовані провайдери",
   integrationsHeading: "Інтеграції API",
   integrationsHint: "Додайте ключі RAWG / IGDB / Steam. Значення з БД перекривають .env. У пошуку ігор показуються лише налаштовані провайдери.",
   rawgApiKeyLabel: "RAWG API Key",
@@ -404,7 +464,9 @@ export const admin: Widen<typeof AdminEn.admin> = {
  /** Reroll requests (/admin/rerolls). */
  rerolls: {
   heading: "Запити на рерол",
+  kicker: "// НА РОЗГЛЯДІ",
   empty: "Немає очікуваних запитів.",
+  allClear: "Все чисто",
   colPlayer: "Гравець",
   colGame: "Гра",
   colReason: "Причина",

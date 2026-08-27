@@ -38,4 +38,6 @@ export const profile = {
   cell: "cell",
   movesHeading: "Recent moves",
   emptyMoves: "No moves in the current season yet.",
+  blocked: "blocked",
+  diceLabel: "dice",
 } as const;

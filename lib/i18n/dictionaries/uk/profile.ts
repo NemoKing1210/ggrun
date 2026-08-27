@@ -40,4 +40,6 @@ export const profile: Widen<typeof ProfileEn.profile> = {
   cell: "клітинка",
   movesHeading: "Останні ходи",
   emptyMoves: "Ходів у поточному сезоні ще не було.",
+  blocked: "заблоковано",
+  diceLabel: "кубики",
 };

@@ -27,4 +27,11 @@ export const leaderboard: Widen<typeof LeaderboardEn.leaderboard> = {
     boardSize: "Размер поля",
   },
   emptyHint: "Вступите в сезон, чтобы появиться здесь.",
+  abbrev: {
+    points: "очк.",
+    passDrop: "проход / дроп",
+    balanceShort: "Бал",
+    passShort: "Проход",
+    dropShort: "Дроп",
+  },
 };

@@ -142,7 +142,7 @@ export default async function AdminPage() {
         {seasons.length === 0 ? (
           <div className="p-8 text-center">
             <p className="font-mono text-sm uppercase tracking-widest text-dim">{t.admin.overview.empty}</p>
-            <p className="mt-2 text-xs text-dim">Create your first season above — draft → active → finished</p>
+            <p className="mt-2 text-xs text-dim">{t.admin.overview.emptyHint}</p>
           </div>
         ) : (
           <>
@@ -288,7 +288,7 @@ export default async function AdminPage() {
       {/* Quick links */}
       <section className="hud-card p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-widest text-dim">NAVIGATE</span>
+          <span className="font-mono text-[11px] uppercase tracking-widest text-dim">{t.admin.overview.navigateLabel}</span>
           <span className="h-3 w-px bg-dim/20" aria-hidden />
           <div className="flex flex-wrap gap-2">
             <Link href="/admin/games" className="hud-btn !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5">

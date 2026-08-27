@@ -53,7 +53,7 @@ function AddGameModal({ open, onClose }: { open: boolean; onClose: () => void })
           </span>
           <div>
             <h2 className="font-display text-lg uppercase tracking-wider leading-none">{t.admin.catalog.addHeading}</h2>
-            <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim">Manual entry · goes straight to pool</p>
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim">{t.admin.catalog.manualEntryHint}</p>
           </div>
         </div>
         <button type="button" onClick={onClose} className="hud-btn !p-2 !text-dim hover:!text-amber" aria-label="Close">
@@ -88,12 +88,12 @@ function AddGameModal({ open, onClose }: { open: boolean; onClose: () => void })
           <Field label={t.admin.catalog.esrbLabel}>
             <Select name="esrb" defaultValue="">
               <option value="">—</option>
-              <option value="everyone">Everyone</option>
-              <option value="everyone-10-plus">Everyone 10+</option>
-              <option value="teen">Teen</option>
-              <option value="mature">Mature</option>
-              <option value="adults-only">Adults Only</option>
-              <option value="rating-pending">Rating Pending</option>
+              <option value="everyone">{t.admin.catalog.esrbEveryone}</option>
+              <option value="everyone-10-plus">{t.admin.catalog.esrbEveryone10Plus}</option>
+              <option value="teen">{t.admin.catalog.esrbTeen}</option>
+              <option value="mature">{t.admin.catalog.esrbMature}</option>
+              <option value="adults-only">{t.admin.catalog.esrbAdultsOnly}</option>
+              <option value="rating-pending">{t.admin.catalog.esrbRatingPending}</option>
             </Select>
           </Field>
         </div>
@@ -158,10 +158,10 @@ function SearchImportModal({
 
       {!hasProviders ? (
         <div className="border border-amber/30 bg-amber/10 p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-          <p className="text-sm font-medium text-amber">{t.admin.catalog.noProvidersTitle ?? "No API providers configured"}</p>
+          <p className="text-sm font-medium text-amber">{t.admin.catalog.noProvidersTitle}</p>
           <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t.admin.catalog.noProvidersHint ?? "Add an API key in Settings → Integrations or via env (RAWG_API_KEY / IGDB_CLIENT_ID etc.)."}</p>
           <a href="/admin/settings" className="hud-btn hud-btn-primary mt-3 inline-flex !py-1.5 !px-3 text-xs">
-            {t.admin.catalog.goToSettings ?? "Go to Settings"}
+            {t.admin.catalog.goToSettings}
           </a>
         </div>
       ) : (
@@ -211,7 +211,7 @@ function SearchImportModal({
             <p className="font-mono text-[11px] uppercase tracking-widest text-dim">
               Results · {searchState.results.length}
             </p>
-            <span className="font-mono text-[10px] text-dim">Click Import to add to pool</span>
+            <span className="font-mono text-[10px] text-dim">{t.admin.catalog.clickImportHint}</span>
           </div>
 
           {searchState.results.length === 0 ? (
@@ -367,7 +367,7 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
             <button type="button" onClick={() => setSearchOpen(true)} className="hud-btn inline-flex flex-1 items-center justify-center gap-2 sm:flex-none">
               <GlobeAltIcon className="size-4" aria-hidden />
               <span className="hidden sm:inline">{t.admin.catalog.searchHeading}</span>
-              <span className="sm:hidden">Search</span>
+              <span className="sm:hidden">{t.admin.catalog.searchMobile}</span>
             </button>
             <button type="button" onClick={() => setAddOpen(true)} className="hud-btn hud-btn-primary inline-flex flex-1 items-center justify-center gap-2 sm:flex-none">
               <PlusIcon className="size-4" aria-hidden />
@@ -408,7 +408,7 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
               {filtered.length} / {games.length}
             </span>
           </h2>
-          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">HUD · POOL</span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">{t.admin.catalog.hudPool}</span>
         </div>
 
         {filtered.length === 0 ? (
