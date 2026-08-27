@@ -65,10 +65,10 @@ export default function DiceRoller({
         <span
           key={index}
           aria-hidden
-          className={`ammo-counter flex h-10 w-10 items-center justify-center border text-xl ${
+          className={`ammo-counter flex h-10 w-10 items-center justify-center border text-xl [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${
             spinning
-              ? "animate-pulse border-[#55554a] text-dim"
-              : "border-amber text-amber"
+              ? "animate-pulse border-[#55554a] bg-raised text-dim"
+              : "border-amber bg-amber/10 text-amber shadow-[0_0_8px_rgba(242,169,0,0.25)]"
           }`}
         >
           {face}

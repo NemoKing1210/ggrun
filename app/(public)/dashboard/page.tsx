@@ -1,18 +1,43 @@
 import type { Metadata } from "next";
-import { StarIcon } from "@heroicons/react/24/solid";
+import {
+  ArrowPathIcon,
+  ArrowRightIcon,
+  ArrowsRightLeftIcon,
+  BanknotesIcon,
+  BoltIcon,
+  ChartBarIcon,
+  CheckCircleIcon,
+  FireIcon,
+  FlagIcon,
+  MapPinIcon,
+  StarIcon,
+  TrophyIcon,
+} from "@heroicons/react/24/outline";
+import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import RollCard from "@/components/dashboard/RollCard";
-import Link from "next/link";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getOpenRoll, getRecentRolls, getPendingRerollForPlayer } from "@/lib/repositories/games.repo";
-import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/repositories/players.repo";
-import { getActiveSeason, getBoardCells, getMainBoard } from "@/lib/repositories/seasons.repo";
+import {
+  getOpenRoll,
+  getRecentRolls,
+  getPendingRerollForPlayer,
+} from "@/lib/repositories/games.repo";
+import {
+  getPlayerMoves,
+  getSeasonPlayerForUser,
+} from "@/lib/repositories/players.repo";
+import {
+  getActiveSeason,
+  getBoardCells,
+  getMainBoard,
+} from "@/lib/repositories/seasons.repo";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
@@ -23,15 +48,52 @@ const dateLocales: Record<Locale, string> = {
   uk: "uk-UA",
 };
 
-function StatTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function StatTile({
+  label,
+  value,
+  accent,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
-    <div className="hud-card px-3 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{label}</div>
-      <div className={`ammo-counter mt-1 truncate text-xl ${accent ? "text-amber" : ""}`} title={value}>
+    <div className="hud-card relative overflow-hidden px-3 py-2.5">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/20 to-transparent" aria-hidden />
+      <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
+        <Icon className="size-3.5 opacity-60" aria-hidden />
+        {label}
+      </div>
+      <div
+        className={`ammo-counter mt-1 truncate font-display text-lg leading-none ${accent ? "text-amber" : "text-foreground"}`}
+        title={value}
+      >
         {value}
       </div>
     </div>
   );
+}
+
+function CellMiniIcon({ type, className }: { type: string; className?: string }) {
+  const cls = className ?? "size-3.5";
+  switch (type) {
+    case "start":
+      return <FlagIcon className={cls} aria-hidden />;
+    case "finish":
+      return <TrophyIcon className={cls} aria-hidden />;
+    case "penalty":
+      return <FireIcon className={cls} aria-hidden />;
+    case "bonus":
+      return <StarIcon className={cls} aria-hidden />;
+    case "teleport":
+      return <ArrowsRightLeftIcon className={cls} aria-hidden />;
+    case "event":
+      return <BoltIcon className={cls} aria-hidden />;
+    default:
+      return null;
+  }
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -95,67 +157,128 @@ export default async function DashboardPage() {
 
   return (
     <PageContainer className="flex flex-col gap-6">
-      <Link
-        href={"/players/" + user.username}
-        className="flex no-underline items-center gap-3 self-start transition hover:text-amber"
-        title={user.displayName ?? user.username}
-      >
-        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} size="md" />
-        <span className="font-display text-lg uppercase tracking-wide text-current">
-          {user.displayName ?? user.username}
-        </span>
-      </Link>
+      {/* Operator ID card */}
+      <div className="hud-card flex items-center gap-4 p-4">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" aria-hidden />
+        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} size="lg" />
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
+            {"// OPERATOR"} <span className="text-amber">· {season.title}</span>
+          </div>
+          <div className="mt-0.5 truncate font-display text-xl uppercase tracking-wide leading-none">
+            {user.displayName ?? user.username}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] leading-none text-dim">
+            <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              @{user.username}
+            </span>
+            <span className="hidden h-3 w-px bg-dim/20 sm:inline-block" aria-hidden />
+            <span className="hidden truncate sm:inline">{kicker}</span>
+            <StatusBadge status={seasonPlayer.status} label={t.core.playerStatuses[seasonPlayer.status]} />
+          </div>
+        </div>
+        <Link
+          href={`/players/${user.username}`}
+          className="hud-btn hidden shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:inline-flex"
+        >
+          Profile <ArrowRightIcon className="size-3.5" aria-hidden />
+        </Link>
+      </div>
+
       <PageHeader
         kicker={kicker}
         title={t.core.dashboard.heading}
         right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
 
-      {/* --- Stats --- */}
+      {/* Stats */}
       <section aria-label={t.core.dashboard.statsTitle}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile label={t.core.dashboard.statPosition} value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`} accent />
-          <StatTile label={t.core.dashboard.statBalance} value={String(seasonPlayer.balancePoints)} accent />
-          <StatTile label={t.core.dashboard.statStreakPass} value={String(seasonPlayer.streakPass)} />
-          <StatTile label={t.core.dashboard.statStreakDrop} value={String(seasonPlayer.streakDrop)} />
-          <StatTile label={t.core.dashboard.statRerolls} value={String(seasonPlayer.rerollsUsed)} />
-          <StatTile label={t.core.dashboard.statProgress} value={`${progressPct}%`} accent />
+          <StatTile label={t.core.dashboard.statPosition} value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`} accent icon={MapPinIcon} />
+          <StatTile label={t.core.dashboard.statBalance} value={String(seasonPlayer.balancePoints)} accent icon={BanknotesIcon} />
+          <StatTile label={t.core.dashboard.statStreakPass} value={String(seasonPlayer.streakPass)} icon={CheckCircleIcon} />
+          <StatTile label={t.core.dashboard.statStreakDrop} value={String(seasonPlayer.streakDrop)} icon={FireIcon} />
+          <StatTile label={t.core.dashboard.statRerolls} value={String(seasonPlayer.rerollsUsed)} icon={ArrowPathIcon} />
+          <StatTile label={t.core.dashboard.statProgress} value={`${progressPct}%`} accent icon={ChartBarIcon} />
         </div>
-        <div className="mt-3 h-2 w-full bg-[#151514] border border-[#3d3d34]">
-          <div className="h-full bg-amber transition-all" style={{ width: `${Math.min(100, progressPct)}%` }} />
+        <div className="mt-3 flex items-center gap-3">
+          <div className="relative h-3 flex-1 overflow-hidden border border-[#3d3d34] bg-[#151514] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+            <div
+              className="h-full bg-amber shadow-[0_0_10px_rgba(242,169,0,0.5)] transition-all duration-500"
+              style={{ width: `${Math.min(100, progressPct)}%` }}
+            />
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_22px,rgba(0,0,0,0.35)_22px_23px)] opacity-60" aria-hidden />
+            <div className="absolute inset-y-0 left-1/4 w-px bg-black/40" aria-hidden />
+            <div className="absolute inset-y-0 left-1/2 w-px bg-black/40" aria-hidden />
+            <div className="absolute inset-y-0 left-3/4 w-px bg-black/40" aria-hidden />
+          </div>
+          <span className="ammo-counter shrink-0 font-mono text-xs tracking-widest text-amber">{progressPct}%</span>
         </div>
       </section>
 
-      {/* --- Board progress mini --- */}
+      {/* Board progress mini */}
       {cells.length > 0 ? (
-        <section aria-label={t.core.dashboard.boardProgressTitle} className="hud-card p-4">
-          <h2 className="font-display text-sm uppercase tracking-widest text-dim">
-            {t.core.dashboard.boardProgressTitle}
-          </h2>
-          <div className="mt-3 grid grid-cols-6 gap-1.5 sm:grid-cols-10 lg:grid-cols-12">
+        <section aria-label={t.core.dashboard.boardProgressTitle} className="hud-card overflow-hidden bg-[#121210] p-3 sm:p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#2a2a22] pb-2">
+            <h2 className="flex items-center gap-2 font-display text-sm uppercase tracking-widest">
+              <MapPinIcon className="size-4 text-amber" aria-hidden />
+              {t.core.dashboard.boardProgressTitle}
+              <span className="hidden font-mono text-[10px] tracking-widest text-dim sm:inline">
+                {"// "}
+                {seasonPlayer.position} / {totalCells - 1}
+              </span>
+            </h2>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
+              {"// TRACK "} {cells.length} CELLS
+            </span>
+          </div>
+
+          <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10 lg:grid-cols-12">
             {cells.map((cell) => {
               const theme = CELL_THEME[cell.cellType];
               const isHere = cell.position === seasonPlayer.position;
+              const isPast = cell.position < seasonPlayer.position;
               return (
                 <div
                   key={cell.id}
-                  className={`relative flex aspect-square flex-col items-center justify-center border p-1 text-center ${theme.box} ${isHere ? "ring-2 ring-amber ring-offset-1 ring-offset-raised" : ""}`}
+                  className={`group relative flex aspect-square flex-col items-center justify-center border p-1 text-center transition-all [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} ${isHere ? "ring-2 ring-amber ring-offset-1 ring-offset-[#121210] z-10 scale-[1.04]" : isPast ? "opacity-70" : ""}`}
                   title={cell.label ? `${t.core.cellTypes[cell.cellType]}: ${cell.label}` : t.core.cellTypes[cell.cellType]}
                 >
-                  <span className="ammo-counter text-xs leading-none">{cell.position}</span>
+                  {cell.cellType !== "normal" ? (
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.08]">
+                      <CellMiniIcon type={cell.cellType} className="size-6" />
+                    </span>
+                  ) : null}
+                  <span className={`absolute right-1 top-1 size-1 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+                  <span className="ammo-counter relative text-xs leading-none">{String(cell.position).padStart(2, "0")}</span>
+                  {cell.cellType !== "normal" ? (
+                    <span className="relative mt-0.5">
+                      <CellMiniIcon type={cell.cellType} className="size-3 opacity-60" />
+                    </span>
+                  ) : null}
                   {isHere ? (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber px-1 font-mono text-[8px] leading-none text-background">{t.core.dashboard.youHere}</span>
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap bg-amber px-1 font-mono text-[8px] font-bold leading-none tracking-widest text-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                      {t.core.dashboard.youHere}
+                    </span>
                   ) : null}
                 </div>
               );
             })}
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+
+          <div className="mt-3 h-1.5 w-full overflow-hidden border border-[#2a2a22] bg-[#1a1a14] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+            <div
+              className="h-full bg-amber/70 transition-all"
+              style={{ width: `${Math.min(100, progressPct)}%` }}
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
             {(Object.keys(CELL_THEME) as Array<keyof typeof CELL_THEME>)
               .filter((k) => k !== "normal")
               .map((k) => (
                 <span key={k} className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
-                  <span className={`inline-block size-2 ${CELL_THEME[k].dot}`} aria-hidden />
+                  <span className={`inline-block size-2 ${CELL_THEME[k].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
                   {t.core.cellTypes[k]}
                 </span>
               ))}
@@ -163,7 +286,7 @@ export default async function DashboardPage() {
         </section>
       ) : null}
 
-      {/* --- Current game --- */}
+      {/* Current game */}
       <RollCard
         seasonPlayerId={seasonPlayer.id}
         openRoll={
@@ -186,80 +309,115 @@ export default async function DashboardPage() {
         lastDice={lastMoves[0]?.diceResults ?? null}
       />
 
-      {/* --- Game history (with ratings) --- */}
+      {/* Game history */}
       <section aria-label={t.core.dashboard.history} className="grid gap-6 lg:grid-cols-2">
-        <div className="hud-card p-5">
-          <h2 className="font-display text-lg uppercase tracking-widest">{t.core.dashboard.history}</h2>
-          {lastMoves.length === 0 ? (
-            <p className="mt-3 text-sm text-dim">{t.core.dashboard.historyEmpty}</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-[#3d3d34]">
-              {lastMoves.map((move) => (
-                <li key={move.id} className="flex items-center gap-3 py-2.5">
-                  <span className="ammo-counter shrink-0 text-sm text-amber w-16">{move.diceResults.join("+")}</span>
-                  <span className="font-mono text-sm">{format(t.core.dashboard.moveFormat, { from: move.fromPosition, to: move.toPosition })}</span>
-                  <span className="hidden items-center gap-1.5 sm:inline-flex">
-                    {move.cellLandedType ? (
-                      <>
-                        <span className={`inline-block size-2 ${CELL_THEME[move.cellLandedType].dot}`} aria-hidden />
-                        <span className="font-mono text-xs uppercase tracking-widest text-dim">{t.core.cellTypes[move.cellLandedType]}</span>
-                      </>
-                    ) : (
-                      <span className="text-dim">—</span>
-                    )}
-                  </span>
-                  <time dateTime={move.createdAt.toISOString()} className="ml-auto hidden shrink-0 font-mono text-xs text-dim sm:block">
-                    {dateFormatter.format(move.createdAt)}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="hud-card flex flex-col p-0">
+          <div className="flex items-center gap-2 border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
+            <ChartBarIcon className="size-4 text-amber" aria-hidden />
+            <h2 className="font-display text-sm uppercase tracking-widest">{t.core.dashboard.history}</h2>
+            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">{lastMoves.length} moves</span>
+          </div>
+          <div className="flex-1 p-4">
+            {lastMoves.length === 0 ? (
+              <p className="border border-dashed border-dim/20 bg-background/30 px-4 py-8 text-center font-mono text-xs tracking-wide text-dim">
+                {t.core.dashboard.historyEmpty}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {lastMoves.map((move) => (
+                  <li
+                    key={move.id}
+                    className="group flex items-center gap-3 border border-[#3d3d34] bg-background/40 px-3 py-2.5 transition-colors hover:border-amber/30 hover:bg-background/60 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+                  >
+                    <span className="ammo-counter inline-flex shrink-0 items-center justify-center border border-amber/40 bg-amber/10 px-2 py-1 font-mono text-xs tracking-wide text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                      {move.diceResults.join("+")}
+                    </span>
+                    <span className="font-mono text-sm tracking-wide">
+                      {format(t.core.dashboard.moveFormat, { from: move.fromPosition, to: move.toPosition })}
+                    </span>
+                    <span className="hidden items-center gap-1.5 sm:inline-flex">
+                      {move.cellLandedType ? (
+                        <>
+                          <span className={`inline-block size-2 ${CELL_THEME[move.cellLandedType].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+                          <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
+                            {t.core.cellTypes[move.cellLandedType]}
+                          </span>
+                          <CellMiniIcon type={move.cellLandedType} className="size-3.5 opacity-50" />
+                        </>
+                      ) : (
+                        <span className="font-mono text-xs text-dim">—</span>
+                      )}
+                    </span>
+                    <time dateTime={move.createdAt.toISOString()} className="ml-auto hidden shrink-0 font-mono text-[11px] text-dim sm:block">
+                      {dateFormatter.format(move.createdAt)}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
-        <div className="hud-card p-5">
-          <h2 className="font-display text-lg uppercase tracking-widest">{t.core.dashboard.games}</h2>
-          {recentRolls.length === 0 ? (
-            <p className="mt-3 text-sm text-dim">{t.core.dashboard.historyEmpty}</p>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-3">
-              {recentRolls.slice(0, 8).map((roll) => (
-                <li key={roll.id} className="border border-[#3d3d34] bg-background/60 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-sm leading-tight">{roll.game?.title ?? t.core.dashboard.missingCatalogEntry}</span>
-                    <span
-                      className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${
-                        roll.status === "passed"
-                          ? "border-military bg-military/20 text-military"
-                          : roll.status === "dropped"
-                            ? "border-danger bg-danger/15 text-danger"
-                            : roll.status === "rerolled"
-                              ? "border-dim/40 bg-raised text-dim"
-                              : "border-amber/60 bg-amber/15 text-amber"
-                      }`}
+        <div className="hud-card flex flex-col p-0">
+          <div className="flex items-center gap-2 border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
+            <TrophyIcon className="size-4 text-amber" aria-hidden />
+            <h2 className="font-display text-sm uppercase tracking-widest">{t.core.dashboard.games}</h2>
+            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">{recentRolls.length} rolls</span>
+          </div>
+          <div className="flex-1 p-4">
+            {recentRolls.length === 0 ? (
+              <p className="border border-dashed border-dim/20 bg-background/30 px-4 py-8 text-center font-mono text-xs tracking-wide text-dim">
+                {t.core.dashboard.historyEmpty}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {recentRolls.slice(0, 8).map((roll) => {
+                  const statusTone =
+                    roll.status === "passed"
+                      ? "border-emerald-600/40 bg-emerald-950/30 text-emerald-300"
+                      : roll.status === "dropped"
+                        ? "border-danger/40 bg-danger/10 text-red-300"
+                        : roll.status === "rerolled"
+                          ? "border-violet-500/30 bg-violet-950/20 text-violet-300"
+                          : "border-amber/40 bg-amber/10 text-amber";
+                  return (
+                    <li
+                      key={roll.id}
+                      className="hud-card group p-3 transition-colors hover:border-amber/20"
                     >
-                      {roll.status}
-                    </span>
-                  </div>
-                  {roll.game?.platform ? (
-                    <span className="mt-1 inline-block border border-dim/40 px-1 font-mono text-[10px] uppercase tracking-widest text-dim">
-                      {roll.game.platform}
-                    </span>
-                  ) : null}
-                  {roll.rating ? (
-                    <div className="mt-2 inline-flex items-center gap-1 font-mono text-xs text-amber"><StarIcon className="h-3.5 w-3.5" aria-hidden /> {roll.rating}/10</div>
-                  ) : null}
-                  {roll.notes ? (
-                    <p className="mt-1 line-clamp-2 text-sm text-dim">“{roll.notes}”</p>
-                  ) : null}
-                  <time dateTime={roll.rolledAt.toISOString()} className="mt-2 block font-mono text-xs text-dim">
-                    {dateFormatter.format(roll.rolledAt)}
-                    {roll.resolvedAt ? ` → ${dateFormatter.format(roll.resolvedAt)}` : ""}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          )}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-tight">
+                          {roll.game?.title ?? t.core.dashboard.missingCatalogEntry}
+                        </span>
+                        <span
+                          className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${statusTone}`}
+                        >
+                          {roll.status}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {roll.game?.platform ? (
+                          <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                            {roll.game.platform}
+                          </span>
+                        ) : null}
+                        {roll.rating ? (
+                          <span className="inline-flex items-center gap-1 border border-amber/30 bg-amber/10 px-1.5 py-0.5 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                            <StarSolid className="size-3" aria-hidden /> {roll.rating}/10
+                          </span>
+                        ) : null}
+                      </div>
+                      {roll.notes ? <p className="mt-2 line-clamp-2 border-l-2 border-amber/20 pl-2 text-sm leading-snug text-dim">“{roll.notes}”</p> : null}
+                      <time dateTime={roll.rolledAt.toISOString()} className="mt-2 block font-mono text-[11px] tracking-wide text-dim">
+                        {dateFormatter.format(roll.rolledAt)}
+                        {roll.resolvedAt ? ` → ${dateFormatter.format(roll.resolvedAt)}` : ""}
+                      </time>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       </section>
     </PageContainer>

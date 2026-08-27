@@ -2,14 +2,38 @@ import type { BoardCell } from "@/db/schema";
 
 type CellType = BoardCell["cellType"];
 
-/** Styling only; type labels come from the dictionary (t.core.cellTypes). */
+/** HUD tactical theme for each cell type. */
 export const CELL_THEME: Record<CellType, { box: string; dot: string }> = {
-  start: { box: "border-amber bg-amber/10", dot: "bg-military" },
-  finish: { box: "border-military bg-military/20", dot: "bg-amber" },
-  normal: { box: "border-dim/40 bg-raised", dot: "bg-dim/50" },
-  penalty: { box: "border-danger bg-danger/15", dot: "bg-danger" },
-  bonus: { box: "border-amber bg-amber/15", dot: "bg-amber" },
-  teleport: { box: "border-[#7a5fb5] bg-[#7a5fb5]/15", dot: "bg-[#7a5fb5]" },
-  event: { box: "border-[#5fa8d3] bg-[#5fa8d3]/10", dot: "bg-[#5fa8d3]" },
-  custom: { box: "border-dashed border-dim/60 bg-raised", dot: "bg-dim" },
+  start: {
+    box: "border-amber bg-amber/15 shadow-[inset_0_0_12px_rgba(242,169,0,0.15)]",
+    dot: "bg-amber shadow-[0_0_6px_rgba(242,169,0,0.5)]",
+  },
+  finish: {
+    box: "border-amber bg-amber/20 shadow-[inset_0_0_14px_rgba(242,169,0,0.22)]",
+    dot: "bg-amber shadow-[0_0_6px_rgba(242,169,0,0.55)]",
+  },
+  normal: {
+    box: "border-[#3d3d34] bg-raised",
+    dot: "bg-[#55554a]",
+  },
+  penalty: {
+    box: "border-danger bg-danger/15 shadow-[inset_0_0_10px_rgba(176,52,31,0.18)]",
+    dot: "bg-danger shadow-[0_0_6px_rgba(176,52,31,0.45)]",
+  },
+  bonus: {
+    box: "border-emerald-600 bg-emerald-600/15 shadow-[inset_0_0_10px_rgba(16,185,129,0.14)]",
+    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.45)]",
+  },
+  teleport: {
+    box: "border-violet-500 bg-violet-500/15 shadow-[inset_0_0_10px_rgba(139,92,246,0.16)]",
+    dot: "bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.45)]",
+  },
+  event: {
+    box: "border-sky-500 bg-sky-500/12 shadow-[inset_0_0_10px_rgba(14,165,233,0.14)]",
+    dot: "bg-sky-500 shadow-[0_0_6px_rgba(14,165,233,0.45)]",
+  },
+  custom: {
+    box: "border-dashed border-[#55554a] bg-[#242420]",
+    dot: "bg-zinc-400",
+  },
 };
