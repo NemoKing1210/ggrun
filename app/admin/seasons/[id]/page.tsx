@@ -43,7 +43,7 @@ export default async function SeasonSettingsPage({
       <p className="text-sm text-zinc-400">
         Flexible run settings: templates, dice, board cells and game pool — all editable at any time. No JSON required.
       </p>
-      <SeasonSettingsForm seasonId={season.id} initialConfig={config} initialRulesMd={season.rulesMd ?? ""} />
+      <SeasonSettingsForm seasonId={season.id} initialConfig={config} initialRulesMd={season.rulesMd ?? ""} seasonTitle={season.title} seasonStatus={season.status} />
     </div>
   );
 }

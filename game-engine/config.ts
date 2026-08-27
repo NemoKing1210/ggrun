@@ -28,6 +28,7 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     regenerateOnSave: false,
   },
   rerolls: { allowed: true, limitPerGame: 1 },
+  rules: { mode: "auto" },
   gamePool: {
     source: "catalog",
     provider: "internal",
@@ -95,6 +96,10 @@ export const RerollsConfigSchema = z.object({
   limitPerGame: int(0).default(DEFAULT_SEASON_CONFIG.rerolls.limitPerGame),
 });
 
+export const RulesConfigSchema = z.object({
+  mode: z.enum(["auto", "manual"]).default(DEFAULT_SEASON_CONFIG.rules.mode),
+});
+
 export const GamePoolFiltersSchema = z.object({
   genres: z.array(z.string().min(1)).default([]),
   platforms: z.array(z.string().min(1)).default([]),
@@ -140,6 +145,7 @@ export const SeasonConfigSchema = z
     points: PointsConfigSchema.default(DEFAULT_SEASON_CONFIG.points),
     board: BoardConfigSchema.default(DEFAULT_SEASON_CONFIG.board),
     rerolls: RerollsConfigSchema.default(DEFAULT_SEASON_CONFIG.rerolls),
+    rules: RulesConfigSchema.default(DEFAULT_SEASON_CONFIG.rules),
     gamePool: GamePoolConfigSchema.default(DEFAULT_SEASON_CONFIG.gamePool),
   })
   // Compile-time assertion: the parsed shape must satisfy the domain contract.

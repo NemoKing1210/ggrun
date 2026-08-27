@@ -110,7 +110,11 @@ export async function updateSeasonSettingsAction(
 ): Promise<AdminFormState> {
   const actor = await getCurrentUser();
   const seasonId = String(formData.get("seasonId"));
-  const rulesMd = formData.has("rulesMd") ? String(formData.get("rulesMd") ?? "") : undefined;
+  const rawRulesMode = String(formData.get("rulesMode") ?? "auto").toLowerCase();
+  const rulesMode: "auto" | "manual" = rawRulesMode === "manual" ? "manual" : "auto";
+  const rulesMdRaw = formData.has("rulesMd") ? String(formData.get("rulesMd") ?? "") : undefined;
+  // When auto, keep stored rulesMd untouched (ignore textarea payload) — generated view is used.
+  const rulesMd = rulesMode === "manual" ? rulesMdRaw : undefined;
 
   // Back-compat: legacy textarea `config` JSON.
   let config: unknown;
@@ -188,6 +192,9 @@ export async function updateSeasonSettingsAction(
       rerolls: {
         allowed: parseBool("rerolls_allowed", true),
         limitPerGame: parseIntOr("rerolls_limitPerGame", 1),
+      },
+      rules: {
+        mode: rulesMode,
       },
       gamePool: {
         source: String(formData.get("gamePool_source") || "catalog"),

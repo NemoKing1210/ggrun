@@ -18,6 +18,16 @@ export const profile: Widen<typeof ProfileEn.profile> = {
   metaTitle: "@{username} — GGRun",
   streak: "стрик",
   balance: "баланс",
+  hero: {
+    joined: "С нами с {date}",
+    activeRun: "Активный забег",
+    noActiveRun: "Нет активного сезона",
+    viewActiveSeason: "Текущий сезон",
+    bioLabel: "О себе",
+    linksLabel: "Ссылки",
+    seasonsCount: "{count} сезонов",
+    movesCount: "{count} ходов",
+  },
   rollStats: {
     rolled: "Выброшено игр",
     in_progress: "В процессе",

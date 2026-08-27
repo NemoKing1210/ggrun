@@ -74,6 +74,7 @@ export interface SeasonConfig {
   };
   rerolls: { allowed: boolean; limitPerGame: number };
   gamePool: GamePoolConfig;
+  rules: { mode: "auto" | "manual" };
 }
 export type RollOutcome = "passed" | "dropped" | "rerolled";
 

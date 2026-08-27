@@ -16,6 +16,16 @@ export const profile = {
   metaTitle: "@{username} — GGRun",
   streak: "streak",
   balance: "balance",
+  hero: {
+    joined: "Joined {date}",
+    activeRun: "Active run",
+    noActiveRun: "No active season",
+    viewActiveSeason: "View current season",
+    bioLabel: "Bio",
+    linksLabel: "Links",
+    seasonsCount: "{count} seasons",
+    movesCount: "{count} moves",
+  },
   rollStats: {
     rolled: "Games rolled",
     in_progress: "In progress",
