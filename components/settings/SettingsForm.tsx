@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 import { updateUserSettingsAction } from "@/lib/use-cases/user-actions";
 import { useI18n } from "@/lib/i18n/client";
@@ -429,10 +430,10 @@ export function SettingsForm({
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="hud-btn hud-btn-danger !px-2 !py-2"
+                    className="hud-btn hud-btn-danger inline-flex items-center justify-center !px-2 !py-2"
                     aria-label={t.settings.removeLink}
                   >
-                    ✕
+                    <XMarkIcon className="h-4 w-4" aria-hidden />
                   </button>
                 </div>
               );

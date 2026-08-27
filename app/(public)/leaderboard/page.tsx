@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -125,8 +126,8 @@ export default async function LeaderboardPage() {
                     {row.balancePoints}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs">
-                    <span className="text-military">▲{row.streakPass}</span>{" "}
-                    <span className="text-danger">▼{row.streakDrop}</span>
+                    <span className="inline-flex items-center gap-0.5 text-military"><ChevronUpIcon className="h-3 w-3" aria-hidden />{row.streakPass}</span>{" "}
+                    <span className="inline-flex items-center gap-0.5 text-danger"><ChevronDownIcon className="h-3 w-3" aria-hidden />{row.streakDrop}</span>
                   </td>
                   <td className="px-4 py-2.5">
                     <StatusBadge

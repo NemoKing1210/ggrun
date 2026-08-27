@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/ui/BackLink";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
@@ -51,9 +52,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
 
   return (
     <PageContainer>
-      <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-        {t.seasons.detail.backToArchive}
-      </Link>
+      <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={kicker}
         title={t.leaderboard.pageTitle}

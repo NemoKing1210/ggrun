@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
@@ -129,11 +130,13 @@ export default async function AdminPage() {
       </section>
 
       <section className="hud-card p-4 flex gap-4 text-sm">
-        <Link href="/admin/games-catalog" className="text-amber hover:underline">
+        <Link href="/admin/games-catalog" className="inline-flex items-center gap-1 text-amber hover:underline">
           {t.admin.overview.catalogLink}
+          <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
         </Link>
-        <Link href="/admin/audit" className="text-amber hover:underline">
+        <Link href="/admin/audit" className="inline-flex items-center gap-1 text-amber hover:underline">
           {t.admin.overview.auditLink}
+          <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
         </Link>
       </section>
     </div>

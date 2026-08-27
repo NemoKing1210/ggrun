@@ -26,10 +26,10 @@ export const seasons = {
     noPlayers: "В этом сезоне нет участников.",
     boardPreviewTitle: "Превью поля",
     noBoard: "У этого сезона нет поля.",
-    viewBoard: "Открыть поле →",
-    viewLeaderboard: "Весь лидерборд →",
-    viewFeed: "Открыть ленту →",
-    viewRules: "Читать правила →",
+    viewBoard: "Открыть поле",
+    viewLeaderboard: "Весь лидерборд",
+    viewFeed: "Открыть ленту",
+    viewRules: "Читать правила",
     statPlayers: "игроков",
     statMoves: "ходов",
     statPassed: "пройдено",
@@ -37,7 +37,7 @@ export const seasons = {
   },
   detail: {
     notFound: "Сезон не найден",
-    backToArchive: "← Все сезоны",
+    backToArchive: "Все сезоны",
     currentBadge: "Текущий",
   },
   statusFilter: {

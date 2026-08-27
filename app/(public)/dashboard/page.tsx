@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { StarIcon } from "@heroicons/react/24/solid";
 import { redirect } from "next/navigation";
 
 import RollCard from "@/components/dashboard/RollCard";
@@ -246,7 +247,7 @@ export default async function DashboardPage() {
                     </span>
                   ) : null}
                   {roll.rating ? (
-                    <div className="mt-2 font-mono text-xs text-amber">★ {roll.rating}/10</div>
+                    <div className="mt-2 inline-flex items-center gap-1 font-mono text-xs text-amber"><StarIcon className="h-3.5 w-3.5" aria-hidden /> {roll.rating}/10</div>
                   ) : null}
                   {roll.notes ? (
                     <p className="mt-1 line-clamp-2 text-sm text-dim">“{roll.notes}”</p>

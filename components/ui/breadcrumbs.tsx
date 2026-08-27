@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { useI18n } from "@/lib/i18n/client";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -113,7 +113,7 @@ export function Breadcrumbs() {
           <li key={crumb.href} className="flex items-center gap-1.5">
             {idx > 0 && (
               <span aria-hidden className="text-dim/60">
-                <ChevronRight size={12} className="inline-block" />
+                <ChevronRightIcon className="inline-block h-3 w-3" />
               </span>
             )}
             {crumb.isLast ? (

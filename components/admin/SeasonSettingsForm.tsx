@@ -1,6 +1,22 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import {
+  ArrowRightIcon,
+  BoltIcon,
+  ExclamationTriangleIcon,
+  EyeIcon,
+  FireIcon,
+  HeartIcon,
+  MapIcon,
+  PuzzlePieceIcon,
+  RocketLaunchIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  StarIcon,
+  TrophyIcon,
+  TvIcon,
+} from "@heroicons/react/24/outline";
 import { updateSeasonSettingsAction } from "@/lib/use-cases/admin-actions";
 import { Switch } from "@/components/ui/Switch";
 import { Input } from "@/components/ui/Input";
@@ -16,6 +32,21 @@ import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
 import type { SeasonConfig } from "@/game-engine/types";
 import { GAME_POOL_TEMPLATES } from "@/lib/game-pool/templates";
+
+const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  EyeIcon,
+  PuzzlePieceIcon,
+  ShieldCheckIcon,
+  BoltIcon,
+  SparklesIcon,
+  TvIcon,
+  MapIcon,
+  RocketLaunchIcon,
+  StarIcon,
+  FireIcon,
+  HeartIcon,
+  TrophyIcon,
+};
 import {
   PLATFORMS,
   GENRES,
@@ -26,7 +57,6 @@ import {
   GAME_PROVIDERS,
   BOARD_DISTRIBUTIONS,
 } from "@/lib/game-pool/constants";
-
 type Props = {
   seasonId: string;
   initialConfig: SeasonConfig;
@@ -167,14 +197,17 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-lg uppercase tracking-wider">{t.admin.settings.templatesHeading}</h3>
                 {cfg.gamePool.templateId && (
-                  <button type="button" onClick={clearTemplate} className="text-xs text-amber underline underline-offset-4">
+                  <button type="button" onClick={clearTemplate} className="inline-flex items-center gap-1 text-xs text-amber underline underline-offset-4">
                     {t.admin.settings.clearTemplate}
+                    <ArrowRightIcon className="h-3 w-3" aria-hidden />
                   </button>
                 )}
               </div>
               <p className="text-sm text-zinc-400">{t.admin.settings.templatesHint}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {templates.map((tpl) => (
+                {templates.map((tpl) => {
+                  const Icon = TEMPLATE_ICONS[tpl.heroIcon];
+                  return (
                   <button
                     key={tpl.id}
                     type="button"
@@ -186,7 +219,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl">{tpl.icon}</span>
+                      {Icon ? <Icon className="h-5 w-5 shrink-0 text-amber" aria-hidden /> : null}
                       <span className="font-display uppercase tracking-wider text-sm">{tpl.label}</span>
                       {cfg.gamePool.templateId === tpl.id && <Badge variant="amber" size="sm" className="ml-auto">{t.admin.settings.activeBadge}</Badge>}
                     </div>
@@ -200,7 +233,8 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                       ))}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -365,7 +399,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   />
                 </div>
                 {cfg.board.regenerateOnSave && (
-                  <p className="text-xs text-danger/90 mt-2 border border-danger/30 bg-danger/10 p-2 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">⚠️ {t.admin.settings.regenerateWarning}</p>
+                  <p className="text-xs text-danger/90 mt-2 border border-danger/30 bg-danger/10 p-2 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] inline-flex items-center gap-1.5">
+                    <ExclamationTriangleIcon className="h-4 w-4 shrink-0" aria-hidden />
+                    {t.admin.settings.regenerateWarning}
+                  </p>
                 )}
               </div>
             </div>

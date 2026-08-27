@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { ArrowLeftIcon, Bars3Icon, CommandLineIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { logoutAction } from "@/lib/auth/actions";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -40,8 +40,9 @@ export function AdminHeader({
       <div className="mx-auto max-w-7xl px-4">
         {/* Row 1: brand + actions */}
         <div className="flex h-14 items-center gap-3">
-          <span className="max-w-[11rem] truncate font-display text-lg tracking-widest text-military uppercase sm:max-w-none sm:text-xl">
-            &gt;_ {t.admin.nav.console}
+          <span className="flex items-center gap-2 font-display text-lg tracking-widest text-military uppercase sm:text-xl">
+            <CommandLineIcon className="h-5 w-5 shrink-0" aria-hidden />
+            <span className="max-w-[11rem] truncate sm:max-w-none">{t.admin.nav.console}</span>
           </span>
 
           <span className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -56,8 +57,9 @@ export function AdminHeader({
             </Link>
             <Link
               href="/"
-              className="hud-btn whitespace-nowrap !px-3 !py-1 text-xs"
+              className="hud-btn inline-flex items-center gap-1.5 whitespace-nowrap !px-3 !py-1 text-xs"
             >
+              <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden />
               {t.admin.nav.backToSite}
             </Link>
             <form action={logoutAction} className="hidden sm:block">
@@ -75,7 +77,7 @@ export function AdminHeader({
               onClick={() => setOpen((v) => !v)}
               className="hud-btn !px-2 !py-1 md:hidden"
             >
-              {open ? <X size={18} /> : <Menu size={18} />}
+              {open ? <XMarkIcon className="h-[18px] w-[18px]" /> : <Bars3Icon className="h-[18px] w-[18px]" />}
             </button>
           </span>
         </div>

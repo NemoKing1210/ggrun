@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import { BackLink } from "@/components/ui/BackLink";
 
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { BoardView, type BoardPlayer, type BoardRoll } from "@/components/board/board-view";
@@ -38,9 +39,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
   if (!board) {
     return (
       <PageContainer>
-        <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-          {t.seasons.detail.backToArchive}
-        </Link>
+        <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
         <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />} />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
@@ -54,9 +53,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
   if (cells.length === 0) {
     return (
       <PageContainer>
-        <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-          {t.seasons.detail.backToArchive}
-        </Link>
+        <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
         <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />} />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
@@ -89,9 +86,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
 
   return (
     <PageContainer>
-      <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-        {t.seasons.detail.backToArchive}
-      </Link>
+      <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={kicker}
         title={t.board.pageTitle}

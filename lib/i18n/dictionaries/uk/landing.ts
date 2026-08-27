@@ -7,11 +7,11 @@ export const landing: Widen<typeof LandingEn.landing> = {
   startedAt: "Старт:",
   uptime: "У забігу:",
   topHeading: "Топ-5",
-  fullTableLink: "вся таблиця →",
+  fullTableLink: "вся таблиця",
   emptyTop: "Учасників ще немає.",
   cellShort: "кл.{position}",
   latestHeading: "Останні події",
-  fullFeedLink: "вся лента →",
+  fullFeedLink: "вся лента",
   sections: {
     board: { label: "Поле", hint: "карта сезону й позиції гравців" },
     leaderboard: { label: "Лідерборд", hint: "повна таблиця standings" },

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/ui/BackLink";
 import { FeedList } from "@/components/feed/feed-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -29,9 +29,7 @@ export default async function SeasonFeedPage({ params }: { params: Promise<{ slu
 
   return (
     <PageContainer>
-      <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-        {t.seasons.detail.backToArchive}
-      </Link>
+      <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.feed.pageTitle}

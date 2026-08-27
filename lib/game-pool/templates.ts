@@ -5,6 +5,7 @@ export interface GamePoolTemplate {
   label: string;
   description: string;
   icon: string;
+  heroIcon: string;
   filters: Partial<GamePoolFilters>;
   boardHint?: { bonusCount: number; penaltyCount: number; eventCount: number };
 }
@@ -15,6 +16,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Horror",
     description: "Survival horror, atmospheric dread, monsters and isolation.",
     icon: "👻",
+    heroIcon: "EyeIcon",
     filters: {
       genres: ["action", "adventure"],
       tags: ["horror", "survival", "atmospheric", "zombie"],
@@ -27,6 +29,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Strategy",
     description: "Think, plan, conquer — RTS, TBS and grand strategy.",
     icon: "♟️",
+    heroIcon: "PuzzlePieceIcon",
     filters: {
       genres: ["strategy", "simulation"],
       tags: ["difficult", "crafting"],
@@ -39,6 +42,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "RPG Adventure",
     description: "Story-rich role-playing, loot and progression.",
     icon: "⚔️",
+    heroIcon: "ShieldCheckIcon",
     filters: {
       genres: ["rpg", "adventure"],
       tags: ["story-rich", "fantasy", "open-world"],
@@ -51,6 +55,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "High-Octane Action",
     description: "Shooters, platformers and arcade adrenaline.",
     icon: "💥",
+    heroIcon: "BoltIcon",
     filters: {
       genres: ["action", "shooter", "arcade"],
       tags: ["difficult", "co-op"],
@@ -63,6 +68,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Indie Gems",
     description: "Inventive indies, pixel art and roguelikes.",
     icon: "✨",
+    heroIcon: "SparklesIcon",
     filters: {
       genres: ["indie", "casual", "arcade"],
       tags: ["pixel-graphics", "roguelike", "roguelite"],
@@ -75,6 +81,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Retro",
     description: "Old-school classics, 80s–90s nostalgia up to 2005.",
     icon: "📼",
+    heroIcon: "TvIcon",
     filters: {
       genres: ["arcade", "platformer"],
       tags: ["retro", "pixel-graphics"],
@@ -89,6 +96,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Survival & Crafting",
     description: "Gather, build, endure — the wild and wasteland.",
     icon: "🌲",
+    heroIcon: "MapIcon",
     filters: {
       genres: ["simulation", "adventure"],
       tags: ["survival", "crafting", "open-world"],
@@ -101,6 +109,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Sci-Fi",
     description: "Space, cyberpunk, futures not yet written.",
     icon: "🚀",
+    heroIcon: "RocketLaunchIcon",
     filters: {
       genres: ["action", "adventure", "strategy"],
       tags: ["sci-fi", "cyberpunk", "open-world"],
@@ -113,6 +122,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Fantasy",
     description: "Swords, sorcery and sprawling realms.",
     icon: "🧚",
+    heroIcon: "StarIcon",
     filters: {
       genres: ["rpg", "adventure"],
       tags: ["fantasy", "story-rich", "open-world"],
@@ -125,6 +135,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Roguelike Hardcore",
     description: "Run, die, repeat — every roll is permadeath.",
     icon: "💀",
+    heroIcon: "FireIcon",
     filters: {
       genres: ["indie", "action"],
       tags: ["roguelike", "roguelite", "difficult"],
@@ -137,6 +148,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Cozy & Family",
     description: "Relaxed, colorful, everyone can play.",
     icon: "🌸",
+    heroIcon: "HeartIcon",
     filters: {
       genres: ["family", "casual", "simulation"],
       tags: ["singleplayer"],
@@ -150,6 +162,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     label: "Competitive / Multiplayer",
     description: "Fight, race, prove you are the best.",
     icon: "🏆",
+    heroIcon: "TrophyIcon",
     filters: {
       genres: ["sports", "fighting", "racing", "shooter"],
       tags: ["multiplayer", "co-op"],

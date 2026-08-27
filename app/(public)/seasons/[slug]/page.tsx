@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeftIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -48,7 +49,8 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
   return (
     <PageContainer>
       <div className="mb-4">
-        <Link href="/seasons" className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
+        <Link href="/seasons" className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
+          <ArrowLeftIcon className="h-3 w-3" aria-hidden />
           {t.seasons.detail.backToArchive}
         </Link>
       </div>
@@ -135,15 +137,16 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
                   <span className="ammo-counter w-6 text-center text-xs text-dim">#{idx + 1}</span>
                   <span className="flex-1 truncate font-mono text-sm">{p.displayName ?? p.username}</span>
                   <span className="font-mono text-xs text-amber">#{p.position}</span>
-                  <Link href={`/players/${p.username}`} className="border border-dim/40 px-1 font-mono text-[10px] uppercase tracking-widest text-dim hover:text-amber">
-                    →
+                  <Link href={`/players/${p.username}`} className="inline-flex items-center justify-center border border-dim/40 px-1 py-0.5 text-dim hover:text-amber" aria-label={p.username}>
+                    <ArrowRightIcon className="h-3 w-3" aria-hidden />
                   </Link>
                 </li>
               ))}
             </ol>
           )}
-          <Link href={`/seasons/${season.slug}/leaderboard`} className="mt-3 inline-block font-mono text-xs text-amber hover:underline">
+          <Link href={`/seasons/${season.slug}/leaderboard`} className="mt-3 inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline">
             {t.seasons.overview.viewLeaderboard}
+            <ArrowRightIcon className="h-3 w-3" aria-hidden />
           </Link>
         </div>
       </div>
@@ -154,8 +157,9 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
             {t.seasons.overview.boardPreviewTitle}
           </h2>
-          <Link href={`/seasons/${season.slug}/board`} className="font-mono text-xs text-amber hover:underline">
+          <Link href={`/seasons/${season.slug}/board`} className="inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline">
             {t.seasons.overview.viewBoard}
+            <ArrowRightIcon className="h-3 w-3" aria-hidden />
           </Link>
         </div>
         {cells.length === 0 ? (
@@ -186,17 +190,17 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
         <Link href={`/seasons/${season.slug}/feed`} className="hud-card p-4 hover:brightness-110">
           <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.feed}</div>
           <div className="mt-1 font-display text-lg">{feed.length} events</div>
-          <div className="mt-1 font-mono text-xs text-amber">{t.seasons.overview.viewFeed}</div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewFeed}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
         </Link>
         <Link href={`/seasons/${season.slug}/rules`} className="hud-card p-4 hover:brightness-110">
           <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.rules}</div>
           <div className="mt-1 line-clamp-2 text-sm text-dim">{season.rulesMd ? season.rulesMd.slice(0, 100) : "—"}</div>
-          <div className="mt-1 font-mono text-xs text-amber">{t.seasons.overview.viewRules}</div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewRules}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
         </Link>
         <Link href={`/seasons/${season.slug}/leaderboard`} className="hud-card p-4 hover:brightness-110">
           <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.leaderboard}</div>
           <div className="mt-1 font-display text-lg">{leaderboard.length} players</div>
-          <div className="mt-1 font-mono text-xs text-amber">{t.seasons.overview.viewLeaderboard}</div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewLeaderboard}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
         </Link>
       </div>
     </PageContainer>

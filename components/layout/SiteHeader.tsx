@@ -3,14 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Bars3Icon, Cog6ToothIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { logoutAction } from "@/lib/auth/actions";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
-
 export interface SiteHeaderUser {
   displayName: string | null;
   username: string;
@@ -93,10 +92,11 @@ export function SiteHeader({
                 <Link
                   href="/settings"
                   onClick={guard()}
-                  className="hidden sm:inline hover:text-amber"
+                  className="hidden sm:inline-flex items-center justify-center text-dim hover:text-amber"
                   title={t.core.nav.settings}
+                  aria-label={t.core.nav.settings}
                 >
-                  ⚙
+                  <Cog6ToothIcon className="h-5 w-5" />
                 </Link>
                 {user.isStaff && (
                   <Link
@@ -128,7 +128,7 @@ export function SiteHeader({
               onClick={() => setOpen((v) => !v)}
               className="hud-btn !px-2 !py-1 md:hidden"
             >
-              {open ? <X size={18} /> : <Menu size={18} />}
+              {open ? <XMarkIcon className="h-[18px] w-[18px]" /> : <Bars3Icon className="h-[18px] w-[18px]" />}
             </button>
           </span>
         </div>

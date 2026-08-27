@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import { StarIcon } from "@heroicons/react/24/solid";
 import {
   addCatalogGameAction,
   deleteGameAction,
@@ -132,19 +134,18 @@ export default function GamesCatalogManager({ games }: Props) {
                     </div>
                     <div className="flex gap-1 mt-1">
                       {r.metacritic ? <Badge variant="amber" size="sm">MC {r.metacritic}</Badge> : null}
-                      {r.rating ? <Badge variant="military" size="sm">★ {r.rating}</Badge> : null}
+                      {r.rating ? <Badge variant="military" size="sm" className="inline-flex items-center gap-1"><StarIcon className="h-3 w-3" aria-hidden /> {r.rating}</Badge> : null}
                     </div>
                     <form action={importExternalGameDirectAction} className="mt-2">
                       <input type="hidden" name="title" value={r.title} />
                       <input type="hidden" name="genres" value={r.genres.join(",")} />
                       <input type="hidden" name="platform" value={r.platform ?? ""} />
                       <input type="hidden" name="coverUrl" value={r.coverUrl ?? ""} />
-                      <input type="hidden" name="provider" value={r.provider} />
-                      <input type="hidden" name="externalId" value={r.externalId} />
                       <input type="hidden" name="metacritic" value={r.metacritic?.toString() ?? ""} />
                       <input type="hidden" name="rating" value={r.rating?.toString() ?? ""} />
-                      <button type="submit" className="hud-btn !py-1 !px-3 text-xs">
+                      <button type="submit" className="hud-btn inline-flex items-center gap-1 !py-1 !px-3 text-xs">
                         {t.admin.catalog.importButton}
+                        <ArrowRightIcon className="h-3 w-3" aria-hidden />
                       </button>
                     </form>
                   </div>
@@ -197,7 +198,7 @@ export default function GamesCatalogManager({ games }: Props) {
                 </td>
                 <td className="p-2">
                   {g.metacritic ? <Badge variant="amber" size="sm">{g.metacritic}</Badge> : <span className="text-dim text-xs">—</span>}
-                  {g.rating ? <span className="ml-1 text-zinc-400 text-xs">★{Number(g.rating).toFixed(1)}</span> : null}
+                  {g.rating ? <span className="ml-1 inline-flex items-center gap-1 text-zinc-400 text-xs"><StarIcon className="h-3 w-3 text-amber" aria-hidden />{Number(g.rating).toFixed(1)}</span> : null}
                 </td>
                 <td className="p-2">
                   {g.isBlacklisted ? <Badge variant="danger" size="sm">{t.admin.catalog.blacklisted}</Badge> : <Badge variant="military" size="sm">{t.admin.catalog.active}</Badge>}

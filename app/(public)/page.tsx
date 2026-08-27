@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { FeedList } from "@/components/feed/feed-list";
 import { SeasonUptime } from "@/components/landing/SeasonUptime";
 import { StatusBadge } from "@/components/ui/status";
@@ -75,9 +75,10 @@ export default async function HomePage() {
             </h2>
             <Link
               href="/leaderboard"
-              className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
+              className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
             >
               {t.landing.fullTableLink}
+              <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </header>
           {top.length === 0 ? (
@@ -108,8 +109,9 @@ export default async function HomePage() {
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
               {t.landing.latestHeading}
             </h2>
-            <Link href="/feed" className="font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
+            <Link href="/feed" className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
               {t.landing.fullFeedLink}
+              <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </header>
           <FeedList rows={feed} />
@@ -134,8 +136,9 @@ export default async function HomePage() {
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">{t.seasons.archiveTitle}</h2>
             <p className="mt-1 font-mono text-xs text-dim">{t.seasons.archiveDescription}</p>
           </div>
-          <Link href="/seasons" className="hud-btn hud-btn-primary">
-            {t.core.nav.seasons} →
+          <Link href="/seasons" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5">
+            {t.core.nav.seasons}
+            <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
         {archived.length > 0 ? (

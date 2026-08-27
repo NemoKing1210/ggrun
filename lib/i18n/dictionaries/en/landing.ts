@@ -5,11 +5,11 @@ export const landing = {
   startedAt: "Start:",
   uptime: "In run:",
   topHeading: "Top 5",
-  fullTableLink: "full table →",
+  fullTableLink: "full table",
   emptyTop: "No participants yet.",
   cellShort: "cl.{position}",
   latestHeading: "Latest events",
-  fullFeedLink: "full feed →",
+  fullFeedLink: "full feed",
   sections: {
     board: { label: "Board", hint: "season map and player positions" },
     leaderboard: { label: "Leaderboard", hint: "the full standings table" },

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/cn";
 
 type Props = React.SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean };
@@ -25,8 +25,9 @@ export function Select({ className, children, invalid, ...props }: Props) {
         {children}
       </select>
       {/* HUD arrow */}
-      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-amber/70 text-xs">▾</span>
-      <span aria-hidden className="pointer-events-none absolute inset-x-[1px] top-[1px] h-[1px] bg-white/10 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]" />
+      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-amber/70">
+        <ChevronDownIcon className="h-4 w-4" aria-hidden />
+      </span>
     </div>
   );
 }

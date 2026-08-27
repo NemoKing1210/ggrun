@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ArrowLeftIcon, ArrowRightIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import type { BoardCell, SeasonPlayer } from "@/db/schema";
 
@@ -461,10 +462,10 @@ export function BoardView({
                     <button
                       type="button"
                       onClick={() => setSelectedPos(null)}
-                      className="hud-btn shrink-0 px-2 py-1 font-mono text-xs"
-                      aria-label="✕"
+                      className="hud-btn shrink-0 !px-2 !py-1.5"
+                      aria-label="Close"
                     >
-                      ✕
+                      <XMarkIcon className="h-4 w-4" aria-hidden />
                     </button>
                   </div>
 
@@ -532,17 +533,19 @@ export function BoardView({
                       type="button"
                       onClick={() => stepSelection(-1)}
                       disabled={selectedIndex <= 0}
-                      className="hud-btn px-3 py-1.5 text-xs"
+                      className="hud-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
                     >
-                      ← {t.board.cell.prevCell}
+                      <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden />
+                      {t.board.cell.prevCell}
                     </button>
                     <button
                       type="button"
                       onClick={() => stepSelection(1)}
                       disabled={selectedIndex >= cells.length - 1}
-                      className="hud-btn px-3 py-1.5 text-xs"
+                      className="hud-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
                     >
-                      {t.board.cell.nextCell} →
+                      {t.board.cell.nextCell}
+                      <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   </div>
                 </>

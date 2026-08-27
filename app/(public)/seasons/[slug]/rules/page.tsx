@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/ui/BackLink";
 import { Markdown } from "@/components/rules/markdown";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -26,9 +26,7 @@ export default async function SeasonRulesPage({ params }: { params: Promise<{ sl
 
   return (
     <PageContainer>
-      <Link href="/seasons" className="mb-4 inline-block font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
-        {t.seasons.detail.backToArchive}
-      </Link>
+      <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.rules.pageTitle}

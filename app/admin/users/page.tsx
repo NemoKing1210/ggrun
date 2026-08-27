@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -87,8 +88,8 @@ export default async function AdminUsersPage({
             placeholder={u.searchPlaceholder}
             className="!w-full"
           />
-          <button type="submit" className="hud-btn self-start whitespace-nowrap">
-            🔍
+          <button type="submit" className="hud-btn self-start whitespace-nowrap inline-flex items-center justify-center !px-3" aria-label={u.searchPlaceholder}>
+            <MagnifyingGlassIcon className="h-4 w-4" aria-hidden />
           </button>
         </form>
       </section>

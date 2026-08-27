@@ -26,10 +26,10 @@ export const seasons = {
     noPlayers: "No participants in this season.",
     boardPreviewTitle: "Board preview",
     noBoard: "This season has no board.",
-    viewBoard: "Open board →",
-    viewLeaderboard: "Full leaderboard →",
-    viewFeed: "View feed →",
-    viewRules: "Read rules →",
+    viewBoard: "Open board",
+    viewLeaderboard: "Full leaderboard",
+    viewFeed: "View feed",
+    viewRules: "Read rules",
     statPlayers: "players",
     statMoves: "moves",
     statPassed: "passed",
@@ -37,7 +37,7 @@ export const seasons = {
   },
   detail: {
     notFound: "Season not found",
-    backToArchive: "← All seasons",
+    backToArchive: "All seasons",
     currentBadge: "Current",
   },
   statusFilter: {
