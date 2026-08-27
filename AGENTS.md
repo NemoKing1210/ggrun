@@ -27,7 +27,21 @@ This is an international project. **English is the only language for:**
 Ukrainian outside those places. When editing files that already contain
 Russian/Ukrainian comments, translate them to English in the same change.
 
-## Architecture & Data Flow
+## Agent Behavior
+
+- **Do exactly what was asked, no more.** When the user says "commit and push",
+  do `git add -A && git commit && git push` in one pass. Do not split unrelated
+  work into separate commits, do not propose idealised commit histories, do not
+  spend time on partial staging of shared files, do not ask for confirmation
+  on a routine git operation. Same for "build", "test", "deploy", etc. — execute
+  the request, then stop.
+- **The user's word is the source of truth.** If the user tells you the change
+  is wrong, revert and follow the new instruction. If the user interrupts with
+  a shorter command, drop the in-flight plan and do the short command first.
+- **Don't over-engineer under uncertainty.** If a single commit covers a fix
+  and an unrelated feature, that's fine. Polish commit hygiene, split-merge
+  refactors, and other "professional touch" work is only wanted when the user
+  asks for it explicitly.
 
 Four layers; imports point strictly downward:
 
