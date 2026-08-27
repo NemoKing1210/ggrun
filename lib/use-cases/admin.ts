@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getSeasonById } from "@/lib/repositories/seasons.repo";
+import { slugify } from "@/lib/slugify";
 import {
   addPlayerToSeason,
   getSeasonPlayerById,
@@ -54,7 +55,12 @@ export const createSeasonSchema = z.object({
 /** Creates a season (draft), optionally cloning the board from another season. */
 export async function createSeason(input: unknown): Promise<string> {
   const actor = await requireStaff();
-  const parsed = createSeasonSchema.parse(input);
+  const raw = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
+  const title = typeof raw.title === "string" ? raw.title.trim() : "";
+  const requestedSlug = typeof raw.slug === "string" ? raw.slug.trim() : "";
+  // Empty slug -> derive it from the title (Cyrillic is transliterated).
+  const slug = requestedSlug || slugify(title);
+  const parsed = createSeasonSchema.parse({ ...raw, title: title || undefined, slug: slug || undefined });
 
   const created = await db.transaction(async (tx) => {
     const [season] = await tx
@@ -159,6 +165,22 @@ export async function changeSeasonStatus(
       to: newStatus,
     });
   }
+  // Enforce a single active season: starting another one while one is live is blocked.
+  if (newStatus === "active") {
+    const activeRow = await db
+      .select({ id: seasons.id, title: seasons.title })
+      .from(seasons)
+      .where(and(eq(seasons.status, "active"), ne(seasons.id, seasonId)))
+      .limit(1);
+    if (activeRow[0]) {
+      log.debug("season.status_change.active_blocked", {
+        actorId: actor.id,
+        seasonId,
+        activeSeasonId: activeRow[0].id,
+      });
+      throw new AdminError("adminActiveSeasonExists", { title: activeRow[0].title });
+    }
+  }
   await db.transaction(async (tx) => {
     const patch: Record<string, unknown> = { status: newStatus };
     if (newStatus === "active") patch.startedAt = new Date();
@@ -196,6 +218,20 @@ export async function resetSeason(seasonId: string): Promise<void> {
   if (!season) {
     log.debug("season.reset.season_not_found", { actorId: actor.id, seasonId });
     throw new AdminError("adminSeasonNotFound");
+  }
+  // Reset re-activates the season — keep the single-active invariant.
+  const activeRow = await db
+    .select({ id: seasons.id, title: seasons.title })
+    .from(seasons)
+    .where(and(eq(seasons.status, "active"), ne(seasons.id, seasonId)))
+    .limit(1);
+  if (activeRow[0]) {
+    log.debug("season.reset.active_blocked", {
+      actorId: actor.id,
+      seasonId,
+      activeSeasonId: activeRow[0].id,
+    });
+    throw new AdminError("adminActiveSeasonExists", { title: activeRow[0].title });
   }
   const parsed = SeasonConfigSchema.safeParse(season.config);
   const cfg = parsed.success ? parsed.data : (await import("@/game-engine")).DEFAULT_SEASON_CONFIG;

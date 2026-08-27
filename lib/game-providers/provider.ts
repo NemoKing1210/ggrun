@@ -18,6 +18,8 @@ export interface ProviderSearchParams {
   filters: GamePoolFilters;
   pageSize?: number;
   page?: number;
+  /** Cache TTL in hours: 0 = no cache (no-store), otherwise seconds for revalidate */
+  cacheTtlHours?: number;
 }
 
 export interface GameProvider {

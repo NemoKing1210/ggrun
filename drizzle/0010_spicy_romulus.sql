@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "seasons_single_active_uq" ON "seasons" USING btree ((status)) WHERE status = 'active';

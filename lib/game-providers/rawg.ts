@@ -36,14 +36,16 @@ async function buildQuery(filters: ProviderSearchParams["filters"], pageSize: nu
 
 export const rawgProvider: GameProvider = {
   id: "rawg",
-  async search({ filters, pageSize = 20, page = 1 }): Promise<ExternalGame[]> {
+  async search({ filters, pageSize = 20, page = 1, cacheTtlHours = 24 }): Promise<ExternalGame[]> {
     const { rawgApiKey: key } = await getEffectiveProviderKeys();
     if (!key) {
       // no key configured — caller will fallback to catalog
       return [];
     }
     const qs = await buildQuery(filters, pageSize, page);
-    const res = await fetch(`${RAWG_BASE}/games?${qs}`, { next: { revalidate: 3600 } });
+    const fetchOpts: RequestInit & { next?: { revalidate?: number } } =
+      cacheTtlHours === 0 ? { cache: "no-store" } : { next: { revalidate: Math.max(60, cacheTtlHours * 3600) } };
+    const res = await fetch(`${RAWG_BASE}/games?${qs}`, fetchOpts);
     if (!res.ok) {
       console.warn(`[rawg] search failed ${res.status}`);
       return [];

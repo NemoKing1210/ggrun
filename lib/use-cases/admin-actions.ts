@@ -234,8 +234,17 @@ export async function updateSeasonSettingsAction(
         mode: rulesMode,
       },
       gamePool: {
-        source: String(formData.get("gamePool_source") || "catalog"),
-        provider: String(formData.get("gamePool_provider") || "internal"),
+        source: (() => {
+          const s = String(formData.get("gamePool_source") || "catalog").toLowerCase();
+          return s === "catalog" || s === "api" || s === "hybrid" ? s : "catalog";
+        })(),
+        provider: (() => {
+          const raw = String(formData.get("gamePool_provider") || "internal").toLowerCase();
+          const src = String(formData.get("gamePool_source") || "catalog").toLowerCase();
+          // reliability: catalog mode always uses internal (no external calls)
+          if (src === "catalog") return "internal";
+          return raw === "rawg" || raw === "igdb" || raw === "steam" || raw === "internal" ? raw : "internal";
+        })(),
         templateId: (() => {
           const v = formData.get("gamePool_templateId");
           const s = v ? String(v).trim() : "";

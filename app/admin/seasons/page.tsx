@@ -5,8 +5,7 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon,
   Cog6ToothIcon,
-  PlusIcon,
-  RocketLaunchIcon,
+  LockClosedIcon,
   Squares2X2Icon,
   TagIcon,
   UsersIcon,
@@ -15,18 +14,12 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { listSeasons } from "@/lib/repositories/seasons.repo";
-import {
-  changeStatusAction,
-  createSeasonAction,
-  resetSeasonDirectAction,
-} from "@/lib/use-cases/admin-actions";
+import { changeStatusAction, resetSeasonDirectAction } from "@/lib/use-cases/admin-actions";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { SeasonCreateModal } from "@/components/admin/SeasonCreateModal";
 import { Badge } from "@/components/ui/Badge";
 import { format } from "@/lib/i18n/format";
-import { Field } from "@/components/ui/Field";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { getT } from "@/lib/i18n/server";
 
 const statusFlow: Record<string, string[]> = {
@@ -56,12 +49,13 @@ export default async function AdminPage() {
   const { t } = await getT();
 
   const seasons = await listSeasons();
+  const activeSeason = seasons.find((s) => s.status === "active") ?? null;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <section>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex size-9 items-center justify-center border border-amber/40 bg-amber/10 text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
             <CalendarDaysIcon className="size-5" aria-hidden />
           </span>
@@ -77,54 +71,9 @@ export default async function AdminPage() {
             <span className="size-1.5 bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
             {t.admin.nav.console}
           </span>
+          <SeasonCreateModal seasons={seasons} />
         </div>
         <div className="hazard-tape my-4" aria-hidden />
-      </section>
-
-      {/* New season */}
-      <section className="hud-card p-0 overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
-          <span className="inline-flex size-7 items-center justify-center bg-amber text-black [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-            <RocketLaunchIcon className="size-4" aria-hidden />
-          </span>
-          <h2 className="font-display text-sm uppercase tracking-widest">{t.admin.overview.newSeason}</h2>
-          <span className="ml-auto inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-dim">
-            <PlusIcon className="size-3.5" aria-hidden /> {t.core.common.create}
-          </span>
-        </div>
-        <div className="p-4">
-          <FormShell
-            action={createSeasonAction}
-            submitLabel={t.core.common.create}
-            submitClassName="hud-btn hud-btn-primary !px-6"
-            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
-          >
-            <Field label={t.admin.createSeason.titleLabel}>
-              <Input name="title" required placeholder={t.admin.createSeason.titlePlaceholder} />
-            </Field>
-            <Field label={t.admin.createSeason.slugLabel}>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-dim">
-                  <TagIcon className="size-3.5" aria-hidden />
-                </span>
-                <Input name="slug" required pattern="[a-z0-9-]+" placeholder="run-1" className="!pl-7" />
-              </div>
-            </Field>
-            <Field label={t.admin.createSeason.cloneLabel}>
-              <Select name="cloneFrom" defaultValue="">
-                <option value="">{t.admin.createSeason.noCloneOption}</option>
-                {seasons.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} — {s.slug}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </FormShell>
-          <p className="mt-3 font-mono text-xs text-dim">
-            Slug: <span className="text-amber">[a-z0-9-]</span> · clone copies board cells from existing season
-          </p>
-        </div>
       </section>
 
       {/* Seasons list */}
@@ -138,6 +87,15 @@ export default async function AdminPage() {
             {seasons.length === 0 ? t.admin.overview.empty : `${seasons.length} total`}
           </span>
         </div>
+
+        {activeSeason && (
+          <div className="flex items-start gap-2.5 border-b border-amber/20 bg-amber/[0.06] px-4 py-3">
+            <LockClosedIcon className="mt-0.5 size-4 shrink-0 text-amber" aria-hidden />
+            <p className="font-sans text-xs leading-snug text-amber/90">
+              {format(t.admin.overview.activeSeasonBanner, { title: activeSeason.title })}
+            </p>
+          </div>
+        )}
 
         {seasons.length === 0 ? (
           <div className="p-8 text-center">
@@ -180,20 +138,50 @@ export default async function AdminPage() {
                           {(statusFlow[s.status] ?? []).length === 0 ? (
                             <span className="font-mono text-xs text-dim">—</span>
                           ) : (
-                            (statusFlow[s.status] ?? []).map((next) => (
-                              <FormShell
-                                key={next}
-                                action={changeStatusAction}
-                                submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
-                                className="inline-flex items-center gap-2"
-                                submitClassName="hud-btn !py-1 !px-2.5 text-[11px] leading-none"
-                              >
-                                <input type="hidden" name="seasonId" value={s.id} />
-                                <input type="hidden" name="status" value={next} />
-                              </FormShell>
-                            ))
+                            (statusFlow[s.status] ?? []).map((next) => {
+                              const locked =
+                                next === "active" && activeSeason && activeSeason.id !== s.id;
+                              if (locked) {
+                                return (
+                                  <span
+                                    key={next}
+                                    title={format(t.admin.overview.activeLockedHint, { title: activeSeason.title })}
+                                    className="hud-btn !py-1 !px-2.5 text-[11px] leading-none opacity-50 cursor-not-allowed inline-flex items-center gap-1 line-through decoration-zinc-500"
+                                    aria-disabled="true"
+                                  >
+                                    <LockClosedIcon className="size-3" aria-hidden />
+                                    {t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
+                                  </span>
+                                );
+                              }
+                              return (
+                                <FormShell
+                                  key={next}
+                                  action={changeStatusAction}
+                                  submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
+                                  className="inline-flex items-center gap-2"
+                                  submitClassName="hud-btn !py-1 !px-2.5 text-[11px] leading-none"
+                                >
+                                  <input type="hidden" name="seasonId" value={s.id} />
+                                  <input type="hidden" name="status" value={next} />
+                                </FormShell>
+                              );
+                            })
                           )}
-                          {s.status !== "draft" && s.status !== "archived" && (
+                          {s.status !== "draft" &&
+                            s.status !== "archived" &&
+                            activeSeason &&
+                            activeSeason.id !== s.id && (
+                              <span
+                                title={format(t.admin.overview.activeLockedHint, { title: activeSeason.title })}
+                                className="hud-btn hud-btn-danger !py-1 !px-2.5 text-[11px] leading-none opacity-50 cursor-not-allowed inline-flex items-center gap-1"
+                                aria-disabled="true"
+                              >
+                                <LockClosedIcon className="size-3" aria-hidden />
+                                {t.admin.overview.resetButton}
+                              </span>
+                            )}
+                          {s.status !== "draft" && s.status !== "archived" && (!activeSeason || activeSeason.id === s.id) && (
                             <form action={resetSeasonDirectAction} className="inline-flex">
                               <input type="hidden" name="seasonId" value={s.id} />
                               <ConfirmButton
@@ -241,19 +229,49 @@ export default async function AdminPage() {
                   </span>
                   {((statusFlow[s.status] ?? []).length > 0 || (s.status !== "draft" && s.status !== "archived")) && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {(statusFlow[s.status] ?? []).map((next) => (
-                        <FormShell
-                          key={next}
-                          action={changeStatusAction}
-                          submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
-                          className="inline-flex"
-                          submitClassName="hud-btn !py-1 !px-2.5 text-[11px]"
-                        >
-                          <input type="hidden" name="seasonId" value={s.id} />
-                          <input type="hidden" name="status" value={next} />
-                        </FormShell>
-                      ))}
-                      {s.status !== "draft" && s.status !== "archived" && (
+                      {(statusFlow[s.status] ?? []).map((next) => {
+                        const locked =
+                          next === "active" && activeSeason && activeSeason.id !== s.id;
+                        if (locked) {
+                          return (
+                            <span
+                              key={next}
+                              title={format(t.admin.overview.activeLockedHint, { title: activeSeason.title })}
+                              className="hud-btn !py-1 !px-2.5 text-[11px] opacity-50 cursor-not-allowed inline-flex items-center gap-1 line-through decoration-zinc-500"
+                              aria-disabled="true"
+                            >
+                              <LockClosedIcon className="size-3" aria-hidden />
+                              {t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
+                            </span>
+                          );
+                        }
+                        return (
+                          <FormShell
+                            key={next}
+                            action={changeStatusAction}
+                            submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
+                            className="inline-flex"
+                            submitClassName="hud-btn !py-1 !px-2.5 text-[11px]"
+                          >
+                            <input type="hidden" name="seasonId" value={s.id} />
+                            <input type="hidden" name="status" value={next} />
+                          </FormShell>
+                        );
+                      })}
+                      {s.status !== "draft" &&
+                        s.status !== "archived" &&
+                        activeSeason &&
+                        activeSeason.id !== s.id && (
+                          <span
+                            title={format(t.admin.overview.activeLockedHint, { title: activeSeason.title })}
+                            className="hud-btn hud-btn-danger !py-1 !px-2.5 text-[11px] opacity-50 cursor-not-allowed inline-flex items-center gap-1"
+                            aria-disabled="true"
+                          >
+                            <LockClosedIcon className="size-3" aria-hidden />
+                            {t.admin.overview.resetButton}
+                          </span>
+                        )}
+                      {s.status !== "draft" && s.status !== "archived" && (!activeSeason || activeSeason.id === s.id) && (
                         <form action={resetSeasonDirectAction} className="inline-flex">
                           <input type="hidden" name="seasonId" value={s.id} />
                           <ConfirmButton

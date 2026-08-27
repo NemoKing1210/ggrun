@@ -2,17 +2,23 @@
 
 import { useActionState, useState } from "react";
 import {
+  AdjustmentsHorizontalIcon,
   ArrowRightIcon,
   BoltIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  CircleStackIcon,
   ExclamationTriangleIcon,
   EyeIcon,
   FireIcon,
+  GlobeAltIcon,
   HeartIcon,
   MapIcon,
   PuzzlePieceIcon,
   RocketLaunchIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  SquaresPlusIcon,
   StarIcon,
   TrophyIcon,
   TvIcon,
@@ -28,6 +34,7 @@ import { Field } from "@/components/ui/Field";
 import { Range } from "@/components/ui/Range";
 import { useI18n } from "@/lib/i18n/client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
 import type { SeasonConfig } from "@/game-engine/types";
@@ -53,7 +60,6 @@ import {
   TAGS,
   ESRB,
   ORDERINGS,
-  GAME_POOL_SOURCES,
   GAME_PROVIDERS,
   BOARD_DISTRIBUTIONS,
 } from "@/lib/game-pool/constants";
@@ -63,12 +69,14 @@ type Props = {
   initialRulesMd: string | null;
   seasonTitle?: string;
   seasonStatus?: string;
+  availableProviders?: Array<{ id: string; label: string }>;
 };
 
-export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd }: Props) {
+export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, availableProviders = [] }: Props) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"templates" | "dice" | "board" | "pool" | "rules">("templates");
   const [cfg, setCfg] = useState<SeasonConfig>(initialConfig);
+  const [poolAdvancedOpen, setPoolAdvancedOpen] = useState(false);
   const [rulesMd, setRulesMd] = useState(initialRulesMd ?? "");
   const [rulesMode, setRulesMode] = useState<SeasonConfig["rules"]["mode"]>(initialConfig.rules.mode);
   const templates = GAME_POOL_TEMPLATES;
@@ -500,38 +508,181 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
             </div>
           )}
 
-          {activeTab === "pool" && (
+          {activeTab === "pool" && (() => {
+            const providerConfiguredIds = new Set(availableProviders.map((p) => p.id));
+            const hasAnyProvider = availableProviders.length > 0;
+            const selectedProviderConfigured = cfg.gamePool.provider === "internal" || providerConfiguredIds.has(cfg.gamePool.provider);
+            const needsProvider = cfg.gamePool.source !== "catalog";
+            const showProviderWarning = needsProvider && !selectedProviderConfigured;
+            const sourceOptions: Array<{ value: SeasonConfig["gamePool"]["source"]; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
+              { value: "catalog", label: t.admin.settings.sourceCatalogLabel, desc: t.admin.settings.sourceCatalogDesc, icon: CircleStackIcon },
+              { value: "api", label: t.admin.settings.sourceApiLabel, desc: t.admin.settings.sourceApiDesc, icon: GlobeAltIcon },
+              { value: "hybrid", label: t.admin.settings.sourceHybridLabel, desc: t.admin.settings.sourceHybridDesc, icon: SquaresPlusIcon },
+            ];
+            const handleSource = (src: SeasonConfig["gamePool"]["source"]) => {
+              if (src === "catalog") {
+                setGamePool({ source: src, provider: "internal" });
+              } else {
+                // when switching to api/hybrid, auto-pick first configured provider if current is internal and we have one
+                let nextProvider: SeasonConfig["gamePool"]["provider"] = cfg.gamePool.provider;
+                if (cfg.gamePool.provider === "internal" && hasAnyProvider) {
+                  const first = availableProviders[0]!.id as SeasonConfig["gamePool"]["provider"];
+                  if (["rawg", "igdb", "steam"].includes(first)) nextProvider = first;
+                }
+                setGamePool({ source: src, provider: nextProvider });
+              }
+            };
+            return (
             <div className="flex flex-col gap-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Field label={t.admin.settings.sourceLabel}>
-                  <Select value={cfg.gamePool.source} onChange={(e) => setGamePool({ source: e.target.value as SeasonConfig["gamePool"]["source"] })}>
-                    {GAME_POOL_SOURCES.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label={t.admin.settings.providerLabel}>
-                  <Select value={cfg.gamePool.provider} onChange={(e) => setGamePool({ provider: e.target.value as SeasonConfig["gamePool"]["provider"] })} disabled={cfg.gamePool.source === "catalog"}>
-                    {GAME_PROVIDERS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label={t.admin.settings.orderingLabel}>
-                  <Select value={cfg.gamePool.filters.ordering} onChange={(e) => setFilters({ ordering: e.target.value })}>
-                    {ORDERINGS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+              {/* Source switch — prominent segmented control */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-display text-[11px] uppercase tracking-widest text-amber">{t.admin.settings.sourceLabel} · game source</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{cfg.gamePool.source} → {cfg.gamePool.provider}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {sourceOptions.map((opt) => {
+                    const active = cfg.gamePool.source === opt.value;
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleSource(opt.value)}
+                        aria-pressed={active}
+                        className={`relative text-left p-3 flex gap-3 items-start transition duration-150 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${active ? "border-2 border-amber bg-amber text-black shadow-[0_0_22px_rgba(251,191,36,0.50),inset_0_1px_0_rgba(255,255,255,0.38),inset_0_-3px_0_rgba(0,0,0,0.30)]" : "border border-zinc-700 bg-[#161616] text-zinc-200 hover:border-zinc-500 hover:bg-[#1e1e1c] hover:brightness-[1.04] opacity-[0.92] hover:opacity-100"}`}
+                      >
+                        {active && <span className="pointer-events-none absolute right-2 top-2 inline-flex size-5 items-center justify-center rounded-full bg-black text-amber border border-black/20" aria-hidden><CheckCircleIcon className="size-3.5" /></span>}
+                        <span className={`inline-flex size-8 shrink-0 items-center justify-center border [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${active ? "bg-black text-amber border-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" : "bg-[#232323] text-zinc-400 border-zinc-700"}`}><Icon className="size-4" aria-hidden /></span>
+                        <span className="min-w-0 pr-6">
+                          <span className={`font-display text-sm uppercase tracking-wider ${active ? "text-black font-bold" : "text-zinc-100"}`}>{opt.label}</span>
+                          {active && <span className="ml-2 inline-flex items-center border border-black/20 bg-black px-1.5 py-0.5 font-display text-[10px] leading-none uppercase tracking-widest text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">{t.admin.settings.sourceActiveBadge}</span>}
+                          <span className={`mt-0.5 block text-xs leading-snug ${active ? "text-black/70" : "text-zinc-500"}`}>{opt.desc}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 font-mono text-xs text-dim">{t.admin.settings.poolHint}</p>
               </div>
 
+              {/* Provider row — only when API is involved */}
+              <div className={`hud-card p-4 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${needsProvider ? "bg-[#0f0f0f] border-zinc-800" : "bg-[#0f0f0f]/60 border-zinc-800 opacity-80"}`}>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+                  <Field label={t.admin.settings.providerLabel}>
+                    <Select value={cfg.gamePool.provider} onChange={(e) => setGamePool({ provider: e.target.value as SeasonConfig["gamePool"]["provider"] })} disabled={!needsProvider}>
+                      {GAME_PROVIDERS.map((o) => {
+                        const configured = o.value === "internal" || providerConfiguredIds.has(o.value);
+                        return (
+                          <option key={o.value} value={o.value}>
+                            {o.label}{configured ? " ✓" : needsProvider ? " · not configured" : ""}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {GAME_PROVIDERS.map((o) => {
+                        const configured = o.value === "internal" || providerConfiguredIds.has(o.value);
+                        const isSelected = cfg.gamePool.provider === o.value;
+                        if (!needsProvider && o.value !== "internal") return null;
+                        return (
+                          <span key={o.value} className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${isSelected ? "border-amber bg-amber/10 text-amber" : configured ? "border-emerald-800 bg-emerald-950/30 text-emerald-300" : "border-red-900 bg-red-950/30 text-red-300"}`}>
+                            <span className={`size-1.5 rounded-full ${configured ? "bg-emerald-500" : "bg-red-500"}`} aria-hidden />{o.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                  <Field label={t.admin.settings.orderingLabel}>
+                    <Select value={cfg.gamePool.filters.ordering} onChange={(e) => setFilters({ ordering: e.target.value })}>
+                      {ORDERINGS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="mt-1 font-mono text-[11px] text-dim">Ordering affects API & catalog picks equally</p>
+                  </Field>
+                </div>
+                {!needsProvider && (
+                  <p className="mt-3 flex items-center gap-1.5 border border-dim/15 bg-raised px-3 py-2 font-mono text-xs text-dim [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"><CircleStackIcon className="size-3.5 text-amber" aria-hidden /> {t.admin.settings.catalogOnlyNote}</p>
+                )}
+                {showProviderWarning && (
+                  <div className="mt-3 flex items-start gap-2 border border-amber/30 bg-amber/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                    <ExclamationTriangleIcon className="size-4 shrink-0 text-amber" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-amber">{format(t.admin.settings.providerNotConfiguredShort, { provider: cfg.gamePool.provider })}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{t.admin.settings.providerFallbackNote} {cfg.gamePool.catalog.fallbackToCatalog ? t.admin.settings.providerFallbackYes : t.admin.settings.providerFallbackNo} · <a href="/admin/settings" className="underline decoration-amber/50 underline-offset-4 hover:text-amber">Settings → Integrations</a></p>
+                    </div>
+                  </div>
+                )}
+                {needsProvider && hasAnyProvider && selectedProviderConfigured && (
+                  <p className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-emerald-300"><CheckCircleIcon className="size-3.5" aria-hidden /> {t.admin.settings.providerReady} — {availableProviders.find((p) => p.id === cfg.gamePool.provider)?.label ?? cfg.gamePool.provider}</p>
+                )}
+                {needsProvider && !hasAnyProvider && (
+                  <div className="mt-3 border border-danger/30 bg-danger/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                    <p className="text-sm font-medium text-red-300">{t.admin.settings.noProvidersConfiguredShort}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t.admin.settings.noProvidersConfiguredHint}</p>
+                    <a href="/admin/settings" className="hud-btn hud-btn-primary mt-2 inline-flex !py-1.5 !px-3 text-xs">Go to Settings</a>
+                  </div>
+                )}
+              </div>
+
+              {/* Advanced filters — collapsible (less important) */}
+              {(() => {
+                const activeCount =
+                  cfg.gamePool.filters.genres.length +
+                  cfg.gamePool.filters.platforms.length +
+                  cfg.gamePool.filters.tags.length +
+                  cfg.gamePool.filters.esrb.length +
+                  (cfg.gamePool.filters.searchQuery ? 1 : 0) +
+                  (cfg.gamePool.filters.metacriticMin !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.metacriticMax !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.ratingMin !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.ratingMax !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.yearMin !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.yearMax !== null ? 1 : 0) +
+                  (cfg.gamePool.filters.players !== "any" ? 1 : 0) +
+                  (cfg.gamePool.filters.onlyWithCover ? 1 : 0) +
+                  (cfg.gamePool.autoFetchOnRoll ? 1 : 0);
+                return (
+                  <div className="hud-card overflow-hidden border-zinc-800 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+                    <button
+                      type="button"
+                      onClick={() => setPoolAdvancedOpen((v) => !v)}
+                      aria-expanded={poolAdvancedOpen}
+                      className="flex w-full items-center justify-between gap-4 bg-[#0f0f0f] px-4 py-3.5 text-left transition hover:bg-[#151515]"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="inline-flex size-8 shrink-0 items-center justify-center border border-amber/30 bg-amber/12 text-amber shadow-[0_0_10px_rgba(251,191,36,0.15)] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                          <AdjustmentsHorizontalIcon className="size-4" aria-hidden />
+                        </span>
+                        <span className="flex min-w-0 flex-col gap-0.5 text-left">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="font-display text-[13px] font-bold uppercase tracking-widest leading-none text-zinc-100">{t.admin.settings.advancedFiltersTitle}</span>
+                            {activeCount > 0 && <Badge variant="amber" size="sm" className="shrink-0">{format(t.admin.settings.filtersCountLabel, { count: String(activeCount) })}</Badge>}
+                          </span>
+                          <span className="max-w-[52ch] font-sans text-xs leading-snug text-zinc-400">{t.admin.settings.advancedFiltersHint}</span>
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2.5">
+                        <span className={`hidden font-mono text-xs uppercase tracking-widest transition sm:inline ${poolAdvancedOpen ? "text-amber" : "text-zinc-400"}`}>{poolAdvancedOpen ? t.admin.settings.hideFilters : t.admin.settings.showFilters}</span>
+                        <span className={`inline-flex size-7 items-center justify-center border shadow-sm [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] transition ${poolAdvancedOpen ? "border-amber bg-amber text-black shadow-[0_0_12px_rgba(251,191,36,0.45)]" : "border-zinc-600 bg-[#1e1e1e] text-zinc-300 hover:border-zinc-500 hover:text-amber"}`}>
+                          <ChevronDownIcon className={`size-4 transition duration-200 ${poolAdvancedOpen ? "rotate-180" : ""}`} aria-hidden />
+                        </span>
+                      </span>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {poolAdvancedOpen && (
+                        <motion.div
+                          key="advanced-filters"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+                          className="overflow-hidden border-t border-zinc-800"
+                        >
+                          <div className="bg-[#0f0f0f]/60 p-4 flex flex-col gap-6">
               <div className="flex flex-col gap-2">
                 <span className="font-display uppercase tracking-widest text-[11px] text-zinc-400">{t.admin.settings.filterGenres}</span>
                 <div className="flex flex-wrap gap-1.5">
@@ -626,8 +777,16 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   <Input type="number" min={0} max={720} value={cfg.gamePool.cacheTtlHours} onChange={(e) => setGamePool({ cacheTtlHours: Number(e.target.value) })} />
                 </Field>
               </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })()}
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

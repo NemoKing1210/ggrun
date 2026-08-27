@@ -231,6 +231,7 @@ export const errors: Widen<typeof CoreEn.errors> = {
   adminStaffRequired: "Потрібні права staff",
   adminSeasonNotFound: "Сезон не знайдено",
   adminInvalidTransition: "Неприпустимий перехід {from} → {to}",
+  adminActiveSeasonExists: "Забіг «{title}» уже активний. Одночасно може тривати лише один забіг — спочатку завершіть або архівуйте його.",
   adminPlayerNotFound: "Учасника не знайдено",
   adminSelfBlock: "Не можна блокувати самого себе",
   adminSelfDemote: "Не можна розжалувати самого себе",

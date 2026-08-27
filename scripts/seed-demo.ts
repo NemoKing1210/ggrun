@@ -13,7 +13,14 @@ async function main() {
   try {
     const season = await pool.query(
       `insert into seasons (slug, title, status, config, started_at)
-       values ('run-1', 'Run #1', 'active', '{}'::jsonb, now())
+       values (
+         'run-1',
+         'Run #1',
+         -- single-active invariant: never create a second live season
+         (select case when exists (select 1 from seasons where status = 'active' and slug <> 'run-1') then 'paused' else 'active' end),
+         '{}'::jsonb,
+         now()
+       )
        on conflict (slug) do nothing
        returning id`,
     );

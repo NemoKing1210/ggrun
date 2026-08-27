@@ -217,7 +217,7 @@ export async function rollRandomGame(
       try {
         const { getProvider } = await import("@/lib/game-providers");
         const provider = getProvider(pool.provider);
-        const external = await provider.search({ filters, pageSize: pool.maxCandidates });
+        const external = await provider.search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
         if (external.length > 0) {
           // Upsert external games into catalog (idempotent on externalRawId+source)
           for (const ext of external) {
@@ -314,8 +314,18 @@ export async function rollRandomGame(
     }
   }
 
-  // final fallback: any unplayed non-blacklisted game
+  // final fallback: respect source + fallback flag strictly
+  const allowCatalogFallback = pool.catalog.fallbackToCatalog || pool.source === "catalog" || pool.source === "hybrid";
+  // api-only without fallback: do not touch catalog at all
+  if (pool.source === "api" && !pool.catalog.fallbackToCatalog) {
+    // If we already tried API and got nothing, fail fast (let caller throw catalogEmpty)
+    // Only allow replay of API-sourced games that are already in catalog but were filtered out
+    // candidates already covers API-mapped catalog games, so just check candidates
+    if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
+    return null;
+  }
   if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
+  if (!allowCatalogFallback) return null;
   const anyFallback = await db
     .select()
     .from(gamesCatalog)

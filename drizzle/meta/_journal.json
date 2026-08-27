@@ -71,6 +71,13 @@
       "when": 1787864927417,
       "tag": "0009_dashing_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787871835109,
+      "tag": "0010_spicy_romulus",
+      "breakpoints": true
     }
   ]
 }

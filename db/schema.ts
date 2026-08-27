@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -123,24 +124,34 @@ export const sessions = pgTable(
 // Seasons / boards
 // ---------------------------------------------------------------------------
 
-export const seasons = pgTable("seasons", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  slug: text("slug").unique().notNull(),
-  title: text("title").notNull(),
-  status: seasonStatusEnum("status").notNull().default("draft"),
-  /** Season rules (dice, points, board) — see game-engine/types.ts SeasonConfig */
-  config: jsonb("config").notNull().default({}),
-  /** Rules page text (markdown), edited from the admin area */
-  rulesMd: text("rules_md"),
-  startedAt: timestamp("started_at", { withTimezone: true }),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
-  createdBy: uuid("created_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const seasons = pgTable(
+  "seasons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").unique().notNull(),
+    title: text("title").notNull(),
+    status: seasonStatusEnum("status").notNull().default("draft"),
+    /** Season rules (dice, points, board) — see game-engine/types.ts SeasonConfig */
+    config: jsonb("config").notNull().default({}),
+    /** Rules page text (markdown), edited from the admin area */
+    rulesMd: text("rules_md"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // At most one active season may exist at any time — enforced by the DB
+  // itself, so even concurrent requests cannot start two runs.
+  () => [
+    uniqueIndex("seasons_single_active_uq")
+      .on(sql`(status)`)
+      .where(sql`status = 'active'`),
+  ],
+);
 
 export const boards = pgTable("boards", {
   id: uuid("id").primaryKey().defaultRandom(),

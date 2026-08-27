@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ArrowPathIcon, CalendarIcon, HashtagIcon, TagIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CalendarIcon, HashtagIcon, LockClosedIcon, TagIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { getSeasonById } from "@/lib/repositories/seasons.repo";
+import { getActiveSeason, getSeasonById } from "@/lib/repositories/seasons.repo";
+import { listAvailableProviders } from "@/lib/game-providers/keys";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
@@ -39,6 +40,9 @@ export default async function SeasonSettingsPage({
 
   const parsed = SeasonConfigSchema.safeParse(season.config);
   const config = parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
+  const availableProviders = await listAvailableProviders();
+  const activeSeason = await getActiveSeason();
+  const resetBlocked = activeSeason !== null && activeSeason.id !== season.id && season.status !== "active";
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,7 +66,16 @@ export default async function SeasonSettingsPage({
             <HashtagIcon className="mr-1 h-3 w-3" aria-hidden />
             {season.id.slice(0, 8)}
           </Badge>
-          {season.status !== "draft" && season.status !== "archived" && (
+          {resetBlocked ? (
+            <span
+              title={format(t.admin.overview.activeLockedHint, { title: activeSeason.title })}
+              className="hud-btn hud-btn-danger !py-1.5 !px-3 text-xs opacity-45 cursor-not-allowed inline-flex items-center gap-1.5"
+              aria-disabled="true"
+            >
+              <LockClosedIcon className="size-3.5" aria-hidden />
+              {t.admin.overview.resetButton}
+            </span>
+          ) : season.status !== "draft" && season.status !== "archived" ? (
             <form action={resetSeasonDirectAction}>
               <input type="hidden" name="seasonId" value={season.id} />
               <ConfirmButton
@@ -73,7 +86,7 @@ export default async function SeasonSettingsPage({
                 {t.admin.overview.resetButton}
               </ConfirmButton>
             </form>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -118,6 +131,7 @@ export default async function SeasonSettingsPage({
         initialRulesMd={season.rulesMd ?? ""}
         seasonTitle={season.title}
         seasonStatus={season.status}
+        availableProviders={availableProviders}
       />
     </div>
   );
