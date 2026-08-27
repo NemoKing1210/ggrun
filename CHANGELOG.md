@@ -43,6 +43,19 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 - "Unknown error" fallback (`formUnknown`) reserved for genuinely unknown
   throws; added `formInvalid` for non-field-specific zod fallbacks.
 
+### Fixed
+- Page transition no longer flashes a vertical scrollbar during the entrance
+  animation (`hud-page-in` slide offset is negative now) and no longer leaves
+  a retained transform on the wrapper, which turned it into the containing
+  block for every `position: fixed` descendant (final keyframe ends at
+  `transform: none`).
+- Modals render through a portal to `document.body` and are centered on every
+  viewport breakpoint instead of only `sm:` screens.
+- Modal scroll lock compensates the hidden scrollbar with `padding-right`,
+  so the page no longer shifts when a modal opens or closes.
+- Modal keeps its last non-null content during the exit animation instead of
+  collapsing to an empty panel when the parent clears it in the same render.
+
 
 ### Added
 - MIT license (`LICENSE`), `license` field in `package.json`.

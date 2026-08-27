@@ -142,11 +142,11 @@ Loaders `hud-loader-*` (blink, pulse). Alerts use `hud-card` with `border-danger
 
 ### Page transitions
 
-- `components/ui/PageTransition.tsx` wraps `{children}` in `app/layout.tsx`. Keyed by `pathname`, replays `hud-page-in` (fade + `translateY(8px)` + `clip-path` reveal, `240ms`) on every client-side route change. First load is not animated (no SSR/hydration flash). Use this wrapper everywhere — do not add per-page entrance animations.
+- `components/ui/PageTransition.tsx` wraps `{children}` in `app/layout.tsx`. Keyed by `pathname`, replays `hud-page-in` (fade + `translateY(-8px)` + `clip-path` reveal, `240ms`) on every client-side route change. First load is not animated (no SSR/hydration flash). Use this wrapper everywhere — do not add per-page entrance animations. The slide offset must stay **negative**: a downward offset would momentarily extend the document's scrollable overflow and flash a vertical scrollbar during the animation. The final keyframe must end at `transform: none` — `fill-mode: both` retains it forever, and a retained transform would turn the wrapper into the containing block for every `position: fixed` descendant.
 
 ### Modal
 
-- `components/ui/Modal.tsx` — controlled `open`/`onClose`; entrance `hud-backdrop-in` (fade `160ms`) + `hud-panel-in` (scale `0.96→1` + `translateY(12px)`, `200ms`), exit `hud-panel-out`/`hud-backdrop-out` (`160ms ease-in`) before unmount. Escape, backdrop click, body scroll lock, initial focus. Always animate new modals through this component (board cell details, dialogs).
+- `components/ui/Modal.tsx` — controlled `open`/`onClose`; rendered through a portal to `document.body` (a `position: fixed` overlay is positioned relative to the nearest ancestor with a transform/filter, so it must escape the React tree to be sized against the real viewport); centered on all breakpoints by a dedicated inner wrapper (`flex min-h-full items-center justify-center p-4`) inside the scrollable overlay — this keeps the panel fully scrollable when it is taller than the viewport (a bare `items-center` on the scroll container would clip the unreachable top); entrance `hud-backdrop-in` (fade `160ms`) + `hud-panel-in` (scale `0.96→1` + `translateY(12px)`, `200ms`), exit `hud-panel-out`/`hud-backdrop-out` (`160ms ease-in`) before unmount, with the last non-null `children` kept rendered so the panel does not collapse mid-animation. Escape, backdrop click, body scroll lock with scrollbar-gap compensation (`padding-right` on `<body>` equal to the scrollbar width, so the page does not shift when the scrollbar disappears), initial focus. Always animate new modals through this component (board cell details, dialogs).
 
 ### Press & lift
 

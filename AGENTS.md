@@ -144,6 +144,13 @@ backlog).
 - **Formatting**: Prettier (double quotes, semi, 100 cols), ESLint
   `next/core-web-vitals` + `next/typescript` + prettier. Commits follow
   conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
+- **No narration comments**: when editing code, do not leave comments that
+  narrate or justify the change ("was X, now Y", "fixes scrollbar flash",
+  step-by-step explanations of the edit). Explain *why* in the commit message
+  (and in `DESIGN.md` / `CHANGELOG.md` when it affects the design system or
+  behavior). Keep only timeless comments that match the existing comment style
+  of the file; when in doubt, no comment.
+
 ## Important Files
 
 - `db/schema.ts` — all tables/enums/types (`$inferSelect`); schema edits →
