@@ -72,7 +72,8 @@ export interface SeasonConfig {
     distribution: BoardDistribution;
     regenerateOnSave: boolean;
   };
-  rerolls: { allowed: boolean; limitPerGame: number };
+  rerolls: { allowed: boolean; limitPerGame: number; requireApproval: boolean };
+  moderation: { completionRequireApproval: boolean };
   gamePool: GamePoolConfig;
   rules: { mode: "auto" | "manual" };
 }

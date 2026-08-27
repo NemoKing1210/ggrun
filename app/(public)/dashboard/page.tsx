@@ -28,6 +28,7 @@ import {
   getCatalogPreview,
   getOpenRoll,
   getPendingRerollForPlayer,
+  getPendingCompletionForPlayer,
   getRecentRolls,
 } from "@/lib/repositories/games.repo";
 import {
@@ -131,9 +132,10 @@ export default async function DashboardPage() {
     );
   }
 
-  const [openRoll, pendingReroll, lastMoves, recentRolls, board, catalogPreview] = await Promise.all([
+  const [openRoll, pendingReroll, pendingCompletion, lastMoves, recentRolls, board, catalogPreview] = await Promise.all([
     getOpenRoll(seasonPlayer.id),
     getPendingRerollForPlayer(seasonPlayer.id),
+    getPendingCompletionForPlayer(seasonPlayer.id),
     getPlayerMoves(seasonPlayer.id, 12),
     getRecentRolls(seasonPlayer.id, 12),
     getMainBoard(season.id),
@@ -323,6 +325,11 @@ export default async function DashboardPage() {
                   : null,
                 rolledAt: openRoll.rolledAt.toISOString(),
               }
+            : null
+        }
+        pendingCompletion={
+          pendingCompletion
+            ? { id: pendingCompletion.id, outcome: pendingCompletion.outcome as "passed" | "dropped", reason: pendingCompletion.reason, rating: pendingCompletion.rating, requestedAt: pendingCompletion.requestedAt.toISOString() }
             : null
         }
         pendingReroll={

@@ -1,13 +1,16 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { eventLog, gameRolls, gamesCatalog, ledgerEntries, moves, rerollRequests, seasonPlayers } from "@/db/schema";
+import { completionRequests, eventLog, gameRolls, gamesCatalog, ledgerEntries, moves, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/auth/session";
 import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/repositories/seasons.repo";
 import {
   countRerollsForGame,
-  createRoll,
+  createCompletionRequest,
   createRerollRequest,
+  createRoll,
+  getCompletionRequestById,
+  getPendingCompletionForRoll,
   getPendingRerollForRoll,
   getRerollRequestById,
   rollRandomGame,
@@ -157,11 +160,16 @@ export async function resolveGameRoll(params: {
 
   const config = parseSeasonConfig(season.config);
 
-  // Block concurrent pending reroll requests for this roll.
+  // Block concurrent pending requests for this roll.
   const pendingReroll = await getPendingRerollForRoll(roll.id);
   if (pendingReroll) throw new GameLoopError("gameRerollPending");
+  const pendingCompletion = await getPendingCompletionForRoll(roll.id);
+  if (pendingCompletion) throw new GameLoopError("gameCompletionPending");
 
-  // --- rerolled: create a pending request (admin approval required) ----------
+  const rerollRequireApproval = (config.rerolls as { requireApproval?: boolean }).requireApproval ?? true;
+  const completionRequireApproval = (config.moderation as { completionRequireApproval?: boolean })?.completionRequireApproval ?? false;
+
+  // --- rerolled: pending or instant ----------------------------------------
   if (params.outcome === "rerolled") {
     const reason = params.reason?.trim() ?? "";
     if (reason.length < 5) throw new GameLoopError("formReasonRequired");
@@ -172,12 +180,63 @@ export async function resolveGameRoll(params: {
     if (rerollsThisGame >= config.rerolls.limitPerGame) {
       throw new GameLoopError("gameRerollLimitForGame");
     }
+    // Instant reroll when season allows without approval
+    if (!rerollRequireApproval) {
+      const game = await rollRandomGame(sp.id);
+      await db.transaction(async (tx) => {
+        await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
+        await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game?.id ?? null, status: "rolled" });
+        await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
+        await tx.insert(eventLog).values({
+          seasonId: sp.seasonId,
+          seasonPlayerId: sp.id,
+          eventType: "game_rerolled",
+          payload: { oldGameId: roll.gameId, newGameId: game?.id ?? null, title: game?.title ?? null, instant: true },
+        });
+      });
+      return {
+        fromPosition: sp.position,
+        toPosition: sp.position,
+        newBalancePoints: sp.balancePoints,
+      };
+    }
     await createRerollRequest(sp.id, roll.id, reason);
     await db.insert(eventLog).values({
       seasonId: sp.seasonId,
       seasonPlayerId: sp.id,
       eventType: "reroll_requested",
       payload: { gameId: roll.gameId, reason },
+    });
+    return {
+      fromPosition: sp.position,
+      toPosition: sp.position,
+      newBalancePoints: sp.balancePoints,
+    };
+  }
+
+  // --- completion moderation: if season requires approval, queue request ------
+  if ((params.outcome === "passed" || params.outcome === "dropped") && completionRequireApproval) {
+    let reason: string | null = null;
+    let rating: number | null = null;
+    if (params.outcome === "dropped") {
+      const r = params.reason?.trim() ?? params.comment?.trim() ?? "";
+      if (r.length < 5) throw new GameLoopError("formReasonRequired");
+      reason = r;
+    }
+    if (params.outcome === "passed") {
+      if (params.comment !== undefined) reason = params.comment.trim() || null;
+      if (params.rating !== undefined && params.rating !== null) {
+        const rr = Number(params.rating);
+        if (!Number.isInteger(rr) || rr < 1 || rr > 10) throw new GameLoopError("formRatingInvalid");
+        rating = rr;
+      }
+    }
+    await createCompletionRequest(sp.id, roll.id, params.outcome, reason, rating);
+    await db.insert(eventLog).values({
+      seasonId: sp.seasonId,
+      seasonPlayerId: sp.id,
+      eventType: "completion_requested",
+      payload: { gameId: roll.gameId, outcome: params.outcome, reason, rating },
     });
     return {
       fromPosition: sp.position,
@@ -406,6 +465,87 @@ export async function rejectRerollRequest(requestId: string, adminNote: string):
       requestId: req.id,
     },
   });
+}
+
+// --- Admin moderation of completion requests (passed/dropped) ----------------
+
+export async function approveCompletionRequest(requestId: string): Promise<void> {
+  const actor = await requireStaffActor();
+  const req = await getCompletionRequestById(requestId);
+  if (!req || req.status !== "pending") throw new GameLoopError("gameCompletionRequestNotFound");
+  const rollRows = await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1);
+  const roll = rollRows[0];
+  if (!roll) throw new GameLoopError("gameRollNotFound");
+  if (roll.status === "passed" || roll.status === "dropped" || roll.status === "rerolled") throw new GameLoopError("gameRollAlreadyResolved");
+  const spRows = await db.select().from(seasonPlayers).where(eq(seasonPlayers.id, req.seasonPlayerId)).limit(1);
+  const sp = spRows[0];
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
+  const season = await getSeasonById(sp.seasonId);
+  if (!season) throw new GameLoopError("gameSeasonNotFound");
+  const config = parseSeasonConfig(season.config);
+  const outcome = req.outcome as RollOutcome;
+  // Execute movement exactly as in immediate completion
+  const effectiveStatus = roll.status === "rolled" ? "in_progress" : roll.status;
+  const result = resolveMovement({
+    currentPosition: sp.position,
+    balancePoints: sp.balancePoints,
+    outcome: outcome as Exclude<RollOutcome, "rerolled">,
+    streakPass: sp.streakPass,
+    streakDrop: sp.streakDrop,
+    config,
+    rng: Math.random,
+  });
+  let landedType: string | null = null;
+  let finalPosition = result.newPosition;
+  let finalBalance = result.newBalancePoints;
+  let ledgerDelta = 0;
+  let ledgerReason: string | undefined;
+  const board = await getMainBoard(sp.seasonId);
+  if (board) {
+    const cells = await getBoardCells(board.id);
+    const landed = cells.find((c) => c.position === finalPosition);
+    if (landed) {
+      landedType = landed.cellType;
+      const effect = applyCellEffect({ ...landed, config: (landed.config ?? {}) as Record<string, unknown> }, finalPosition, finalBalance);
+      finalPosition = normalizePosition(effect.position, config.board);
+      finalBalance = effect.balancePoints;
+      ledgerDelta += effect.ledgerDelta;
+      if (effect.reason) ledgerReason = effect.reason;
+    }
+  }
+  const newStatus = nextRollStatus(effectiveStatus, outcome);
+  let gameTitle: string | null = null;
+  if (roll.gameId) {
+    const g = await db.select({ title: gamesCatalog.title }).from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1);
+    gameTitle = g[0]?.title ?? null;
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(gameRolls).set({ status: newStatus, resolvedAt: new Date(), notes: req.reason, rating: req.rating }).where(eq(gameRolls.id, roll.id));
+    const [move] = await tx.insert(moves).values({ seasonPlayerId: sp.id, gameRollId: roll.id, fromPosition: sp.position, toPosition: finalPosition, diceResults: result.diceResults, cellLandedType: landedType as never }).returning({ id: moves.id });
+    if (ledgerDelta !== 0 && ledgerReason) {
+      await tx.insert(ledgerEntries).values({ seasonPlayerId: sp.id, delta: ledgerDelta, reason: ledgerReason, relatedMoveId: move!.id });
+    }
+    await tx.update(seasonPlayers).set({ position: finalPosition, balancePoints: finalBalance, streakPass: result.newStreakPass, streakDrop: result.newStreakDrop }).where(eq(seasonPlayers.id, sp.id));
+    await tx.update(completionRequests).set({ status: "approved", resolvedAt: new Date(), resolvedBy: actor.id }).where(eq(completionRequests.id, req.id));
+    await tx.insert(eventLog).values([
+      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: outcome === "passed" ? "game_passed" : "game_dropped", payload: { gameId: roll.gameId, title: gameTitle, dice: result.diceResults, notes: req.reason, rating: req.rating, approvedBy: actor.id } },
+      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "moved", payload: { from: sp.position, to: finalPosition, dice: result.diceResults, cellType: landedType } },
+      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "completion_approved", payload: { requestId: req.id, outcome } },
+    ]);
+  });
+}
+
+export async function rejectCompletionRequest(requestId: string, adminNote: string): Promise<void> {
+  const actor = await requireStaffActor();
+  const reason = adminNote?.trim() ?? "";
+  if (reason.length < 5) throw new GameLoopError("formReasonRequired");
+  const req = await getCompletionRequestById(requestId);
+  if (!req || req.status !== "pending") throw new GameLoopError("gameCompletionRequestNotFound");
+  const spRows = await db.select().from(seasonPlayers).where(eq(seasonPlayers.id, req.seasonPlayerId)).limit(1);
+  const sp = spRows[0];
+  if (!sp) throw new GameLoopError("gameParticipantNotFound");
+  await db.update(completionRequests).set({ status: "rejected", adminNote: reason, resolvedAt: new Date(), resolvedBy: actor.id }).where(eq(completionRequests.id, req.id));
+  await db.insert(eventLog).values({ seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "completion_rejected", payload: { gameId: (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0]?.gameId ?? null, reason, requestId: req.id, outcome: req.outcome } });
 }
 
 /** The participant's unfinished roll (rolled/in_progress), if any. */

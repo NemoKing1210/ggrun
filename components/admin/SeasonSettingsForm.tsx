@@ -67,7 +67,7 @@ type Props = {
 
 export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd }: Props) {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<"templates" | "dice" | "board" | "pool">("templates");
+  const [activeTab, setActiveTab] = useState<"templates" | "dice" | "board" | "pool" | "rules">("templates");
   const [cfg, setCfg] = useState<SeasonConfig>(initialConfig);
   const [rulesMd, setRulesMd] = useState(initialRulesMd ?? "");
   const [rulesMode, setRulesMode] = useState<SeasonConfig["rules"]["mode"]>(initialConfig.rules.mode);
@@ -85,6 +85,8 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     setCfg((c) => ({ ...c, points: { ...c.points, ...patch } }));
   const setRerolls = (patch: Partial<SeasonConfig["rerolls"]>) =>
     setCfg((c) => ({ ...c, rerolls: { ...c.rerolls, ...patch } }));
+  const setModeration = (patch: Partial<SeasonConfig["moderation"]>) =>
+    setCfg((c) => ({ ...c, moderation: { ...(c.moderation ?? { completionRequireApproval: false }), ...patch } }));
   const setGamePool = (patch: Partial<SeasonConfig["gamePool"]>) =>
     setCfg((c) => ({ ...c, gamePool: { ...c.gamePool, ...patch } }));
   const setFilters = (patch: Partial<SeasonConfig["gamePool"]["filters"]>) =>
@@ -147,6 +149,8 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     formData.set("board_regenerateOnSave", cfg.board.regenerateOnSave ? "true" : "false");
     formData.set("rerolls_allowed", cfg.rerolls.allowed ? "true" : "false");
     formData.set("rerolls_limitPerGame", String(cfg.rerolls.limitPerGame));
+    formData.set("rerolls_requireApproval", cfg.rerolls.requireApproval ? "true" : "false");
+    formData.set("moderation_completionRequireApproval", cfg.moderation.completionRequireApproval ? "true" : "false");
     formData.set("gamePool_source", cfg.gamePool.source);
     formData.set("gamePool_provider", cfg.gamePool.provider);
     formData.set("gamePool_templateId", cfg.gamePool.templateId ?? "");
@@ -193,6 +197,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
           <TabButton id="dice" label={t.admin.settings.tabs.dice} />
           <TabButton id="board" label={t.admin.settings.tabs.board} />
           <TabButton id="pool" label={t.admin.settings.tabs.pool} />
+          <TabButton id="rules" label={t.admin.settings.tabs.rules} />
         </div>
 
         <div className="p-5">
@@ -307,6 +312,18 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   <Field label={t.admin.settings.rerollsLimitLabel}>
                     <Input type="number" min={0} max={5} value={cfg.rerolls.limitPerGame} onChange={(e) => setRerolls({ limitPerGame: Number(e.target.value) })} disabled={!cfg.rerolls.allowed} />
                   </Field>
+                  <Switch
+                    checked={!(cfg.rerolls.requireApproval ?? true)}
+                    onChange={(v) => setRerolls({ requireApproval: !v })}
+                    label={t.admin.settings.rerollWithoutApprovalLabel}
+                    description={t.admin.settings.rerollWithoutApprovalDescription}
+                  />
+                  <Switch
+                    checked={!(cfg.moderation?.completionRequireApproval ?? false)}
+                    onChange={(v) => setModeration({ completionRequireApproval: !v })}
+                    label={t.admin.settings.completionWithoutApprovalLabel}
+                    description={t.admin.settings.completionWithoutApprovalDescription}
+                  />
                 </div>
               </section>
             </div>
@@ -409,6 +426,77 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === "rules" && (
+            <div className="hud-card p-4 bg-[#0f0f0f] border-zinc-800 flex flex-col gap-4">
+<div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-display uppercase tracking-wider text-amber">{t.admin.settings.rulesLabel}</h3>
+          <Badge variant={rulesMode === "auto" ? "amber" : "dim"}>{rulesMode === "auto" ? t.admin.settings.rulesAutoBadge : t.admin.settings.rulesManualBadge}</Badge>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2">
+          <span className="font-display uppercase tracking-widest text-[11px] text-zinc-400">{t.admin.settings.rulesModeLabel}</span>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRulesMode("auto")}
+              className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "auto" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
+            >
+              {t.admin.settings.rulesModeAuto}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRulesMode("manual")}
+              className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "manual" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
+            >
+              {t.admin.settings.rulesModeManual}
+            </button>
+          </div>
+          <p className="font-mono text-xs text-dim">{rulesMode === "auto" ? t.admin.settings.rulesModeHintAuto : t.admin.settings.rulesModeHintManual}</p>
+        </div>
+
+        {rulesMode === "manual" ? (
+          <div className="mt-4">
+            <p className="mb-2 font-mono text-xs text-dim">{t.admin.settings.rulesManualHint}</p>
+            <Textarea value={rulesMd} onChange={(e) => setRulesMd(e.target.value)} rows={10} placeholder={t.admin.settings.rulesPlaceholder} />
+          </div>
+        ) : (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="font-display text-xs uppercase tracking-widest text-amber">{t.admin.settings.rulesAutoPreviewTitle}</p>
+              <span className="font-mono text-[11px] text-dim">{t.admin.settings.rulesAutoBadge}</span>
+            </div>
+            <p className="mb-3 font-mono text-xs text-dim">{t.admin.settings.rulesAutoPreviewHint}</p>
+            <div className="max-h-[520px] overflow-auto border border-dim/15 bg-raised p-3">
+              {/* lightweight live preview without importing heavy AutoRulesView to avoid client bundling of server-only deps */}
+              <div className="space-y-3 text-xs leading-relaxed">
+                <div className="border border-amber/20 bg-amber/5 p-2 font-mono text-dim">
+                  {t.rules.heroSubtitle}
+                </div>
+                <div>
+                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.dice}</strong>
+                  <p className="text-zinc-300">d{cfg.dice.sides} · pass {cfg.dice.passDiceCount} / drop {cfg.dice.dropDiceCount}{cfg.dice.dropStreakMultiplier ? " · streak ×" : ""}</p>
+                </div>
+                <div>
+                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.points}</strong>
+                  <p className="text-zinc-300">start {cfg.points.startingBalance} · {cfg.points.bonusAddsToRollOnPass ? "bonus+" : "no bonus"} · {cfg.points.resetBalanceAfterUse ? "reset" : "retain"} · rerolls {cfg.rerolls.allowed ? `up to ${cfg.rerolls.limitPerGame}` : "off"}</p>
+                </div>
+                <div>
+                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.board}</strong>
+                  <p className="text-zinc-300">{cfg.board.size} cells · {cfg.board.distribution} · loop {cfg.board.loop ? "yes" : "no"} · bonus {cfg.board.bonusCount} penalty {cfg.board.penaltyCount} teleport {cfg.board.teleportCount} event {cfg.board.eventCount}</p>
+                </div>
+                <div>
+                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.pool}</strong>
+                  <p className="text-zinc-300">{cfg.gamePool.source} via {cfg.gamePool.provider} · {cfg.gamePool.filters.ordering} · {cfg.gamePool.maxCandidates} candidates</p>
+                  {cfg.gamePool.filters.genres.length || cfg.gamePool.filters.tags.length ? <p className="text-dim">filters: {[...cfg.gamePool.filters.genres, ...cfg.gamePool.filters.tags].join(", ")}</p> : null}
+                </div>
+                <div className="border-t border-dim/15 pt-2 font-mono text-[11px] uppercase tracking-widest text-dim">Preview updates live — full HUD preview on /rules</div>
+              </div>
+            </div>
+          </div>
+        )}
             </div>
           )}
 
@@ -543,74 +631,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
         </div>
       </div>
 
-      <section className="hud-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-display uppercase tracking-wider text-amber">{t.admin.settings.rulesLabel}</h3>
-          <Badge variant={rulesMode === "auto" ? "amber" : "dim"}>{rulesMode === "auto" ? t.admin.settings.rulesAutoBadge : t.admin.settings.rulesManualBadge}</Badge>
-        </div>
-
-        <div className="mt-3 flex flex-col gap-2">
-          <span className="font-display uppercase tracking-widest text-[11px] text-zinc-400">{t.admin.settings.rulesModeLabel}</span>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setRulesMode("auto")}
-              className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "auto" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
-            >
-              {t.admin.settings.rulesModeAuto}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRulesMode("manual")}
-              className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "manual" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
-            >
-              {t.admin.settings.rulesModeManual}
-            </button>
-          </div>
-          <p className="font-mono text-xs text-dim">{rulesMode === "auto" ? t.admin.settings.rulesModeHintAuto : t.admin.settings.rulesModeHintManual}</p>
-        </div>
-
-        {rulesMode === "manual" ? (
-          <div className="mt-4">
-            <p className="mb-2 font-mono text-xs text-dim">{t.admin.settings.rulesManualHint}</p>
-            <Textarea value={rulesMd} onChange={(e) => setRulesMd(e.target.value)} rows={10} placeholder={t.admin.settings.rulesPlaceholder} />
-          </div>
-        ) : (
-          <div className="mt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="font-display text-xs uppercase tracking-widest text-amber">{t.admin.settings.rulesAutoPreviewTitle}</p>
-              <span className="font-mono text-[11px] text-dim">{t.admin.settings.rulesAutoBadge}</span>
-            </div>
-            <p className="mb-3 font-mono text-xs text-dim">{t.admin.settings.rulesAutoPreviewHint}</p>
-            <div className="max-h-[520px] overflow-auto border border-dim/15 bg-raised p-3">
-              {/* lightweight live preview without importing heavy AutoRulesView to avoid client bundling of server-only deps */}
-              <div className="space-y-3 text-xs leading-relaxed">
-                <div className="border border-amber/20 bg-amber/5 p-2 font-mono text-dim">
-                  {t.rules.heroSubtitle}
-                </div>
-                <div>
-                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.dice}</strong>
-                  <p className="text-zinc-300">d{cfg.dice.sides} · pass {cfg.dice.passDiceCount} / drop {cfg.dice.dropDiceCount}{cfg.dice.dropStreakMultiplier ? " · streak ×" : ""}</p>
-                </div>
-                <div>
-                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.points}</strong>
-                  <p className="text-zinc-300">start {cfg.points.startingBalance} · {cfg.points.bonusAddsToRollOnPass ? "bonus+" : "no bonus"} · {cfg.points.resetBalanceAfterUse ? "reset" : "retain"} · rerolls {cfg.rerolls.allowed ? `up to ${cfg.rerolls.limitPerGame}` : "off"}</p>
-                </div>
-                <div>
-                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.board}</strong>
-                  <p className="text-zinc-300">{cfg.board.size} cells · {cfg.board.distribution} · loop {cfg.board.loop ? "yes" : "no"} · bonus {cfg.board.bonusCount} penalty {cfg.board.penaltyCount} teleport {cfg.board.teleportCount} event {cfg.board.eventCount}</p>
-                </div>
-                <div>
-                  <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.pool}</strong>
-                  <p className="text-zinc-300">{cfg.gamePool.source} via {cfg.gamePool.provider} · {cfg.gamePool.filters.ordering} · {cfg.gamePool.maxCandidates} candidates</p>
-                  {cfg.gamePool.filters.genres.length || cfg.gamePool.filters.tags.length ? <p className="text-dim">filters: {[...cfg.gamePool.filters.genres, ...cfg.gamePool.filters.tags].join(", ")}</p> : null}
-                </div>
-                <div className="border-t border-dim/15 pt-2 font-mono text-[11px] uppercase tracking-widest text-dim">Preview updates live — full HUD preview on /rules</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+      
 
       {state?.error && <DebugError debug={state?.debug} title="season settings" />}
       {state?.ok && <div className="hud-card p-3 bg-emerald-950/30 border-emerald-800 text-sm text-emerald-300 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">{state.ok}</div>}

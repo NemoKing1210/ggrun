@@ -127,6 +127,7 @@ export const admin = {
    dice: "Dice & Points",
    board: "Board",
    pool: "Game Pool",
+   rules: "Rules",
   },
   templatesHint: "Pick a preset — horror, strategy, RPG… — or build your own filter set. Templates pre-fill genres, tags and board hints.",
   diceHint: "Dice determine step size for passes and drops; streak multiplier rewards consecutive fails.",
@@ -153,6 +154,11 @@ export const admin = {
   allowRerollsLabel: "Allow rerolls",
   allowRerollsDescription: "Players can request a different game",
   rerollsLimitLabel: "Max rerolls per game",
+  rerollWithoutApprovalLabel: "Reroll without approval",
+  rerollWithoutApprovalDescription: "When on, rerolls are instant — no admin confirmation needed",
+  completionWithoutApprovalLabel: "Complete game without approval",
+  completionWithoutApprovalDescription: "When on, passed/dropped games resolve instantly — no moderation",
+
   boardSizeLabel: "Board size (cells)",
   distributionLabel: "Distribution",
   loopLabel: "Loop board (wrap around)",
@@ -379,4 +385,23 @@ export const admin = {
   approved: "Approved",
   rejected: "Rejected",
  },
+
+ /** Completion requests (/admin/completions + rerolls moderation tab). */
+ completions: {
+  heading: "Completion requests",
+  empty: "No pending completions.",
+  tabs: { rerolls: "Rerolls", completions: "Completions" },
+  colPlayer: "Player",
+  colGame: "Game",
+  colOutcome: "Outcome",
+  colReason: "Comment",
+  colRequested: "Requested",
+  approve: "Approve",
+  reject: "Reject",
+  outcomePassed: "Passed",
+  outcomeDropped: "Dropped",
+  approveConfirm: "Approve {outcome} for {player}? Movement will be applied.",
+  rejectPlaceholder: "Reason for rejection…",
+ },
+
 } as const;

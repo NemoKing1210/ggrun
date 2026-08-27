@@ -33,6 +33,13 @@ export interface PendingRerollView {
   reason: string;
   requestedAt: string;
 }
+export interface PendingCompletionView {
+  id: string;
+  outcome: "passed" | "dropped";
+  reason: string | null;
+  rating: number | null;
+  requestedAt: string;
+}
 
 type PreviewGame = { title: string; coverUrl: string | null; platform: string | null };
 
@@ -40,6 +47,7 @@ interface RollCardProps {
   seasonPlayerId: string;
   openRoll: OpenRollView | null;
   pendingReroll: PendingRerollView | null;
+  pendingCompletion: PendingCompletionView | null;
   rerollsUsed: number;
   lastDice: number[] | null;
   catalogGames?: PreviewGame[];
@@ -77,6 +85,7 @@ export default function RollCard({
   seasonPlayerId,
   openRoll,
   pendingReroll,
+  pendingCompletion,
   rerollsUsed,
   lastDice,
   catalogGames = [],
@@ -214,6 +223,7 @@ export default function RollCard({
   const rerollLocked = rerollsUsed >= 1;
   const error = openRoll ? resolveState.error : rollState.error;
   const showPendingBanner = !!pendingReroll && !!openRoll;
+  const showCompletionPending = !!pendingCompletion && !!openRoll;
 
   const showCarousel = carouselPhase === "spinning" || carouselPhase === "decelerating";
   const showReveal = carouselPhase === "revealed" && !!openRoll?.game;
@@ -344,6 +354,21 @@ export default function RollCard({
             <p className="mt-1 font-mono text-[11px] leading-snug text-dim">{d.rerollPendingHint}</p>
           </div>
         ) : null}
+        {showCompletionPending ? (
+          <div className="mb-4 border border-emerald-500/50 bg-emerald-500/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+            <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-emerald-400">
+              <ClockIcon className="size-4" aria-hidden />
+              {pendingCompletion!.outcome === "passed" ? "Completion pending" : "Drop pending"} · {d.awaitingModeration}
+            </div>
+            {pendingCompletion!.reason ? <p className="mt-2 border-l-2 border-emerald-500/40 pl-2 text-sm leading-snug">{pendingCompletion!.reason}</p> : null}
+            {pendingCompletion!.rating ? <p className="mt-1 font-mono text-xs text-amber">Rating: {pendingCompletion!.rating}/10</p> : null}
+            <p className="mt-2 flex items-center gap-1.5 font-mono text-xs text-dim">
+              <ClockIcon className="size-3.5" aria-hidden />
+              {now ? formatDuration(now - new Date(pendingCompletion!.requestedAt).getTime()) + " ago" : ""}
+            </p>
+            <p className="mt-1 font-mono text-[11px] leading-snug text-dim">Awaiting admin approval — movement will be applied after review.</p>
+          </div>
+        ) : null}
 
         {/* carousel states */}
         {showCarousel ? (
@@ -362,23 +387,23 @@ export default function RollCard({
           <div className="flex flex-col gap-4">
             <GameRollReveal game={openRoll.game} />
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner} onClick={() => setModal("pass")}>
+              <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
                 <CheckCircleIcon className="size-4" aria-hidden />
                 {d.passedButton}
               </button>
-              <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner} onClick={() => setModal("drop")}>
+              <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("drop")}>
                 <XCircleIcon className="size-4" aria-hidden />
                 {d.dropButton}
               </button>
               <button
                 type="button"
                 className="hud-btn inline-flex items-center gap-1.5"
-                disabled={busy || rerollLocked || showPendingBanner}
-                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : d.rerollButton}
+                disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
+                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : d.rerollButton}
                 onClick={() => setModal("reroll")}
               >
                 <ArrowPathIcon className="size-4" aria-hidden />
-                {showPendingBanner ? d.rerollPending : d.rerollButton}
+                {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : d.rerollButton}
               </button>
             </div>
           </div>
@@ -440,23 +465,23 @@ export default function RollCard({
 
             {openRoll.game ? (
               <div className="mt-5 flex flex-wrap gap-2">
-                <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner} onClick={() => setModal("pass")}>
+                <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
                   <CheckCircleIcon className="size-4" aria-hidden />
                   {d.passedButton}
                 </button>
-                <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner} onClick={() => setModal("drop")}>
+                <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("drop")}>
                   <XCircleIcon className="size-4" aria-hidden />
                   {d.dropButton}
                 </button>
                 <button
                   type="button"
                   className="hud-btn inline-flex items-center gap-1.5"
-                  disabled={busy || rerollLocked || showPendingBanner}
-                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : d.rerollButton}
+                  disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
+                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : d.rerollButton}
                   onClick={() => setModal("reroll")}
                 >
                   <ArrowPathIcon className="size-4" aria-hidden />
-                  {showPendingBanner ? d.rerollPending : d.rerollButton}
+                  {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : d.rerollButton}
                 </button>
               </div>
             ) : (

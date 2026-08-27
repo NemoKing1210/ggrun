@@ -27,7 +27,8 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     distribution: "random",
     regenerateOnSave: false,
   },
-  rerolls: { allowed: true, limitPerGame: 1 },
+  rerolls: { allowed: true, limitPerGame: 1, requireApproval: true },
+  moderation: { completionRequireApproval: false },
   rules: { mode: "auto" },
   gamePool: {
     source: "catalog",
@@ -94,6 +95,11 @@ export const BoardConfigSchema = z.object({
 export const RerollsConfigSchema = z.object({
   allowed: z.boolean().default(DEFAULT_SEASON_CONFIG.rerolls.allowed),
   limitPerGame: int(0).default(DEFAULT_SEASON_CONFIG.rerolls.limitPerGame),
+  requireApproval: z.boolean().default(DEFAULT_SEASON_CONFIG.rerolls.requireApproval),
+});
+
+export const ModerationConfigSchema = z.object({
+  completionRequireApproval: z.boolean().default(DEFAULT_SEASON_CONFIG.moderation.completionRequireApproval),
 });
 
 export const RulesConfigSchema = z.object({
@@ -145,6 +151,7 @@ export const SeasonConfigSchema = z
     points: PointsConfigSchema.default(DEFAULT_SEASON_CONFIG.points),
     board: BoardConfigSchema.default(DEFAULT_SEASON_CONFIG.board),
     rerolls: RerollsConfigSchema.default(DEFAULT_SEASON_CONFIG.rerolls),
+    moderation: ModerationConfigSchema.default(DEFAULT_SEASON_CONFIG.moderation),
     rules: RulesConfigSchema.default(DEFAULT_SEASON_CONFIG.rules),
     gamePool: GamePoolConfigSchema.default(DEFAULT_SEASON_CONFIG.gamePool),
   })

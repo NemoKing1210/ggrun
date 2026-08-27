@@ -52,6 +52,11 @@ export const rerollRequestStatusEnum = pgEnum("reroll_request_status", [
   "approved",
   "rejected",
 ]);
+export const completionRequestStatusEnum = pgEnum("completion_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 export const playerStatusEnum = pgEnum("player_status", [
   "active",
   "finished",
@@ -266,6 +271,36 @@ export const rerollRequests = pgTable(
   ],
 );
 
+export const completionRequests = pgTable(
+  "completion_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonPlayerId: uuid("season_player_id")
+      .notNull()
+      .references(() => seasonPlayers.id, { onDelete: "cascade" }),
+    gameRollId: uuid("game_roll_id")
+      .notNull()
+      .references(() => gameRolls.id, { onDelete: "cascade" }),
+    outcome: text("outcome").notNull(), // passed | dropped
+    reason: text("reason"),
+    rating: integer("rating"),
+    status: completionRequestStatusEnum("status").notNull().default("pending"),
+    adminNote: text("admin_note"),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    index("completion_requests_sp_idx").on(t.seasonPlayerId),
+    index("completion_requests_game_roll_idx").on(t.gameRollId),
+    index("completion_requests_status_idx").on(t.status),
+  ],
+);
+
 
 export const moves = pgTable("moves", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -384,6 +419,7 @@ export type SeasonPlayer = typeof seasonPlayers.$inferSelect;
 export type CatalogGame = typeof gamesCatalog.$inferSelect;
 export type GameRoll = typeof gameRolls.$inferSelect;
 export type RerollRequest = typeof rerollRequests.$inferSelect;
+export type CompletionRequest = typeof completionRequests.$inferSelect;
 export type Move = typeof moves.$inferSelect;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 export type EventLogEntry = typeof eventLog.$inferSelect;

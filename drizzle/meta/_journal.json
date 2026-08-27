@@ -57,6 +57,13 @@
       "when": 1787862019863,
       "tag": "0007_milky_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787863176639,
+      "tag": "0008_majestic_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

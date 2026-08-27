@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  completionRequests,
   gameRolls,
   gamesCatalog,
   rerollRequests,
@@ -8,6 +9,7 @@ import {
   seasons,
   users,
   type CatalogGame,
+  type CompletionRequest,
   type GameRoll,
   type RerollRequest,
 } from "@/db/schema";
@@ -459,6 +461,87 @@ export type PendingRerollRow = RerollRequest & {
   gameTitle: string | null;
   seasonTitle: string | null;
 };
+
+export async function createCompletionRequest(
+  seasonPlayerId: string,
+  gameRollId: string,
+  outcome: "passed" | "dropped",
+  reason: string | null,
+  rating: number | null,
+): Promise<CompletionRequest> {
+  const [created] = await db
+    .insert(completionRequests)
+    .values({ seasonPlayerId, gameRollId, outcome, reason, rating, status: "pending" })
+    .returning();
+  return created!;
+}
+
+export async function getPendingCompletionForRoll(
+  gameRollId: string,
+): Promise<CompletionRequest | null> {
+  const rows = await db
+    .select()
+    .from(completionRequests)
+    .where(
+      and(eq(completionRequests.gameRollId, gameRollId), eq(completionRequests.status, "pending")),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getPendingCompletionForPlayer(
+  seasonPlayerId: string,
+): Promise<CompletionRequest | null> {
+  const rows = await db
+    .select()
+    .from(completionRequests)
+    .where(
+      and(
+        eq(completionRequests.seasonPlayerId, seasonPlayerId),
+        eq(completionRequests.status, "pending"),
+      ),
+    )
+    .orderBy(desc(completionRequests.requestedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getCompletionRequestById(id: string): Promise<CompletionRequest | null> {
+  const rows = await db.select().from(completionRequests).where(eq(completionRequests.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export type PendingCompletionRow = CompletionRequest & {
+  username: string;
+  displayName: string | null;
+  gameTitle: string | null;
+  seasonTitle: string | null;
+};
+
+export async function listPendingCompletionRequests(): Promise<PendingCompletionRow[]> {
+  const rows = await db
+    .select({
+      request: completionRequests,
+      username: users.username,
+      displayName: users.displayName,
+      gameTitle: gamesCatalog.title,
+      seasonTitle: sql<string | null>`(select title from seasons where id = ${seasonPlayers.seasonId})`,
+    })
+    .from(completionRequests)
+    .innerJoin(seasonPlayers, eq(seasonPlayers.id, completionRequests.seasonPlayerId))
+    .innerJoin(users, eq(users.id, seasonPlayers.playerId))
+    .leftJoin(gameRolls, eq(gameRolls.id, completionRequests.gameRollId))
+    .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+    .where(eq(completionRequests.status, "pending"))
+    .orderBy(desc(completionRequests.requestedAt));
+  return rows.map((r) => ({
+    ...r.request,
+    username: r.username,
+    displayName: r.displayName,
+    gameTitle: r.gameTitle ?? null,
+    seasonTitle: r.seasonTitle ?? null,
+  }));
+}
 
 export async function listPendingRerollRequests(): Promise<PendingRerollRow[]> {
   const rows = await db

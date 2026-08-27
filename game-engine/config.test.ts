@@ -17,7 +17,7 @@ describe("DEFAULT_SEASON_CONFIG", () => {
     });
     expect(DEFAULT_SEASON_CONFIG.board.size).toBe(40);
     expect(DEFAULT_SEASON_CONFIG.board.loop).toBe(false);
-    expect(DEFAULT_SEASON_CONFIG.rerolls).toEqual({ allowed: true, limitPerGame: 1 });
+    expect(DEFAULT_SEASON_CONFIG.rerolls).toEqual({ allowed: true, limitPerGame: 1, requireApproval: true });
     // Extended defaults exist
     expect(DEFAULT_SEASON_CONFIG.gamePool).toBeDefined();
     expect(DEFAULT_SEASON_CONFIG.board.bonusCount).toBeDefined();

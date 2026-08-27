@@ -194,6 +194,8 @@ export const errors: Widen<typeof CoreEn.errors> = {
   gameRerollLimitForGame: "Ліміт реролів для цієї гри вичерпано",
   gameRerollPending: "Запит на рерол уже на розгляді",
   gameRerollRequestNotFound: "Запит на рерол не знайдено",
+  gameCompletionPending: "Зарахування цієї гри вже на розгляді",
+  gameCompletionRequestNotFound: "Запит на зарахування не знайдено",
   gameLoginRequired: "Потрібен вхід",
   catalogEmpty: "У каталозі немає доступних ігор. Додайте ігри або перевірте фільтри.",
   formReasonRequired: "Вкажіть причину (мінімум 5 символів)",

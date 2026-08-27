@@ -196,6 +196,8 @@ export const errors = {
   gameRerollLimitForGame: "Reroll limit for this game is reached",
   gameRerollPending: "A reroll request is already pending for this game",
   gameRerollRequestNotFound: "Reroll request not found",
+  gameCompletionPending: "A completion is already pending approval for this game",
+  gameCompletionRequestNotFound: "Completion request not found",
   gameLoginRequired: "Login required",
   catalogEmpty: "No games available in the catalog. Add games or check your filters.",
   formReasonRequired: "Please provide a reason (at least 5 characters)",

@@ -130,6 +130,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
    dice: "Кості та очки",
    board: "Поле",
    pool: "Пул ігор",
+   rules: "Правила",
   },
   templatesHint: "Оберіть пресет — хоррори, стратегії, RPG… — або зберіть фільтри вручну. Шаблони заповнюють жанри, теги та підказки для поля.",
   diceHint: "Кості визначають крок при проходженні/провалі; множник серії посилює відкат.",
@@ -156,6 +157,11 @@ export const admin: Widen<typeof AdminEn.admin> = {
   allowRerollsLabel: "Дозволити рероли",
   allowRerollsDescription: "Гравці можуть запросити іншу гру",
   rerollsLimitLabel: "Макс. реролів на гру",
+  rerollWithoutApprovalLabel: "Рерол без підтвердження",
+  rerollWithoutApprovalDescription: "Коли увімк., рерол миттєвий — підтвердження адміна не потрібно",
+  completionWithoutApprovalLabel: "Завершення гри без підтвердження",
+  completionWithoutApprovalDescription: "Коли увімк., пас/дроп одразу зараховуються — без модерації",
+
   boardSizeLabel: "Розмір поля (клітинки)",
   distributionLabel: "Розподіл",
   loopLabel: "Замкнуте поле (по колу)",
@@ -364,6 +370,24 @@ export const admin: Widen<typeof AdminEn.admin> = {
   verificationLinkLabel: "Посилання підтвердження",
   showLink: "Показати посилання",
   noPendingHint: "Перемкніть режим на Ручне або Посилання, щоб побачити користувачів тут.",
+ },
+
+ /** Completion requests */
+ completions: {
+  heading: "Запити на зарахування",
+  empty: "Немає очікуваних зарахувань.",
+  tabs: { rerolls: "Рероли", completions: "Зарахування" },
+  colPlayer: "Гравець",
+  colGame: "Гра",
+  colOutcome: "Результат",
+  colReason: "Коментар",
+  colRequested: "Запитано",
+  approve: "Схвалити",
+  reject: "Відхилити",
+  outcomePassed: "Пройдено",
+  outcomeDropped: "Дроп",
+  approveConfirm: "Підтвердити {outcome} для {player}? Буде застосовано рух.",
+  rejectPlaceholder: "Причина відхилення…",
  },
 
  /** Reroll requests (/admin/rerolls). */

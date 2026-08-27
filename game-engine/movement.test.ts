@@ -16,6 +16,7 @@ const configWith = (
   points: { ...DEFAULT_SEASON_CONFIG.points, ...overrides.points },
   board: { ...DEFAULT_SEASON_CONFIG.board, ...overrides.board },
   rerolls: { ...DEFAULT_SEASON_CONFIG.rerolls, ...overrides.rerolls },
+  moderation: { ...DEFAULT_SEASON_CONFIG.moderation, ...overrides.moderation },
   rules: { ...DEFAULT_SEASON_CONFIG.rules, ...overrides.rules },
   gamePool: {
     ...DEFAULT_SEASON_CONFIG.gamePool,

@@ -10,7 +10,7 @@ import type { SeasonConfig } from "./types";
 
 const configWith = (rerolls: SeasonConfig["rerolls"]): SeasonConfig => ({
   ...DEFAULT_SEASON_CONFIG,
-  rerolls,
+  rerolls: { ...DEFAULT_SEASON_CONFIG.rerolls, ...rerolls } as SeasonConfig["rerolls"],
 });
 
 describe("nextRollStatus", () => {
@@ -34,7 +34,7 @@ describe("nextRollStatus", () => {
 });
 
 describe("canReroll", () => {
-  const enabled = configWith({ allowed: true, limitPerGame: 2 });
+  const enabled = configWith({ allowed: true, limitPerGame: 2, requireApproval: true });
 
   it("allows rerolls under the per-game limit", () => {
     expect(canReroll(0, enabled)).toBe(true);
@@ -47,17 +47,17 @@ describe("canReroll", () => {
   });
 
   it("blocks when rerolls are disabled regardless of the counter", () => {
-    const disabled = configWith({ allowed: false, limitPerGame: 3 });
+    const disabled = configWith({ allowed: false, limitPerGame: 3, requireApproval: true });
     expect(canReroll(0, disabled)).toBe(false);
   });
 
   it("blocks immediately with a zero limit", () => {
-    expect(canReroll(0, configWith({ allowed: true, limitPerGame: 0 }))).toBe(false);
+    expect(canReroll(0, configWith({ allowed: true, limitPerGame: 0, requireApproval: true }))).toBe(false);
   });
 });
 
 describe("requestReroll", () => {
-  const enabled = DEFAULT_SEASON_CONFIG.rerolls; // { allowed: true, limitPerGame: 1 }
+  const enabled = DEFAULT_SEASON_CONFIG.rerolls;
 
   it("returns a fresh rolled status and an incremented counter when allowed", () => {
     expect(requestReroll("in_progress", 0, { ...DEFAULT_SEASON_CONFIG })).toEqual({
@@ -71,7 +71,7 @@ describe("requestReroll", () => {
     expect(
       requestReroll("in_progress", 0, {
         ...DEFAULT_SEASON_CONFIG,
-        rerolls: { allowed: false, limitPerGame: enabled.limitPerGame },
+        rerolls: { allowed: false, limitPerGame: enabled.limitPerGame, requireApproval: true },
       }),
     ).toEqual({
       allowed: false,
