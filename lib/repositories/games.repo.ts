@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, notInArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   completionRequests,
@@ -58,6 +58,10 @@ export async function addCatalogGame(game: {
   externalSource?: string | null;
   externalRawId?: string | null;
   externalIds?: Record<string, unknown>;
+  description?: string | null;
+  playtimeHours?: number | null;
+  stores?: Array<{ store: string; url: string }> | null;
+  website?: string | null;
 }): Promise<CatalogGame> {
   const [created] = await db
     .insert(gamesCatalog)
@@ -74,6 +78,10 @@ export async function addCatalogGame(game: {
       externalSource: game.externalSource ?? null,
       externalRawId: game.externalRawId ?? null,
       externalIds: game.externalIds ?? {},
+      description: game.description ?? null,
+      playtimeHours: game.playtimeHours ?? null,
+      stores: game.stores ?? [],
+      website: game.website ?? null,
     } as never)
     .returning();
   return created!;
@@ -91,6 +99,16 @@ export async function setGameBlacklisted(
 
 export async function deleteCatalogGame(gameId: string): Promise<void> {
   await db.delete(gamesCatalog).where(eq(gamesCatalog.id, gameId));
+}
+
+export async function bulkSetGamesBlacklisted(ids: string[], blacklisted: boolean): Promise<void> {
+  if (ids.length === 0) return;
+  await db.update(gamesCatalog).set({ isBlacklisted: blacklisted }).where(inArray(gamesCatalog.id, ids));
+}
+
+export async function bulkDeleteGames(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.delete(gamesCatalog).where(inArray(gamesCatalog.id, ids));
 }
 
 /**
@@ -252,6 +270,10 @@ export async function rollRandomGame(
                   externalSource: pool.provider,
                   externalRawId: ext.externalId,
                   externalIds: { provider: pool.provider, raw: ext.externalId },
+                  description: ext.description ?? null,
+                  playtimeHours: ext.playtimeHours ?? null,
+                  stores: ext.stores ?? [],
+                  website: ext.website ?? null,
                 } as never);
               }
             }
@@ -289,6 +311,10 @@ export async function rollRandomGame(
                 externalSource: pool.provider,
                 externalRawId: chosen.externalId,
                 externalIds: { provider: pool.provider, raw: chosen.externalId },
+                description: chosen.description ?? null,
+                playtimeHours: chosen.playtimeHours ?? null,
+                stores: chosen.stores ?? [],
+                website: chosen.website ?? null,
               } as never)
               .returning();
             return inserted as CatalogGame;

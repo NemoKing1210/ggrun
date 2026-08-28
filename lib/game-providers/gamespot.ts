@@ -93,6 +93,8 @@ function mapGame(r: GSResult): ExternalGame {
     esrb: null,
     tags: [],
     description: r.deck ?? null,
+    playtimeHours: null,
+    stores: [],
   };
 }
 

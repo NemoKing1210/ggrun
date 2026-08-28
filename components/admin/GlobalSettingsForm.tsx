@@ -65,6 +65,9 @@ type ProviderKeysMeta = {
   steamApiKeyMasked: string | null;
   gamespotApiKeyMasked: string | null;
   proxyUrlMasked: string | null;
+  proxyUrlDbValue: string | null;
+  proxyUrlEnvRaw: string | null;
+  proxyUrlEnvMasked: string | null;
   hasDb: { rawg: boolean; igdb: boolean; steam: boolean; gamespot: boolean; proxy: boolean };
   hasEnv: { rawg: boolean; igdb: boolean; steam: boolean; gamespot: boolean; proxy: boolean };
 };
@@ -89,7 +92,7 @@ export function GlobalSettingsForm({
   const [registrationEnabled, setRegistrationEnabled] = useState(initial.registrationEnabled);
   const [registrationMode, setRegistrationMode] = useState<Settings["registrationMode"]>(initial.registrationMode);
   const [maintenanceMode, setMaintenanceMode] = useState(initial.maintenanceMode);
-  const [activeTab, setActiveTab] = useState<"general" | "registration" | "invites" | "pending" | "integrations">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "registration" | "invites" | "pending" | "integrations" | "proxy">("general");
   const [copied, setCopied] = useState<string | null>(null);
 
   const [state, formAction, pendingAction] = useActionState(updateSiteSettingsAction, {});
@@ -105,9 +108,10 @@ export function GlobalSettingsForm({
   const [proxyEnabledInput, setProxyEnabledInput] = useState(
     providerKeys ? providerKeys.hasDb.proxy || (providerKeys.hasEnv.proxy && !providerKeys.hasDb.proxy) : false,
   );
-  const [proxyInput, setProxyInput] = useState("");
+  const [proxyInput, setProxyInput] = useState(providerKeys?.proxyUrlDbValue ?? "");
   const [clearFlags, setClearFlags] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false, gamespot: false, proxy: false });
   const [showKeys, setShowKeys] = useState({ rawg: false, igdbId: false, igdbSecret: false, steam: false, gamespot: false, proxy: false });
+  const [showEnvProxy, setShowEnvProxy] = useState(false);
   const [proxyTestMsg, setProxyTestMsg] = useState<{ error?: string; ok?: string } | null>(null);
   const [proxyTesting, startProxyTest] = useTransition();
   const runProxyTest = () => {
@@ -132,6 +136,7 @@ export function GlobalSettingsForm({
     { id: "general", label: s.tabs.general, icon: Cog6ToothIcon },
     { id: "registration", label: s.tabs.registration, icon: UserPlusIcon },
     { id: "integrations", label: s.tabs.integrations, icon: KeyIcon },
+    { id: "proxy", label: s.tabs.proxy, icon: GlobeAltIcon },
     { id: "invites", label: s.tabs.invites, icon: LinkIcon },
     { id: "pending", label: `${s.tabs.pending} ${pending.length ? `(${pending.length})` : ""}`, icon: ClockIcon },
   ] as const;
@@ -396,63 +401,6 @@ export function GlobalSettingsForm({
             <input type="hidden" name="igdbClientSecret" value={clearFlags.igdbSecret ? "" : igdbSecretInput.trim() ? igdbSecretInput.trim() : "__KEEP__"} />
             <input type="hidden" name="steamApiKey" value={clearFlags.steam ? "" : steamInput.trim() ? steamInput.trim() : "__KEEP__"} />
             <input type="hidden" name="gamespotApiKey" value={clearFlags.gamespot ? "" : gamespotInput.trim() ? gamespotInput.trim() : "__KEEP__"} />
-            <input type="hidden" name="proxyEnabled" value={proxyEnabledInput ? "true" : "false"} />
-            <input type="hidden" name="proxyUrl" value={clearFlags.proxy ? "" : proxyInput.trim() ? proxyInput.trim() : "__KEEP__"} />
-
-            {/* Outbound proxy — applies to every provider below */}
-            <div className="border border-amber/20 bg-[#16160f] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-display text-xs uppercase tracking-widest flex items-center gap-2">
-                    <GlobeAltIcon className="size-4 text-amber" /> {s.proxyHeading}
-                    <Badge variant={proxyEnabledInput ? "military" : "dim"} size="sm">{proxyEnabledInput ? s.providerActive : s.providerNotSet}</Badge>
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">{s.proxyHint}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-col gap-3">
-                <Switch
-                  checked={proxyEnabledInput}
-                  onChange={(v) => { setProxyEnabledInput(v); if (!v) setClearFlags((p) => ({ ...p, proxy: false })); }}
-                  label={s.proxyEnabledLabel}
-                  description={s.proxyEnabledDescription}
-                  variant={proxyEnabledInput ? "military" : "default"}
-                />
-                <Field label={s.proxyUrlLabel}>
-                  <div className="relative flex items-center">
-                    <Input
-                      type={showKeys.proxy ? "text" : "password"}
-                      placeholder={s.proxyUrlPlaceholder}
-                      value={clearFlags.proxy ? "" : proxyInput}
-                      onChange={(e) => { setProxyInput(e.target.value); setClearFlags((p) => ({ ...p, proxy: false })); }}
-                      disabled={!proxyEnabledInput || clearFlags.proxy}
-                    />
-                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, proxy: !p.proxy }))} className="absolute right-2 p-1 text-dim hover:text-amber">
-                      {showKeys.proxy ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                    </button>
-                  </div>
-                </Field>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono text-zinc-500">
-                    {providerKeys.hasDb.proxy ? <span className="text-amber">{s.dbOverride} · {s.sourceLabel} {providerKeys.proxyUrlMasked}</span> : providerKeys.hasEnv.proxy ? <span className="text-military">{s.envLabel} · {s.proxyEnvActive}</span> : <span className="text-dim">{s.proxyInactive}</span>}
-                  </span>
-                  {providerKeys.hasDb.proxy && !clearFlags.proxy && (
-                    <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, proxy: true })); setProxyInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
-                  )}
-                  {clearFlags.proxy && <span className="text-danger">{s.willClearDb}</span>}
-                  <button
-                    type="button"
-                    onClick={runProxyTest}
-                    disabled={proxyTesting}
-                    className="hud-btn !py-1 !px-2 text-xs inline-flex items-center gap-1.5"
-                  >
-                    <CheckCircleIcon className="size-3.5" aria-hidden /> {proxyTesting ? s.proxyTesting : s.proxyTest}
-                  </button>
-                </div>
-                {proxyTestMsg?.ok && <p className="text-xs text-military">✓ {proxyTestMsg.ok}</p>}
-                {proxyTestMsg?.error && <p className="text-xs text-danger" role="alert">{proxyTestMsg.error}</p>}
-              </div>
-            </div>
 
             <div className="border border-[#2a2a22] bg-[#1a1a1a] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
               <div className="flex items-start justify-between gap-2">
@@ -623,6 +571,98 @@ export function GlobalSettingsForm({
               <div>
                 <p className="border border-danger/30 bg-danger/10 p-2 text-sm text-danger [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]" role="alert">{providerState.error}</p>
                 <DebugError debug={providerState.debug} title="provider keys" />
+              </div>
+            )}
+            {providerState.ok && (
+              <p className="border border-military/30 bg-military/10 p-2 text-sm text-military [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">✓ {providerState.ok}</p>
+            )}
+            <button type="submit" className="hud-btn hud-btn-primary self-start" disabled={providerPending}>
+              {providerPending ? "Saving…" : s.saveButton}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* PROXY */}
+      {activeTab === "proxy" && providerKeys && (
+        <section className="hud-card p-5 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+          <div className="flex items-center gap-2">
+            <GlobeAltIcon className="size-5 text-amber" aria-hidden />
+            <h2 className="font-display text-sm uppercase tracking-widest">{s.proxyHeading}</h2>
+            <Badge variant={proxyEnabledInput ? "military" : "dim"} size="sm" className="ml-2 font-mono">{proxyEnabledInput ? s.providerActive : s.providerNotSet}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">{s.proxyHint}</p>
+
+          <form action={providerFormAction} className="mt-6 flex flex-col gap-5">
+            <input type="hidden" name="proxyEnabled" value={proxyEnabledInput ? "true" : "false"} />
+            <input type="hidden" name="proxyUrl" value={clearFlags.proxy ? "" : proxyInput.trim() ? proxyInput.trim() : "__KEEP__"} />
+
+            <div className="border border-amber/20 bg-[#16160f] p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div className="mt-3 flex flex-col gap-3">
+                <Switch
+                  checked={proxyEnabledInput}
+                  onChange={(v) => { setProxyEnabledInput(v); if (!v) setClearFlags((p) => ({ ...p, proxy: false })); }}
+                  label={s.proxyEnabledLabel}
+                  description={s.proxyEnabledDescription}
+                  variant={proxyEnabledInput ? "military" : "default"}
+                />
+                <Field label={s.proxyUrlLabel}>
+                  <div className="relative flex items-center">
+                    <Input
+                      type={showKeys.proxy ? "text" : "password"}
+                      placeholder={s.proxyUrlPlaceholder}
+                      value={clearFlags.proxy ? "" : proxyInput}
+                      onChange={(e) => { setProxyInput(e.target.value); setClearFlags((p) => ({ ...p, proxy: false })); }}
+                      disabled={!proxyEnabledInput || clearFlags.proxy}
+                    />
+                    <button type="button" onClick={() => setShowKeys((p) => ({ ...p, proxy: !p.proxy }))} className="absolute right-2 p-1 text-dim hover:text-amber">
+                      {showKeys.proxy ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </button>
+                  </div>
+                </Field>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono text-zinc-500">
+                    {providerKeys.hasDb.proxy ? (
+                      <span className="text-amber">{s.dbOverride} · {s.sourceLabel} {providerKeys.proxyUrlMasked}</span>
+                    ) : providerKeys.hasEnv.proxy ? (
+                      <span className="inline-flex flex-wrap items-center gap-1.5 text-military">
+                        <span>{s.envLabel} · {s.proxyEnvActive}</span>
+                        <span className="inline-flex items-center gap-1 border border-military/30 bg-military/10 px-1.5 py-0.5 text-[11px] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                          <span className={showEnvProxy ? "" : "blur-[4px] select-none"} aria-hidden={!showEnvProxy}>{showEnvProxy ? (providerKeys.proxyUrlEnvRaw ?? "") : (providerKeys.proxyUrlEnvMasked ?? "••••")}</span>
+                          <button type="button" onClick={() => setShowEnvProxy((v) => !v)} className="ml-1 p-0.5 text-military hover:text-amber" aria-label={showEnvProxy ? "Hide" : "Show"} title={showEnvProxy ? "Hide" : "Show"}>
+                            {showEnvProxy ? <EyeSlashIcon className="size-3.5" aria-hidden /> : <EyeIcon className="size-3.5" aria-hidden />}
+                          </button>
+                          <button type="button" onClick={() => { if (providerKeys.proxyUrlEnvRaw) navigator.clipboard.writeText(providerKeys.proxyUrlEnvRaw); }} className="p-0.5 text-military hover:text-amber" title="Copy">
+                            <ClipboardDocumentIcon className="size-3.5" aria-hidden />
+                          </button>
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-dim">{s.proxyInactive}</span>
+                    )}
+                  </span>
+                  {providerKeys.hasDb.proxy && !clearFlags.proxy && (
+                    <button type="button" onClick={() => { setClearFlags((p) => ({ ...p, proxy: true })); setProxyInput(""); }} className="hud-btn !py-1 !px-2 text-xs">{s.clearOverrideFallback}</button>
+                  )}
+                  {clearFlags.proxy && <span className="text-danger">{s.willClearDb}</span>}
+                  <button
+                    type="button"
+                    onClick={runProxyTest}
+                    disabled={proxyTesting}
+                    className="hud-btn !py-1 !px-2 text-xs inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircleIcon className="size-3.5" aria-hidden /> {proxyTesting ? s.proxyTesting : s.proxyTest}
+                  </button>
+                </div>
+                {proxyTestMsg?.ok && <p className="text-xs text-military">✓ {proxyTestMsg.ok}</p>}
+                {proxyTestMsg?.error && <p className="text-xs text-danger" role="alert">{proxyTestMsg.error}</p>}
+              </div>
+            </div>
+
+            {providerState.error && (
+              <div>
+                <p className="border border-danger/30 bg-danger/10 p-2 text-sm text-danger [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]" role="alert">{providerState.error}</p>
+                <DebugError debug={providerState.debug} title="proxy" />
               </div>
             )}
             {providerState.ok && (

@@ -67,8 +67,13 @@ export async function testProxyAction(
     const result = await testProxyUseCase(proxyUrl);
     const { t } = await getT();
     if (result.ok) return { ok: t.admin.siteSettings.proxyTestOk };
+    const baseDetail =
+      result.error === "http" && result.status
+        ? format(t.admin.siteSettings.proxyTestHttp, { status: String(result.status) })
+        : t.admin.siteSettings.proxyTestNetwork;
+    const detail = result.detail ? `${baseDetail} — ${result.detail}` : baseDetail;
     return {
-      error: format(t.admin.siteSettings.proxyTestFail, { detail: result.error ?? "" }),
+      error: format(t.admin.siteSettings.proxyTestFail, { detail }),
     };
   } catch (e) {
     return await toError(e, "site.proxy.test", { actorId: (await getCurrentUser())?.id ?? null });

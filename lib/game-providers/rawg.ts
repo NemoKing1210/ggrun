@@ -60,12 +60,21 @@ export const rawgProvider: GameProvider = {
         background_image: string | null;
         metacritic: number | null;
         rating: number | null;
+        rating_top?: number | null;
         released: string | null;
         esrb_rating: { slug: string } | null;
         tags: Array<{ slug: string }>;
+        playtime?: number | null;
+        website?: string | null;
+        stores?: Array<{ url: string | null; store: { slug: string; name: string } }> | null;
       }>;
     };
-    return data.results.map((r) => ({
+    return data.results.map((r) => {
+      const stores =
+        (r.stores ?? [])
+          .filter((s) => s.url && s.store?.name)
+          .map((s) => ({ store: s.store.name, url: s.url as string }));
+      return {
       externalId: `rawg:${r.id}`,
       title: r.name,
       genres: r.genres.map((g) => g.slug),
@@ -76,7 +85,11 @@ export const rawgProvider: GameProvider = {
       releasedAt: r.released,
       esrb: r.esrb_rating?.slug ?? null,
       tags: r.tags.slice(0, 10).map((t) => t.slug),
-    }));
+      playtimeHours: r.playtime ?? null,
+      website: r.website ?? null,
+      stores,
+      };
+    });
   },
   async getById(id: string): Promise<ExternalGame | null> {
     const { rawgApiKey: key } = await getEffectiveProviderKeys();
@@ -92,10 +105,19 @@ export const rawgProvider: GameProvider = {
       background_image: string | null;
       metacritic: number | null;
       rating: number | null;
+      rating_top?: number | null;
       released: string | null;
       esrb_rating: { slug: string } | null;
       tags: Array<{ slug: string }>;
+      description_raw?: string | null;
+      playtime?: number | null;
+      website?: string | null;
+      stores?: Array<{ url: string | null; store: { slug: string; name: string } }> | null;
     };
+    const stores =
+      (r.stores ?? [])
+        .filter((s) => s.url && s.store?.name)
+        .map((s) => ({ store: s.store.name, url: s.url as string }));
     return {
       externalId: `rawg:${r.id}`,
       title: r.name,
@@ -107,6 +129,10 @@ export const rawgProvider: GameProvider = {
       releasedAt: r.released,
       esrb: r.esrb_rating?.slug ?? null,
       tags: r.tags.slice(0, 10).map((t) => t.slug),
+      description: r.description_raw?.trim() ? r.description_raw.trim() : null,
+      playtimeHours: r.playtime ?? null,
+      website: r.website ?? null,
+      stores,
     };
   },
 };

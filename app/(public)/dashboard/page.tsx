@@ -13,11 +13,11 @@ import {
   StarIcon,
   TrophyIcon,
 } from "@heroicons/react/24/outline";
-import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import RollCard from "@/components/dashboard/RollCard";
+import RollCard, { type GameSummary } from "@/components/dashboard/RollCard";
+import { GamesHistory } from "@/components/dashboard/GamesHistory";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
@@ -153,6 +153,45 @@ export default async function DashboardPage() {
     minute: "2-digit",
     timeZone: "UTC",
   });
+
+  const toGameSummary = (g: {
+    title: string;
+    platform: string | null;
+    coverUrl: string | null;
+    genres: string[];
+    tags: string[];
+    metacritic: number | null;
+    rating: string | number | null;
+    releasedAt: Date | null;
+    esrb: string | null;
+    description: string | null;
+    playtimeHours: number | null;
+    stores: unknown;
+    website: string | null;
+    externalSource: string | null;
+  } | null): GameSummary | null => {
+    if (!g) return null;
+    const stores = Array.isArray(g.stores)
+      ? g.stores.filter((s): s is { store?: unknown; url?: unknown } => !!s && typeof s === "object" && !!s.store && !!s.url)
+          .map((s) => ({ store: String(s.store), url: String(s.url) }))
+      : [];
+    return {
+      title: g.title,
+      platform: g.platform,
+      coverUrl: g.coverUrl,
+      genres: g.genres,
+      tags: g.tags,
+      metacritic: g.metacritic,
+      rating: g.rating != null ? Number(g.rating) : null,
+      releasedAt: g.releasedAt ? g.releasedAt.toISOString() : null,
+      esrb: g.esrb,
+      description: g.description,
+      playtimeHours: g.playtimeHours,
+      stores,
+      website: g.website,
+      externalSource: g.externalSource,
+    };
+  };
 
   const kicker = format(t.core.dashboard.seasonLine, {
     season: season.title,
@@ -320,9 +359,7 @@ export default async function DashboardPage() {
           openRoll
             ? {
                 id: openRoll.id,
-                game: openRoll.game
-                  ? { title: openRoll.game.title, platform: openRoll.game.platform, coverUrl: openRoll.game.coverUrl }
-                  : null,
+                game: toGameSummary(openRoll.game),
                 rolledAt: openRoll.rolledAt.toISOString(),
               }
             : null
@@ -403,52 +440,21 @@ export default async function DashboardPage() {
                 {t.core.dashboard.historyEmpty}
               </p>
             ) : (
-              <ul className="flex flex-col gap-3">
-                {recentRolls.slice(0, 8).map((roll) => {
-                  const statusTone =
-                    roll.status === "passed"
-                      ? "border-emerald-600/40 bg-emerald-950/30 text-emerald-300"
-                      : roll.status === "dropped"
-                        ? "border-danger/40 bg-danger/10 text-red-300"
-                        : roll.status === "rerolled"
-                          ? "border-violet-500/30 bg-violet-950/20 text-violet-300"
-                          : "border-amber/40 bg-amber/10 text-amber";
-                  return (
-                    <li
-                      key={roll.id}
-                      className="hud-card group min-h-[96px] p-4 transition-all hover:border-amber/30 hover:brightness-[1.02]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-snug">
-                          {roll.game?.title ?? t.core.dashboard.missingCatalogEntry}
-                        </span>
-                        <span
-                          className={`shrink-0 border px-2 py-1 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${statusTone}`}
-                        >
-                          {roll.status}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {roll.game?.platform ? (
-                          <span className="border border-dim/30 bg-background/40 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                            {roll.game.platform}
-                          </span>
-                        ) : null}
-                        {roll.rating ? (
-                          <span className="inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs font-semibold text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                            <StarSolid className="size-3.5" aria-hidden /> {roll.rating}/10
-                          </span>
-                        ) : null}
-                      </div>
-                      {roll.notes ? <p className="mt-3 line-clamp-3 border-l-2 border-amber/25 pl-3 text-sm leading-relaxed text-zinc-300">“{roll.notes}”</p> : null}
-                      <time dateTime={roll.rolledAt.toISOString()} className="mt-2 block font-mono text-[11px] tracking-wide text-dim">
-                        {dateFormatter.format(roll.rolledAt)}
-                        {roll.resolvedAt ? ` → ${dateFormatter.format(roll.resolvedAt)}` : ""}
-                      </time>
-                    </li>
-                  );
+              <GamesHistory
+                rolls={recentRolls.slice(0, 8).map((roll) => {
+                  const fromLabel = dateFormatter.format(roll.rolledAt);
+                  const toLabel = roll.resolvedAt ? dateFormatter.format(roll.resolvedAt) : null;
+                  return {
+                    id: roll.id,
+                    status: roll.status,
+                    rolledAt: roll.rolledAt.toISOString(),
+                    timeLabel: toLabel ? `${fromLabel} → ${toLabel}` : fromLabel,
+                    game: toGameSummary(roll.game),
+                    rating: roll.rating != null ? Number(roll.rating) : null,
+                    notes: roll.notes,
+                  };
                 })}
-              </ul>
+              />
             )}
           </div>
         </div>

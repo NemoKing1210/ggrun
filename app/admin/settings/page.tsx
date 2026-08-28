@@ -42,6 +42,12 @@ export default async function AdminSettingsPage() {
       const envUrl = process.env.PROXY_URL ?? null;
       return maskKey(dbOn && dbUrl ? dbUrl : (envUrl ?? null));
     })(),
+    proxyUrlDbValue: (() => {
+      const s = settings as unknown as Record<string, unknown>;
+      return typeof s.proxyUrl === "string" && s.proxyUrl.trim() ? s.proxyUrl : null;
+    })(),
+    proxyUrlEnvRaw: process.env.PROXY_URL ?? null,
+    proxyUrlEnvMasked: maskKey(process.env.PROXY_URL ?? null),
     hasDb: {
       rawg: Boolean((settings as unknown as Record<string, unknown>).rawgApiKey),
       igdb: Boolean((settings as unknown as Record<string, unknown>).igdbClientId && (settings as unknown as Record<string, unknown>).igdbClientSecret),

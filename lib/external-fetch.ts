@@ -1,4 +1,4 @@
-import { ProxyAgent } from "undici";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 
 import { getSiteSettings } from "@/lib/repositories/site-settings.repo";
 
@@ -55,24 +55,39 @@ function agentFor(url: string | null): ProxyAgent | undefined {
  * fetch() that honors the admin-configured proxy (undici ProxyAgent) and
  * retries idempotent GETs once on network errors. Used by all external
  * game providers; leave alone for internal/DB traffic.
+ *
+ * Important: global fetch (Node internal undici) and npm undici's
+ * ProxyAgent are incompatible ("invalid onRequestStart" error). When a
+ * proxy is active we must use undici's own fetch together with its
+ * ProxyAgent; otherwise we keep Next.js global fetch (so `next:
+ * { revalidate }` caching still works).
  */
 export async function fetchExternal(
   url: string,
   init: RequestInit = {},
 ): Promise<Response> {
   const { url: proxyUrl } = await getEffectiveProxy();
-  const dispatcher = agentFor(proxyUrl);
-  const opts = dispatcher
-    ? { ...init, dispatcher, cache: "no-store" as RequestInit["cache"] }
-    : init;
-
+  if (proxyUrl) {
+    const dispatcher = agentFor(proxyUrl);
+    // Next.js fetch extensions (next/cache) are not understood by
+    // undici's fetch — strip them for the proxied path.
+    const { next: _next, cache: _cache, ...rest } = init as Record<string, unknown>;
+    const opts = { ...rest, dispatcher } as RequestInit & { dispatcher: unknown };
+    try {
+      return (await undiciFetch(url, opts as unknown as Parameters<typeof undiciFetch>[1])) as unknown as Response;
+    } catch (err) {
+      if ((init.method ?? "GET").toUpperCase() === "GET") {
+        return (await undiciFetch(url, opts as unknown as Parameters<typeof undiciFetch>[1])) as unknown as Response;
+      }
+      throw err;
+    }
+  }
+  // No proxy — use Next.js global fetch (supports `next: { revalidate }`).
   try {
-    return await fetch(url, opts as RequestInit);
+    return await fetch(url, init);
   } catch (err) {
-    // One retry: transient resets are common with flaky proxy backends and
-    // keep-alive socket reuse across providers.
     if ((init.method ?? "GET").toUpperCase() === "GET") {
-      return await fetch(url, opts as RequestInit);
+      return await fetch(url, init);
     }
     throw err;
   }

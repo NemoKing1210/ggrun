@@ -12,6 +12,12 @@ export interface ExternalGame {
   esrb: string | null;
   tags: string[];
   description?: string | null;
+  /** Average playtime in hours when the provider exposes it. */
+  playtimeHours?: number | null;
+  /** Direct store links: [{ store, url }]. */
+  stores?: Array<{ store: string; url: string | null }> | null;
+  /** Official website. */
+  website?: string | null;
 }
 
 export interface ProviderSearchParams {

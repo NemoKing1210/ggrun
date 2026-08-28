@@ -208,6 +208,21 @@ export const breadcrumbs: Widen<typeof CoreEn.breadcrumbs> = {
   players: "Игроки",
 };
 
+/** Общие подписи информации об игре (карточка ролла, каталог, модалка деталей). */
+export const gameInfo: Widen<typeof CoreEn.gameInfo> = {
+  details: "Подробнее",
+  metaLabel: "MC",
+  playtime: "≈ {hours} ч",
+  close: "Закрыть",
+  noDescription: "Источник пока не предоставил описание.",
+  expand: "Раскрыть описание",
+  collapse: "Свернуть",
+  stores: "Магазины",
+  website: "Официальный сайт",
+  storesHint: "Кнопки — прямые ссылки провайдера или поиск в магазине",
+  year: "{year}",
+};
+
 /**
  * Server use-case error texts (keys are error codes).
  */

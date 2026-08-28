@@ -18,7 +18,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 
 export async function updateSiteSettings(
   patch: Partial<
-    Pick<SiteSettings, "registrationEnabled" | "registrationMode" | "maintenanceMode" | "rawgApiKey" | "igdbClientId" | "igdbClientSecret" | "steamApiKey"> & {
+    Pick<SiteSettings, "registrationEnabled" | "registrationMode" | "maintenanceMode" | "rawgApiKey" | "igdbClientId" | "igdbClientSecret" | "steamApiKey" | "gamespotApiKey" | "proxyEnabled" | "proxyUrl"> & {
       updatedBy?: string | null;
     }
   >,

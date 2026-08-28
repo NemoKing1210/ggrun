@@ -18,6 +18,8 @@ import {
 } from "@/lib/use-cases/resolve-game-roll";
 import {
   addCatalogGame,
+  bulkDeleteGames,
+  bulkSetGamesBlacklisted,
   deleteCatalogGame,
   setGameBlacklisted,
 } from "@/lib/repositories/games.repo";
@@ -42,7 +44,29 @@ export type ExternalSearchState = ActionState & {
     provider: string;
     metacritic: number | null;
     rating: number | null;
+    description?: string | null;
+    playtimeHours?: number | null;
+    stores?: Array<{ store: string; url: string }> | null;
+    website?: string | null;
   }>;
+};
+
+export type UrlImportState = ActionState & {
+  game?: {
+    title: string;
+    coverUrl: string | null;
+    description: string | null;
+    platform: string | null;
+    genres: string[];
+    tags: string[];
+    metacritic: number | null;
+    rating: number | null;
+    website: string | null;
+    stores: Array<{ store: string; url: string }>;
+    detectedProvider: string;
+    sourceUrl: string;
+    externalId?: string;
+  };
 };
 
 const toError = makeToError(AdminError);
@@ -500,6 +524,39 @@ export async function deleteGameAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/games-catalog");
 }
 
+export async function bulkSetBlacklistedAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  const raw = String(formData.get("ids") ?? "");
+  const blacklisted = String(formData.get("blacklisted")) === "true";
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (ids.length === 0) return;
+  try {
+    await bulkSetGamesBlacklisted(ids, blacklisted);
+    log.info("catalog.bulk_blacklist", { actorId: actor?.id ?? null, count: ids.length, blacklisted });
+  } catch (e) {
+    log.error("catalog.bulk_blacklist", { actorId: actor?.id ?? null, err: e });
+    throw e;
+  }
+  revalidatePath("/admin/games");
+  revalidatePath("/admin/games-catalog");
+}
+
+export async function bulkDeleteGamesAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  const raw = String(formData.get("ids") ?? "");
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (ids.length === 0) return;
+  try {
+    await bulkDeleteGames(ids);
+    log.info("catalog.bulk_delete", { actorId: actor?.id ?? null, count: ids.length });
+  } catch (e) {
+    log.error("catalog.bulk_delete", { actorId: actor?.id ?? null, err: e });
+    throw e;
+  }
+  revalidatePath("/admin/games");
+  revalidatePath("/admin/games-catalog");
+}
+
 export async function searchExternalGamesAction(
   _prev: ExternalSearchState,
   formData: FormData,
@@ -553,6 +610,12 @@ export async function searchExternalGamesAction(
         provider: providerId,
         metacritic: r.metacritic,
         rating: r.rating,
+        description: r.description ?? null,
+        playtimeHours: r.playtimeHours ?? null,
+        stores: (r.stores ?? [])
+          .filter((s) => s.url)
+          .map((s) => ({ store: s.store, url: s.url as string })),
+        website: r.website ?? null,
       })),
     };
   } catch (e) {
@@ -600,6 +663,26 @@ export async function importExternalGameAction(
       rating,
       externalSource: provider,
       externalRawId: externalId || null,
+      description: String(formData.get("description") || "") || null,
+      playtimeHours: (() => {
+        const v = formData.get("playtimeHours");
+        if (v === null || String(v).trim() === "") return null;
+        const n = Number(v);
+        return Number.isNaN(n) ? null : n;
+      })(),
+      stores: (() => {
+        const raw = formData.get("stores");
+        if (!raw || String(raw).trim() === "") return [];
+        try {
+          const arr = JSON.parse(String(raw));
+          return Array.isArray(arr)
+            ? arr.filter((s) => s && typeof s === "object" && s.store && s.url)
+            : [];
+        } catch {
+          return [];
+        }
+      })(),
+      website: String(formData.get("website") || "") || null,
     });
     log.info("catalog.game_import", {
       actorId: actor?.id ?? null,
@@ -621,6 +704,85 @@ export async function importExternalGameAction(
 /** Direct form action variant (single-arg) for plain <form action={}> usage. */
 export async function importExternalGameDirectAction(formData: FormData): Promise<void> {
   await importExternalGameAction({} as never, formData);
+}
+
+export async function resolveGameUrlAction(
+  _prev: UrlImportState,
+  formData: FormData,
+): Promise<UrlImportState> {
+  const actor = await getCurrentUser();
+  const raw = String(formData.get("url") || "").trim();
+  if (!raw) return { error: "Paste a link first" };
+  try {
+    const { resolveGameFromUrl } = await import("@/lib/game-providers/url-import");
+    const game = await resolveGameFromUrl(raw);
+    log.info("catalog.url_resolve", { actorId: actor?.id ?? null, url: raw, title: game.title });
+    return { game };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    log.warn("catalog.url_resolve_failed", { actorId: actor?.id ?? null, url: raw, err: msg });
+    return { error: msg };
+  }
+}
+
+export async function importGameFromUrlAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const actor = await getCurrentUser();
+  const title = String(formData.get("title") || "").trim();
+  if (!title) return { error: errorText((await getT()).t.core.errors, "formTitleRequired") };
+  const genres = String(formData.get("genres") || "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+  const tags = String(formData.get("tags") || "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+  const platform = String(formData.get("platform") || "") || null;
+  const coverUrl = String(formData.get("coverUrl") || "") || null;
+  const description = String(formData.get("description") || "") || null;
+  const website = String(formData.get("website") || "") || null;
+  const storesRaw = String(formData.get("stores") || "");
+  let stores: Array<{ store: string; url: string }> = [];
+  if (storesRaw) {
+    try {
+      const arr = JSON.parse(storesRaw);
+      if (Array.isArray(arr)) stores = arr.filter((s) => s && s.store && s.url);
+    } catch {
+      // single store from sourceUrl
+      const src = String(formData.get("sourceUrl") || "");
+      if (src) stores = [{ store: platform ?? "Store", url: src }];
+    }
+  } else {
+    const src = String(formData.get("sourceUrl") || "");
+    if (src) stores = [{ store: platform ?? "Store", url: src }];
+  }
+  const detectedProvider = String(formData.get("detectedProvider") || "generic");
+  const externalId = String(formData.get("externalId") || "") || null;
+  try {
+    await addCatalogGame({
+      title,
+      platform,
+      coverUrl,
+      genres,
+      tags,
+      metacritic: formData.get("metacritic") ? Number(formData.get("metacritic")) : null,
+      rating: formData.get("rating") ? Number(formData.get("rating")) : null,
+      description,
+      stores,
+      website,
+      externalSource: detectedProvider !== "generic" ? detectedProvider : null,
+      externalRawId: externalId,
+    });
+    log.info("catalog.game_import_url", { actorId: actor?.id ?? null, title, platform });
+    revalidatePath("/admin/games");
+    revalidatePath("/admin/games-catalog");
+    return { ok: format((await getT()).t.admin.feedback.gameAdded, { title }) };
+  } catch (e) {
+    return await toError(e, "catalog.game_import_url", { actorId: actor?.id ?? null, title });
+  }
 }
 
 // --- Reroll requests -------------------------------------------------------

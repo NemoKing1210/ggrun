@@ -163,7 +163,7 @@ export async function rejectUserUseCase(userId: string) {
 }
 
 /** Tests a proxy endpoint by performing a small request to RAWG through it. */
-export async function testProxyUseCase(proxyUrl: string): Promise<{ ok: boolean; error?: string }> {
+export async function testProxyUseCase(proxyUrl: string): Promise<{ ok: boolean; error?: "http" | "network"; status?: number; detail?: string }> {
   await requireAdmin();
   let url = proxyUrl.trim();
   if (url === "__USE_CURRENT__") {
@@ -172,20 +172,26 @@ export async function testProxyUseCase(proxyUrl: string): Promise<{ ok: boolean;
   }
   if (!url) throw new AdminError("proxyUrlInvalid");
   if (!/^https?:\/\//i.test(url)) throw new AdminError("proxyUrlInvalid");
-  const { ProxyAgent } = await import("undici");
+  const { ProxyAgent, fetch: undiciFetch } = await import("undici");
   const agent = new ProxyAgent(url);
   try {
-    const res = await fetch("https://api.rawg.io/api/games?page_size=1", {
-      // ignore auth errors — connectivity through the proxy is what matters
+    // Must use undici's fetch with its ProxyAgent — global fetch's
+    // internal undici (Node built-in) is a different instance and
+    // throws "invalid onRequestStart" when paired with npm's agent.
+    const res = (await undiciFetch("https://api.rawg.io/api/games?page_size=1", {
       dispatcher: agent,
       signal: AbortSignal.timeout(15000),
-    } as RequestInit & { dispatcher?: unknown });
-    if (res.status === 401 || res.status === 200) {
+    } as unknown as Parameters<typeof undiciFetch>[1])) as unknown as Response;
+    // RAWG without key returns 401, with key 200 — both mean proxy connected.
+    // 403/429 also mean connectivity is fine (rate-limited/blocked but reachable).
+    if ([200, 401, 403, 429].includes(res.status)) {
       return { ok: true };
     }
-    return { ok: false, error: `proxyTestHttp ${res.status}` };
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: "http", status: res.status, detail: body.slice(0, 200) };
   } catch (e) {
-    return { ok: false, error: `proxyTestFailed ${(e as Error).message}` };
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: "network", detail: msg.slice(0, 300) };
   } finally {
     agent.close?.().catch(() => undefined);
   }

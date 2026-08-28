@@ -205,6 +205,21 @@ export const breadcrumbs = {
   players: "Players",
 } as const;
 
+/** Shared game info labels (dashboard roll card, catalog, details modal). */
+export const gameInfo = {
+  details: "Details",
+  metaLabel: "MC",
+  playtime: "≈ {hours} h",
+  close: "Close",
+  noDescription: "No description provided by the source yet.",
+  expand: "Show full description",
+  collapse: "Show less",
+  stores: "Store links",
+  website: "Official website",
+  storesHint: "Store buttons are direct provider links or search pages in the store front",
+  year: "{year}",
+} as const;
+
 /**
  * Server use-case error texts.
  * Keys are error codes (GameLoopError/AdminError/AuthError throw a code;

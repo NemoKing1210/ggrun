@@ -78,20 +78,25 @@ async function main() {
 
     const gamesCount = await pool.query("select count(*)::int as n from games_catalog");
     if (gamesCount.rows[0].n === 0) {
-      const games: Array<[string, string]> = [
-        ["Half-Life", "steam"],
-        ["Doom (1993)", "custom"],
-        ["Portal", "steam"],
-        ["Celeste", "steam"],
-        ["Super Mario Bros.", "nes"],
-        ["Hollow Knight", "steam"],
-        ["Stardew Valley", "steam"],
-        ["Papers, Please", "steam"],
+      const games: Array<[string, string, number, string]> = [
+        ["Half-Life", "steam", 9, "Gordon Freeman must survive the Black Mesa Research Facility after a resonance cascade tears reality apart."],
+        ["Doom (1993)", "custom", 6, "The original demon-slaying FPS classic — face the hordes of Hell in the Union Aerospace Corporation's ruined facilities."],
+        ["Portal", "steam", 5, "Solve physics-based puzzles with the Portal Gun and trust the AI companion GLaDOS. Cake is a lie."],
+        ["Celeste", "steam", 8, "Climb a dangerous mountain in this tight, precise platformer about overcoming anxiety and self-doubt."],
+        ["Super Mario Bros.", "nes", 4, "The genre-defining platformer: jump, stomp and run through the Mushroom Kingdom to rescue the princess."],
+        ["Hollow Knight", "steam", 26, "Explore the vast, hand-drawn caverns of Hallownest in a Metroidvania of combat, lore and atmospheric dread."],
+        ["Stardew Valley", "steam", 52, "Leave city life behind, restore a rundown farm and build a new life in the valley — farming, mining and friendship."],
+        ["Papers, Please", "steam", 5, "A dystopian document thriller — man the immigration checkpoint of Arstotzka and make the right calls."],
       ];
-      for (const [title, platform] of games) {
+      for (const [title, platform, playtime, description] of games) {
+        const stores = JSON.stringify([
+          { store: "Steam", url: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}` },
+          { store: "GOG", url: `https://www.gog.com/en/games?query=${encodeURIComponent(title)}` },
+        ]);
         await pool.query(
-          "insert into games_catalog (title, platform) values ($1, $2)",
-          [title, platform],
+          `insert into games_catalog (title, platform, description, playtime_hours, stores)
+           values ($1, $2, $3, $4, $5::jsonb)`,
+          [title, platform, description, playtime, stores],
         );
       }
       console.log(`Games added: ${games.length}`);

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowPathIcon,
   BoltIcon,
+  BookOpenIcon,
   CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
@@ -16,15 +17,35 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 
 import { DiceCube } from "@/components/dice/Dice3D";
 import { InlineGameCarousel, GameRollReveal } from "@/components/dashboard/GameRollCarousel";
+import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsModal";
+import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
 import { resolveAction, rollAction, type PlayerActionState } from "@/lib/use-cases/player-actions";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 
+/** Compact serializable game fields shown on the roll card. */
+export interface GameSummary {
+  title: string;
+  platform: string | null;
+  coverUrl: string | null;
+  genres: string[];
+  tags: string[];
+  metacritic: number | null;
+  rating: number | null;
+  releasedAt: string | null;
+  esrb: string | null;
+  description: string | null;
+  playtimeHours: number | null;
+  stores: Array<{ store: string; url: string }> | null;
+  website: string | null;
+  externalSource: string | null;
+}
+
 export interface OpenRollView {
   id: string;
-  game: { title: string; platform: string | null; coverUrl: string | null } | null;
+  game: GameSummary | null;
   rolledAt: string;
 }
 
@@ -94,7 +115,7 @@ export default function RollCard({
   const d = t.core.dashboard;
   const [rollState, rollFormAction, rollPending] = useActionState(rollAction, initialState);
   const [resolveState, resolveFormAction, resolvePending] = useActionState(resolveAction, initialState);
-  const [modal, setModal] = useState<"drop" | "pass" | "reroll" | null>(null);
+  const [modal, setModal] = useState<"drop" | "pass" | "reroll" | "details" | null>(null);
   const [now, setNow] = useState<number | null>(null);
 
   const [carouselPhase, setCarouselPhase] = useState<CarouselPhase>("idle");
@@ -387,6 +408,9 @@ export default function RollCard({
           <div className="flex flex-col gap-4">
             <GameRollReveal game={openRoll.game} />
             <div className="flex flex-wrap gap-2">
+              <button type="button" className="hud-btn inline-flex items-center gap-1.5" onClick={() => setModal("details")}>
+                <BookOpenIcon className="size-4" aria-hidden /> {t.core.gameInfo.details}
+              </button>
               <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
                 <CheckCircleIcon className="size-4" aria-hidden />
                 {d.passedButton}
@@ -448,6 +472,26 @@ export default function RollCard({
                         <BoltIcon className="size-3.5" aria-hidden /> IN RUN
                       </span>
                     </div>
+                    <GameMetaBadges game={openRoll.game} />
+                    {openRoll.game.genres.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {openRoll.game.genres.slice(0, 4).map((g) => (
+                          <span
+                            key={g}
+                            className="border border-dim/25 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                          >
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {openRoll.game.description ? (
+                      <p className="mt-3 line-clamp-3 max-w-prose text-sm leading-relaxed text-zinc-300">
+                        {openRoll.game.description}
+                      </p>
+                    ) : (
+                      <p className="mt-3 max-w-prose font-mono text-xs leading-relaxed text-dim">{d.rollHint}</p>
+                    )}
                   </>
                 ) : (
                   <div className="border border-danger/30 bg-danger/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -459,12 +503,14 @@ export default function RollCard({
                     </p>
                   </div>
                 )}
-                <p className="mt-3 max-w-prose font-mono text-xs leading-relaxed text-dim">{openRoll.game ? d.rollHint : "Сервер не смог подобрать игру — попробуйте сбросить бросок."}</p>
               </div>
             </motion.div>
 
             {openRoll.game ? (
               <div className="mt-5 flex flex-wrap gap-2">
+                <button type="button" className="hud-btn inline-flex items-center gap-1.5" onClick={() => setModal("details")}>
+                  <BookOpenIcon className="size-4" aria-hidden /> {t.core.gameInfo.details}
+                </button>
                 <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
                   <CheckCircleIcon className="size-4" aria-hidden />
                   {d.passedButton}
@@ -640,6 +686,11 @@ export default function RollCard({
           </div>
         </form>
       </Modal>
+
+      <GameDetailsModal
+        game={modal === "details" && openRoll && openRoll.game ? toGameDetails(openRoll.game as unknown as Record<string, unknown>) : null}
+        onClose={() => setModal(null)}
+      />
     </section>
   );
 }

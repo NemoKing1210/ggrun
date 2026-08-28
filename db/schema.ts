@@ -226,6 +226,14 @@ export const gamesCatalog = pgTable("games_catalog", {
   externalSource: text("external_source"),
   externalRawId: text("external_raw_id"),
   tags: text("tags").array().notNull().default([]),
+  /** Short game description (provider Deck / short_description / description_raw). */
+  description: text("description"),
+  /** Average playtime in hours (RAWG playtime), shown as “≈ N h”. */
+  playtimeHours: integer("playtime_hours"),
+  /** Store links: [{ store, url }] from the provider, e.g. Steam / GOG / FreeToGame. */
+  stores: jsonb("stores").notNull().default([]),
+  /** Official website when the provider exposes one. */
+  website: text("website"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -69,6 +69,7 @@ interface F2GListItem {
   genre: string | null;
   platform: string | null;
   release_date: string | null;
+  game_url?: string | null;
 }
 
 function mapGame(g: F2GListItem): ExternalGame {
@@ -86,6 +87,8 @@ function mapGame(g: F2GListItem): ExternalGame {
     esrb: null,
     tags: genre ? [genre] : [],
     description: g.short_description ?? null,
+    playtimeHours: null,
+    stores: g.game_url ? [{ store: "FreeToGame", url: g.game_url }] : [],
   };
 }
 
@@ -144,6 +147,10 @@ export const freetogameProvider: GameProvider = {
     if (!res.ok) return null;
     const data = (await res.json()) as F2GListItem | null;
     if (!data || typeof data.id === "undefined") return null;
-    return mapGame(data);
+    const mapped = mapGame(data);
+    // The detail endpoint carries the full description.
+    const fullDescription = (data as F2GListItem & { description?: string | null }).description;
+    if (fullDescription?.trim()) mapped.description = fullDescription.trim();
+    return mapped;
   },
 };

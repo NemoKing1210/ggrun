@@ -208,6 +208,21 @@ export const breadcrumbs: Widen<typeof CoreEn.breadcrumbs> = {
   players: "Гравці",
 };
 
+/** Спільні підписи інформації про гру (картка ролу, каталог, модалка деталей). */
+export const gameInfo: Widen<typeof CoreEn.gameInfo> = {
+  details: "Детальніше",
+  metaLabel: "MC",
+  playtime: "≈ {hours} год",
+  close: "Закрити",
+  noDescription: "Джерело поки не надало опис.",
+  expand: "Розгорнути опис",
+  collapse: "Згорнути",
+  stores: "Магазини",
+  website: "Офіційний сайт",
+  storesHint: "Кнопки — прямі посилання провайдера або пошук у магазині",
+  year: "{year}",
+};
+
 /** Server use-case error texts (keys are error codes). */
 export const errors: Widen<typeof CoreEn.errors> = {
   gameNotAllowed: "Недостатньо прав для цієї дії",

@@ -44,6 +44,7 @@ function pickCore(core: Widen<typeof coreEn>) {
     seasonStatuses: core.seasonStatuses,
     playerStatuses: core.playerStatuses,
     breadcrumbs: core.breadcrumbs,
+    gameInfo: core.gameInfo,
     errors: core.errors,
     siteUnavailable: core.siteUnavailable,
     maintenance: core.maintenance,
