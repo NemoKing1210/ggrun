@@ -1,0 +1,9 @@
+# Shell scripts must stay LF even on Windows checkouts —
+# CRLF breaks the shebang inside the container.
+*.sh text eol=lf
+
+# Text formats with explicit line endings.
+docker/entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+compose.yaml text eol=lf
+.dockerignore text eol=lf

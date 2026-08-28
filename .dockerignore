@@ -1,0 +1,26 @@
+# Ignore VCS, local env and heavy artifacts — kept out of both the build
+# context and the image.
+.git
+.gitignore
+
+# Never bake real secrets into the image.
+.env
+.env.*
+!.env.example
+
+# Installed deps / build output — restored inside the image stages.
+node_modules
+.next
+.dev
+
+# Local tooling / scratch files.
+pnpm-debug.log*
+tsconfig.tsbuildinfo
+*.log
+scripts/_tmp-ocr.ps1
+
+# Editor/OS noise.
+.DS_Store
+Thumbs.db
+.vscode
+.idea

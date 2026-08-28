@@ -1,17 +1,17 @@
-# GGRun — game run platform
+# GGRun
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](./LICENSE)
-[![Author: NemoKing1210](https://img.shields.io/badge/Author-NemoKing1210-181717?logo=github)](https://github.com/NemoKing1210)
-[![Repo: NemoKing1210/ggrun](https://img.shields.io/badge/Repo-NemoKing1210%2Fggrun-181717?logo=github)](https://github.com/NemoKing1210/ggrun)
-[![Stack: Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js)](https://nextjs.org)
-[![Issues](https://img.shields.io/github/issues/NemoKing1210/ggrun)](https://github.com/NemoKing1210/ggrun/issues)
+**English** · **[Русский](./translations/README.ru.md)** · **[Українська](./translations/README.uk.md)**
+
+![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)
+![Author: NemoKing1210](https://img.shields.io/badge/Author-NemoKing1210-181717?logo=github)
+![Repo: NemoKing1210/ggrun](https://img.shields.io/badge/Repo-NemoKing1210%2Fggrun-181717?logo=github)
+![Stack: Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js)
+![Issues](https://img.shields.io/github/issues/NemoKing1210/ggrun)
 
 A web platform for a team/competitive gaming event in the HPG genre: seasons
-("runs"), a board of cells, random game rolls, outcomes (passed/drop/reroll),
-dice rolls and movement across the board, a leaderboard, an event feed, and an
-admin console.
-
-**Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) · **Issues & feedback:** [github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues) · **License:** [MIT](./LICENSE)
+("runs"), a board of cells, random game rolls, outcomes (passed/dropped/
+rerolled), dice rolls and movement across the board, a leaderboard, an event
+feed, and an admin console.
 
 ## Stack
 
@@ -24,107 +24,95 @@ admin console.
   `SeasonConfigSchema` from the engine)
 - **Vitest** — unit tests for the domain engine
 
+## Features
+
+### For players
+
+- **Player HQ** (`/dashboard`, signed in): roll a random game from the
+  season pool (blacklisted and already-played games never come up), play it,
+  then mark the outcome — **passed / dropped / reroll**. Rerolls require a
+  reason and are approved by a referee; advancing on the board applies the
+  cell effects (bonus, penalty, teleport, event…) and updates your position,
+  balance and streaks.
+- **Board** (`/board`): the season map — grid and linear views, live
+  in-flight rolls, cell details. **Leaderboard** (`/leaderboard`): standings
+  by position and balance. **Feed** (`/feed`): the live event log with
+  filters (rolls, passes, drops, moves, joins).
+- **Rules** (`/rules`): the current season's rules, written in Markdown by
+  the organizers.
+- **Seasons** (`/seasons`): the archive of past and current runs with an
+  active-season spotlight; a detailed page per season under
+  `/seasons/[slug]`.
+- **Profile** (`/settings`): avatar (square crop) and wide banner (3:1),
+  bio, external-profile links (Twitch/Steam/Discord/…), personal accent
+  color and site language. Public profile at `/players/[username]`.
+
+### For organizers (admin console, `/admin`)
+
+- **Overview**: platform stats, the active season, quick actions.
+- **Seasons** (`/admin/seasons`): create a run (slug auto-generated,
+  board can be cloned from a previous run), and drive its lifecycle
+  `draft → active → paused → finished → archived` (activating resets
+  participants).
+- **Season editor** — per season, three tabs:
+  - **Settings** (`/admin/seasons/[id]`): dice (sides, pass/drop dice
+    counts, streak multiplier), points/balance rules, board size & loop,
+    reroll limits, game-pool source/provider, and the /rules Markdown.
+  - **Board** (`/admin/seasons/[id]/board`): edit every cell — type
+    (start/finish/penalty/bonus/event/teleport/custom), label and amount.
+  - **Players** (`/admin/seasons/[id]/players`): add participants (with
+    live user search), edit position/balance/status inline, and remove
+    players — every change requires a reason and lands in the audit log.
+- **Users** (`/admin/users`): list users, block/unblock, delete, and manage
+  roles (admin/judge — judges cannot touch user management).
+- **Games catalog** (`/admin/games`): add games manually, **import by store
+  URL** (Steam, GOG, Epic, itch.io, Humble — no API key needed), search
+  external APIs (RAWG/IGDB/Steam/GameSpot with keys), blacklist games per
+  season, and run bulk operations in the pool.
+- **Moderation** (`/admin/moderation`): approve/reject pending reroll
+  requests and game-completion requests, each with a required reason.
+- **Audit log** (`/admin/audit`): every staff mutation with search,
+  action-type filters and time periods.
+- **Site settings** (`/admin/settings`): global site settings and API
+  provider integrations (RAWG/IGDB/Steam/GameSpot keys, outbound proxy) —
+  configurable there or via environment variables.
+
 ## Quick start
 
 ```bash
-# clone
 git clone https://github.com/NemoKing1210/ggrun.git
 cd ggrun
-
 pnpm install
+
+cp .env.example .env        # fill in DATABASE_URL, AUTH_SECRET, ...
+pnpm db:setup               # schema + demo season + first admin
+pnpm dev                    # http://localhost:3000
 ```
 
-See [Running locally](#running-locally) for full setup.
+Local development: [`DEVELOPMENT.md`](./DEVELOPMENT.md) ·
+Production deploy: [`DEPLOYMENT.md`](./DEPLOYMENT.md)
 
-## Architecture
+## Documentation
 
-```
-presentation   → app/            pages, thin server actions
-application    → lib/use-cases/  orchestration (validate → domain → persist)
-domain         → lib/engine/    pure TS without next/react/drizzle/pg (game rules)
-infrastructure → lib/repositories/, lib/db.ts, lib/auth/
-```
-
-The domain (`lib/engine/`) knows nothing about the DB or HTTP — it can be
-reused in a bot/CLI without changes. Random numbers are generated server-side
-only; the client cannot fake a roll.
-
-## Running locally
-
-1. PostgreSQL 17 (in OSPanel — the PostgreSQL-17 module listens on
-   `127.127.126.56:5432`, database `ggrun`). Configure `DATABASE_URL` in
-   `.env`.
-2. Install and migrate:
-
-   ```bash
-   pnpm install
-   pnpm drizzle-kit push        # apply the schema (or pnpm drizzle-kit generate)
-   ```
-
-3. Demo data (season run-1, a 40-cell board, 8 games):
-
-   ```bash
-   pnpm exec tsx scripts/seed-demo.ts
-   ```
-
-4. First administrator (reads BOOTSTRAP_ADMIN_EMAIL/PASSWORD from `.env`):
-
-   ```bash
-   pnpm exec tsx scripts/bootstrap-admin.ts
-   ```
-
-5. Dev server:
-
-   ```bash
-   pnpm dev                      # http://localhost:3000
-   ```
+| Doc | What it covers |
+| --- | --- |
+| [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Architecture, commands, code conventions, testing, releases |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Docker Compose & manual production deployment, env reference, troubleshooting |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | How to report issues and submit pull requests |
+| [`DESIGN.md`](./DESIGN.md) | The HUD design system — read it before writing any UI |
+| [`RUNBOOK.md`](./RUNBOOK.md) | Step-by-step host guide for event day |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Release history (Keep a Changelog) |
 
 ## Environment variables
 
-See [.env.example](./.env.example). Secrets are not committed.
+See [`.env.example`](./.env.example) — secrets are never committed. The full
+reference lives in [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
-## Scripts
+## License
 
-| Command            | Purpose                       |
-| ------------------ | ----------------------------- |
-| `pnpm dev`         | Next.js dev server            |
-| `pnpm build`       | production build              |
-| `pnpm lint`        | ESLint                        |
-| `pnpm test`        | Vitest (engine unit tests)    |
-| `pnpm drizzle-kit` | schema migrations             |
+[MIT](./LICENSE) — see the license file for details.
 
-## Structure
-
-```
-app/                  public pages, /dashboard, /admin
-components/           HUD components (board, dice, dashboard, admin, ui, layout)
-lib/engine/          pure domain: dice, movement, roll FSM, cell effects
-lib/db.ts             Drizzle + pg pool
-lib/repositories/     data access
-lib/use-cases/        resolve-game-roll, admin, users, auth (+ *-actions.ts server actions)
-db/schema.ts          DB schema (the source of truth for types)
-drizzle/              SQL migrations
-scripts/              bootstrap-admin.ts, seed-demo.ts
-```
-
-## Extensibility
-
-New mechanics are added via the cell-effect plugin registry
-(`lib/engine/cell-effects.ts`, key — the cell type or
-`cell.config.effectKey`), via the season config (`seasons.config` JSONB,
-validated by Zod), and via separate modules — without rewriting the core.
-See the cell-effect plugin registry description above.
-
-## Author & Links
-
-- **Author:** [NemoKing1210](https://github.com/NemoKing1210) — full profile, other projects and contact via GitHub.
-- **Project repository:** [https://github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) — clone, fork and star the repo.
-- **Issue tracker:** [https://github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues) — bug reports, feature requests and questions.
-- **Releases & changelog:** [https://github.com/NemoKing1210/ggrun/releases](https://github.com/NemoKing1210/ggrun/releases) and [CHANGELOG.md](./CHANGELOG.md).
-- **License:** [MIT](./LICENSE) — Copyright (c) 2026 NemoKing1210.
-
-If you use GGRun in your own event, a star on GitHub is appreciated.
-
-## Contributing
-
-Issues and pull requests are welcome at [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun). Please follow the guidelines in [AGENTS.md](./AGENTS.md) and keep `pnpm lint` + `pnpm exec tsc --noEmit` + `pnpm test` + `pnpm build` green.
+Found a bug or have an idea? Open an issue at
+[github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues)
+or follow [`CONTRIBUTING.md`](./CONTRIBUTING.md). If you use GGRun in your own
+event, a star on GitHub is appreciated.

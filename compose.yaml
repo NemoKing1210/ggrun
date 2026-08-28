@@ -1,0 +1,69 @@
+# =============================================================================
+# GGRun — quick local deployment
+#
+#   docker compose up --build
+#
+# Brings up PostgreSQL 17 + the app. On first boot the app container waits
+# for Postgres, applies the schema (db:push), then optionally seeds demo data
+# and creates the first admin, and finally serves the site on :3000.
+#
+# Configuration comes from the project `.env` (compose interpolates ${VAR}
+# from it automatically) — docker-specific defaults are shown below.
+# See docker/env.example for a full template.
+# =============================================================================
+
+name: ggrun
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ggrun}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ggrun}
+      POSTGRES_DB: ${POSTGRES_DB:-ggrun}
+    ports:
+      # Host port 5433 by default to avoid clashing with a local OSPanel
+      # PostgreSQL already listening on 5432.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      args:
+        # Inlined into the client bundle at build time.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    environment:
+      # The container's Postgres — overrides any DATABASE_URL from .env.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ggrun}:${POSTGRES_PASSWORD:-ggrun}@db:5432/${POSTGRES_DB:-ggrun}
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      # Optional: seed a demo season (run-1, 40-cell board, sample catalog).
+      SEED_DEMO: ${SEED_DEMO:-false}
+      # Optional: create/promote the first admin on boot.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      # Optional external game catalog keys (RAWG/Steam/GameSpot/IGDB, PROXY_URL)
+      RAWG_API_KEY: ${RAWG_API_KEY:-}
+      STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY:-}
+      GAMESPOT_API_KEY: ${GAMESPOT_API_KEY:-}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+      PROXY_URL: ${PROXY_URL:-}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
