@@ -10,6 +10,7 @@ import {
   CubeIcon,
   FlagIcon,
   StarIcon,
+  UserMinusIcon,
   UserPlusIcon,
   WrenchScrewdriverIcon,
   XCircleIcon,
@@ -55,6 +56,8 @@ function eventMeta(type: string): { variant: Variant; Icon: React.ComponentType<
       return { variant: "sky", Icon: ArrowsRightLeftIcon, label: type };
     case "player_joined":
       return { variant: "violet", Icon: UserPlusIcon, label: type };
+    case "player_left":
+      return { variant: "danger", Icon: UserMinusIcon, label: type };
     case "season_started":
       return { variant: "amber", Icon: FlagIcon, label: type };
     case "admin_adjustment":
@@ -174,6 +177,13 @@ function EventLine({ entry, t }: { entry: FeedRow; t: Dictionary["feed"] }) {
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
           {t.actions.joined}
+        </>
+      );
+    case "player_left":
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.left}
         </>
       );
     case "admin_adjustment": {

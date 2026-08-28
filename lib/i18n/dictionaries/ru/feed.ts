@@ -16,6 +16,7 @@ export const feed: Widen<typeof FeedEn.feed> = {
     dropped: " дропнул игру",
     movedFrom: ": клетка {from} → ",
     joined: " присоединился к сезону",
+    left: " покинул сезон",
   },
   diceSuffix: "(кубики {dice})",
   diceLabel: "кубики",

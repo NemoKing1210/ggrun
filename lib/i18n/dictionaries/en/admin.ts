@@ -12,6 +12,7 @@ export const admin = {
   cellSaved: "Cell {position} updated",
   playerAdded: "Participant added",
   adjustmentApplied: "Adjustment applied",
+  playerRemoved: "Participant removed",
   gameAdded: "Game “{title}” added",
  },
 
@@ -26,6 +27,13 @@ export const admin = {
   moderation: "Moderation",
   settings: "Settings",
   backToSite: "Site",
+ },
+
+ /** Season editor tabs. */
+ seasonTabs: {
+  settings: "Settings",
+  board: "Board",
+  players: "Players",
  },
 
  /** Dashboard /admin. */
@@ -368,6 +376,14 @@ export const admin = {
   sortedByPosition: "sorted by position",
   noParticipants: "No participants yet",
   addUsersHint: "Add users above to start the run.",
+  searchLabel: "Find user",
+  filterUsersPlaceholder: "Type to filter…",
+  removeButton: "Remove",
+  removeConfirm: "Remove {name} from the season? Their moves, rolls and balance entries will be deleted.",
+  poolTitle: "Roster",
+  colPlayer: "Player",
+  colStreaks: "Streaks",
+  colActions: "Actions",
  },
 
  /** Games catalog (/admin/games). */

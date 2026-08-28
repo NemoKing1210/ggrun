@@ -98,95 +98,101 @@ export function SeasonCard({
     >
       {isCurrent && <div className="h-1 w-full bg-amber" aria-hidden />}
       {/* Header */}
-      <div className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex size-6 items-center justify-center bg-raised border border-[#3d3d34] text-dim group-hover:text-amber group-hover:border-amber/30 transition-colors [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                <FlagIcon className="size-3.5" aria-hidden />
-              </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">/{season.slug}</span>
-              {isCurrent && (
-                <span className="inline-flex items-center gap-1 border border-amber bg-amber/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber">
-                  <span className="size-1 bg-amber animate-pulse [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
-                  {t.seasons.detail.currentBadge}
+      <div className="p-4 sm:p-5 lg:flex lg:items-start lg:gap-8">
+        {/* Identity column */}
+        <div className="min-w-0 lg:flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex size-6 items-center justify-center bg-raised border border-[#3d3d34] text-dim group-hover:text-amber group-hover:border-amber/30 transition-colors [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                  <FlagIcon className="size-3.5" aria-hidden />
                 </span>
-              )}
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-dim">/{season.slug}</span>
+                {isCurrent && (
+                  <span className="inline-flex items-center gap-1 border border-amber bg-amber/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber">
+                    <span className="size-1 bg-amber animate-pulse [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                    {t.seasons.detail.currentBadge}
+                  </span>
+                )}
+              </div>
+              <h3 className="mt-2 line-clamp-1 font-display text-xl uppercase tracking-wide leading-none group-hover:text-amber transition-colors lg:text-2xl">
+                {season.title}
+              </h3>
             </div>
-            <h3 className="mt-2 line-clamp-1 font-display text-xl uppercase tracking-wide leading-none group-hover:text-amber transition-colors">
-              {season.title}
-            </h3>
+            <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
           </div>
-          <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+
+          {/* Top player + board bar */}
+          {stats?.topPlayerName ? (
+            <div className="mt-3 flex items-center gap-2 border border-amber/20 bg-amber/5 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              <TrophyIcon className="size-3.5 text-amber shrink-0" aria-hidden />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.topPlayer}</span>
+              <span className="ml-auto truncate font-mono text-xs text-amber">{stats.topPlayerName}</span>
+            </div>
+          ) : stats ? (
+            <div className="mt-3 border border-dashed border-dim/20 bg-background/20 px-2.5 py-2 text-center font-mono text-xs text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              {t.seasons.overview.noPlayers}
+            </div>
+          ) : null}
+
+          {stats?.boardCells && stats.boardCells.length > 0 && (
+            <div className="mt-3">
+              <CellDistributionBar cells={stats.boardCells} />
+              <div className="mt-1 flex justify-between font-mono text-[10px] uppercase tracking-widest text-dim">
+                <span>{timeFmt.format(season.startedAt ?? new Date())}</span>
+                <span>{stats.cells} cells</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Dates row */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="border border-[#2a2a22] bg-[#1a1a18] p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-            <div className="flex items-center justify-center gap-1 font-mono text-[10px] uppercase tracking-widest text-dim">
-              <ClockIcon className="size-3" aria-hidden /> {t.seasons.card.startedAt}
+        {/* Data column */}
+        <div className="mt-4 lg:mt-0 lg:w-[420px] lg:shrink-0">
+          {/* Dates row */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="border border-[#2a2a22] bg-[#1a1a18] p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              <div className="flex items-center justify-center gap-1 font-mono text-[10px] uppercase tracking-widest text-dim">
+                <ClockIcon className="size-3" aria-hidden /> {t.seasons.card.startedAt}
+              </div>
+              <div className="mt-1 font-mono text-xs leading-none">{started}</div>
             </div>
-            <div className="mt-1 font-mono text-xs leading-none">{started}</div>
+            <div className="border border-[#2a2a22] bg-[#1a1a18] p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.finishedAt}</div>
+              <div className="mt-1 font-mono text-xs leading-none">{finished}</div>
+            </div>
+            <div className={`border p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${isActive ? "border-amber/30 bg-amber/10" : isPaused ? "border-dim/30 bg-raised" : "border-[#2a2a22] bg-[#1a1a18]"}`}>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.duration}</div>
+              <div className="mt-1 font-mono text-xs leading-none text-amber">{duration}</div>
+            </div>
           </div>
-          <div className="border border-[#2a2a22] bg-[#1a1a18] p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.finishedAt}</div>
-            <div className="mt-1 font-mono text-xs leading-none">{finished}</div>
-          </div>
-          <div className={`border p-2.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${isActive ? "border-amber/30 bg-amber/10" : isPaused ? "border-dim/30 bg-raised" : "border-[#2a2a22] bg-[#1a1a18]"}`}>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.duration}</div>
-            <div className="mt-1 font-mono text-xs leading-none text-amber">{duration}</div>
-          </div>
+
+          {/* Stats pills */}
+          {stats && (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                <UsersIcon className="size-3.5 text-dim shrink-0" aria-hidden />
+                <div className="min-w-0">
+                  <div className="ammo-counter text-sm leading-none text-foreground">{stats.participants}</div>
+                  <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.overview.statPlayers}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                <MapIcon className="size-3.5 text-dim shrink-0" aria-hidden />
+                <div className="min-w-0">
+                  <div className="ammo-counter text-sm leading-none text-foreground">{stats.cells}</div>
+                  <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.card.cells.replace("{count}", "").trim()}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                <SignalIcon className="size-3.5 text-dim shrink-0" aria-hidden />
+                <div className="min-w-0">
+                  <div className="ammo-counter text-sm leading-none text-foreground">{stats.moves ?? 0}</div>
+                  <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.overview.statMoves}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Stats pills */}
-        {stats && (
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-              <UsersIcon className="size-3.5 text-dim shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <div className="ammo-counter text-sm leading-none text-foreground">{stats.participants}</div>
-                <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.overview.statPlayers}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-              <MapIcon className="size-3.5 text-dim shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <div className="ammo-counter text-sm leading-none text-foreground">{stats.cells}</div>
-                <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.card.cells.replace("{count}", "").trim()}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 border border-dim/20 bg-raised/40 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-              <SignalIcon className="size-3.5 text-dim shrink-0" aria-hidden />
-              <div className="min-w-0">
-                <div className="ammo-counter text-sm leading-none text-foreground">{stats.moves ?? 0}</div>
-                <div className="font-mono text-[10px] uppercase leading-none tracking-widest text-dim truncate">{t.seasons.overview.statMoves}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Top player + board bar */}
-        {stats?.topPlayerName ? (
-          <div className="mt-3 flex items-center gap-2 border border-amber/20 bg-amber/5 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-            <TrophyIcon className="size-3.5 text-amber shrink-0" aria-hidden />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.topPlayer}</span>
-            <span className="ml-auto truncate font-mono text-xs text-amber">{stats.topPlayerName}</span>
-          </div>
-        ) : stats ? (
-          <div className="mt-3 border border-dashed border-dim/20 bg-background/20 px-2.5 py-2 text-center font-mono text-xs text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-            {t.seasons.overview.noPlayers}
-          </div>
-        ) : null}
-
-        {stats?.boardCells && stats.boardCells.length > 0 && (
-          <div className="mt-3">
-            <CellDistributionBar cells={stats.boardCells} />
-            <div className="mt-1 flex justify-between font-mono text-[10px] uppercase tracking-widest text-dim">
-              <span>{timeFmt.format(season.startedAt ?? new Date())}</span>
-              <span>{stats.cells} cells</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Footer actions */}

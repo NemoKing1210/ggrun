@@ -13,6 +13,7 @@ export type EventType =
   | "moved"
   | "season_started"
   | "player_joined"
+  | "player_left"
   | "admin_adjustment"
   | "season_reset";
 export async function logEvent(entry: {

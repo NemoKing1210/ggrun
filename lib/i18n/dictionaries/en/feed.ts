@@ -14,6 +14,7 @@ export const feed = {
     dropped: " dropped the game",
     movedFrom: ": cell {from} → ",
     joined: " joined the season",
+    left: " left the season",
   },
   diceSuffix: "(dice {dice})",
   diceLabel: "dice",

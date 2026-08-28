@@ -8,5 +8,9 @@ export const toError = makeToError(AdminError);
 export function revalidateAdmin(seasonId?: string): void {
   revalidatePath("/admin");
   revalidatePath("/admin/seasons");
-  if (seasonId) revalidatePath(`/admin/seasons/${seasonId}`);
+  if (seasonId) {
+    revalidatePath(`/admin/seasons/${seasonId}`);
+    revalidatePath(`/admin/seasons/${seasonId}/board`);
+    revalidatePath(`/admin/seasons/${seasonId}/players`);
+  }
 }

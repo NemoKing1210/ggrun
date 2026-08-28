@@ -209,7 +209,7 @@ export function SeasonsArchiveClient({
           <p className="mt-2 font-display uppercase tracking-wide text-dim">{t.seasons.archiveEmpty}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4">
           {filtered.map(({ season, stats }) => (
             <SeasonCard key={season.id} season={season} t={t} locale={locale} stats={stats} isCurrent={activeSeason?.id === season.id} />
           ))}

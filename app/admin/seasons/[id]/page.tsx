@@ -4,11 +4,13 @@ import { ArrowPathIcon, CalendarIcon, HashtagIcon, LockClosedIcon, TagIcon, Wren
 
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getActiveSeason, getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { listAvailableProviders } from "@/lib/modules/catalog/providers/keys";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import SeasonSettingsForm from "@/components/admin/SeasonSettingsForm";
+import { SeasonTabs } from "@/components/admin/SeasonTabs";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
@@ -42,11 +44,13 @@ export default async function SeasonSettingsPage({
   const config = parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
   const availableProviders = await listAvailableProviders();
   const activeSeason = await getActiveSeason();
+  const roster = await getLeaderboard(season.id);
   const resetBlocked = activeSeason !== null && activeSeason.id !== season.id && season.status !== "active";
 
   return (
     <div className="flex flex-col gap-6">
       <BackLink href="/admin/seasons" label={t.admin.nav.seasons} />
+      <SeasonTabs seasonId={season.id} active="settings" playerCount={roster.length} />
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

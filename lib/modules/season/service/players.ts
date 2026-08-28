@@ -1,5 +1,5 @@
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
-import { addPlayerToSeason, getSeasonPlayerById, updateSeasonPlayer } from "@/lib/modules/season/repository/players";
+import { addPlayerToSeason, getSeasonPlayerById, getSeasonPlayerForUser, removePlayerFromSeason, updateSeasonPlayer } from "@/lib/modules/season/repository/players";
 import { logAdminAction, logEvent } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
 
@@ -17,6 +17,16 @@ export async function adminAddPlayer(seasonId: string, userId: string): Promise<
   log.info("season.player_added.persisted", { actorId: actor.id, seasonId, userId });
   await logAdminAction({ actorId: actor.id, actionType: "player_added", targetType: "season_player", payload: { seasonId, userId } });
   await logEvent({ seasonId, eventType: "player_joined", payload: { userId } });
+}
+
+export async function adminRemovePlayer(seasonId: string, userId: string): Promise<void> {
+  const actor = await requireStaff();
+  const sp = await getSeasonPlayerForUser(seasonId, userId);
+  if (!sp) throw new AdminError("adminPlayerNotFound");
+  await removePlayerFromSeason(seasonId, userId);
+  log.info("season.player_removed.persisted", { actorId: actor.id, seasonId, userId });
+  await logAdminAction({ actorId: actor.id, actionType: "player_removed", targetType: "season_player", targetId: sp.id, payload: { seasonId, userId } });
+  await logEvent({ seasonId, eventType: "player_left", payload: { userId } });
 }
 
 export async function adminAdjustPlayer(input: {

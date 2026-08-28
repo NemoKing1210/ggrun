@@ -16,6 +16,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   cellSaved: "Клітинку {position} оновлено",
   playerAdded: "Учасника додано",
   adjustmentApplied: "Коригування застосовано",
+  playerRemoved: "Учасника видалено",
   gameAdded: "Гру «{title}» додано",
  },
  /** Admin header navigation. */
@@ -29,6 +30,13 @@ export const admin: Widen<typeof AdminEn.admin> = {
   moderation: "Модерація",
   settings: "Налаштування",
   backToSite: "На сайт",
+ },
+
+ /** Вкладки редактора сезону. */
+ seasonTabs: {
+  settings: "Налаштування",
+  board: "Дошка",
+  players: "Гравці",
  },
 
  /** Dashboard /admin. */
@@ -371,6 +379,14 @@ export const admin: Widen<typeof AdminEn.admin> = {
   sortedByPosition: "відсортовано за позицією",
   noParticipants: "Поки немає учасників",
   addUsersHint: "Додайте користувачів вище щоб почати забіг.",
+  searchLabel: "Пошук користувача",
+  filterUsersPlaceholder: "Введіть текст для фільтра…",
+  removeButton: "Видалити",
+  removeConfirm: "Видалити {name} із сезону? Ходи, роли та записи балансу буде видалено.",
+  poolTitle: "Склад",
+  colPlayer: "Гравець",
+  colStreaks: "Стріки",
+  colActions: "Дії",
  },
 
  /** Games catalog (/admin/games). */

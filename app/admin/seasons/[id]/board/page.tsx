@@ -17,6 +17,7 @@ import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { setBoardCellAction } from "@/lib/modules/season/actions/board";
 import { FormShell } from "@/components/admin/FormShell";
+import { SeasonTabs } from "@/components/admin/SeasonTabs";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
@@ -104,7 +105,8 @@ export default async function BoardEditorPage({
   if (!board) {
     return (
       <div className="flex flex-col gap-6">
-        <BackLink href={`/admin/seasons/${seasonId}`} label={season.title} />
+        <BackLink href="/admin/seasons" label={t.admin.nav.seasons} />
+        <SeasonTabs seasonId={seasonId} active="board" />
         <p className="text-dim">{t.admin.boardEditor.noBoard}</p>
       </div>
     );
@@ -124,7 +126,8 @@ export default async function BoardEditorPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <BackLink href={`/admin/seasons/${seasonId}`} label={season.title} />
+      <BackLink href="/admin/seasons" label={t.admin.nav.seasons} />
+      <SeasonTabs seasonId={seasonId} active="board" />
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>

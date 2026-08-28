@@ -16,6 +16,7 @@ export const admin: Widen<typeof AdminEn.admin> = {
   cellSaved: "Клетка {position} обновлена",
   playerAdded: "Участник добавлен",
   adjustmentApplied: "Корректировка применена",
+  playerRemoved: "Участник удалён",
   gameAdded: "Игра «{title}» добавлена",
  },
  /** Admin header navigation. */
@@ -29,6 +30,13 @@ export const admin: Widen<typeof AdminEn.admin> = {
   moderation: "Модерация",
   settings: "Настройки",
   backToSite: "На сайт",
+ },
+
+ /** Вкладки редактора сезона. */
+ seasonTabs: {
+  settings: "Настройки",
+  board: "Доска",
+  players: "Игроки",
  },
 
  /** Dashboard /admin. */
@@ -371,6 +379,14 @@ export const admin: Widen<typeof AdminEn.admin> = {
   sortedByPosition: "отсортировано по позиции",
   noParticipants: "Пока нет участников",
   addUsersHint: "Добавьте пользователей выше чтобы начать забег.",
+  searchLabel: "Поиск пользователя",
+  filterUsersPlaceholder: "Введите текст для фильтра…",
+  removeButton: "Удалить",
+  removeConfirm: "Удалить {name} из сезона? Ходы, роллы и записи баланса будут удалены.",
+  poolTitle: "Состав",
+  colPlayer: "Игрок",
+  colStreaks: "Стрики",
+  colActions: "Действия",
  },
 
  /** Games catalog (/admin/games). */
