@@ -15,6 +15,7 @@ export async function approveRerollAction(
 ): Promise<AdminFormState> {
   const actor = await getCurrentUser();
   const requestId = formData.get("requestId");
+  const userId = formData.get("userId");
   if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
   try {
     await approveRerollRequest(requestId);
@@ -28,6 +29,7 @@ export async function approveRerollAction(
   revalidatePath("/admin/moderation");
   revalidatePath("/dashboard");
   revalidatePath("/board");
+  if (typeof userId === "string") revalidatePath(`/admin/users/${userId}`);
   return { ok: "approved" };
 }
 
@@ -38,6 +40,7 @@ export async function rejectRerollAction(
   const actor = await getCurrentUser();
   const requestId = formData.get("requestId");
   const adminNote = formData.get("adminNote");
+  const userId = formData.get("userId");
   if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
   if (typeof adminNote !== "string" || !adminNote.trim())
     return { error: "Reason required" };
@@ -52,6 +55,7 @@ export async function rejectRerollAction(
   }
   revalidatePath("/admin/moderation");
   revalidatePath("/dashboard");
+  if (typeof userId === "string") revalidatePath(`/admin/users/${userId}`);
   return { ok: "rejected" };
 }
 
@@ -63,6 +67,7 @@ export async function approveCompletionAction(
 ): Promise<AdminFormState> {
   const actor = await getCurrentUser();
   const requestId = formData.get("requestId");
+  const userId = formData.get("userId");
   if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
   try {
     const { approveCompletionRequest } = await import("@/lib/modules/game");
@@ -76,6 +81,7 @@ export async function approveCompletionAction(
   revalidatePath("/dashboard");
   revalidatePath("/board");
   revalidatePath("/feed");
+  if (typeof userId === "string") revalidatePath(`/admin/users/${userId}`);
   return { ok: "approved" };
 }
 
@@ -86,6 +92,7 @@ export async function rejectCompletionAction(
   const actor = await getCurrentUser();
   const requestId = formData.get("requestId");
   const adminNote = formData.get("adminNote");
+  const userId = formData.get("userId");
   if (typeof requestId !== "string" || !requestId) return { error: "Missing request" };
   if (typeof adminNote !== "string" || !adminNote.trim()) return { error: "Reason required" };
   try {
@@ -98,5 +105,6 @@ export async function rejectCompletionAction(
   revalidatePath("/admin/moderation");
   revalidatePath("/admin/completions");
   revalidatePath("/dashboard");
+  if (typeof userId === "string") revalidatePath(`/admin/users/${userId}`);
   return { ok: "rejected" };
 }

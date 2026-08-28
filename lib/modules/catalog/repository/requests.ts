@@ -7,6 +7,7 @@ import {
   gamesCatalog,
   rerollRequests,
   seasonPlayers,
+  seasons,
   users,
   type CompletionRequest,
   type RerollRequest,
@@ -49,6 +50,36 @@ export type PendingRerollRow = RerollRequest & {
   seasonTitle: string | null;
 };
 
+/** All reroll requests of one user (any status), newest first, for the admin user page. */
+export type UserRerollRequestRow = RerollRequest & {
+  seasonId: string;
+  gameTitle: string | null;
+  seasonTitle: string | null;
+};
+
+export async function listUserRerollRequests(userId: string, limit = 30): Promise<UserRerollRequestRow[]> {
+  const rows = await db
+    .select({
+      request: rerollRequests,
+      seasonId: seasonPlayers.seasonId,
+      gameTitle: gamesCatalog.title,
+      seasonTitle: seasons.title,
+    })
+    .from(rerollRequests)
+    .innerJoin(seasonPlayers, eq(seasonPlayers.id, rerollRequests.seasonPlayerId))
+    .innerJoin(seasons, eq(seasons.id, seasonPlayers.seasonId))
+    .leftJoin(gameRolls, eq(gameRolls.id, rerollRequests.gameRollId))
+    .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+    .where(eq(seasonPlayers.playerId, userId))
+    .orderBy(desc(rerollRequests.requestedAt))
+    .limit(limit);
+  return rows.map((r) => ({
+    ...r.request,
+    seasonId: r.seasonId,
+    gameTitle: r.gameTitle ?? null,
+    seasonTitle: r.seasonTitle ?? null,
+  }));
+}
 export async function createCompletionRequest(
   seasonPlayerId: string,
   gameRollId: string,
@@ -95,6 +126,36 @@ export type PendingCompletionRow = CompletionRequest & {
   seasonTitle: string | null;
 };
 
+/** All completion requests of one user (any status), newest first, for the admin user page. */
+export type UserCompletionRequestRow = CompletionRequest & {
+  seasonId: string;
+  gameTitle: string | null;
+  seasonTitle: string | null;
+};
+
+export async function listUserCompletionRequests(userId: string, limit = 30): Promise<UserCompletionRequestRow[]> {
+  const rows = await db
+    .select({
+      request: completionRequests,
+      seasonId: seasonPlayers.seasonId,
+      gameTitle: gamesCatalog.title,
+      seasonTitle: seasons.title,
+    })
+    .from(completionRequests)
+    .innerJoin(seasonPlayers, eq(seasonPlayers.id, completionRequests.seasonPlayerId))
+    .innerJoin(seasons, eq(seasons.id, seasonPlayers.seasonId))
+    .leftJoin(gameRolls, eq(gameRolls.id, completionRequests.gameRollId))
+    .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+    .where(eq(seasonPlayers.playerId, userId))
+    .orderBy(desc(completionRequests.requestedAt))
+    .limit(limit);
+  return rows.map((r) => ({
+    ...r.request,
+    seasonId: r.seasonId,
+    gameTitle: r.gameTitle ?? null,
+    seasonTitle: r.seasonTitle ?? null,
+  }));
+}
 export async function listPendingCompletionRequests(): Promise<PendingCompletionRow[]> {
   const rows = await db
     .select({

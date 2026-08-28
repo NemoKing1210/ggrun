@@ -7,7 +7,11 @@ import { ArrowLeftIcon, Bars3Icon, CommandLineIcon, XMarkIcon } from "@heroicons
 
 import { logoutAction } from "@/lib/modules/auth/actions/logout";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { format } from "@/lib/i18n/format";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { Badge } from "@/components/ui/Badge";
+
+const MODERATION_HREF = "/admin/moderation";
 
 const isActive = (pathname: string, href: string): boolean =>
   pathname === href ||
@@ -20,12 +24,14 @@ const isActive = (pathname: string, href: string): boolean =>
  */
 export function AdminHeader({
   navLinks,
+  moderationPending = 0,
   userName,
   userAvatar,
   username,
   t,
 }: {
   navLinks: Array<{ href: string; label: string }>;
+  moderationPending?: number;
   userName: string;
   userAvatar?: string | null;
   username: string;
@@ -99,6 +105,16 @@ export function AdminHeader({
                   }`}
                 >
                   {l.label}
+                  {l.href === MODERATION_HREF && moderationPending > 0 && (
+                    <Badge
+                      variant="amber"
+                      size="sm"
+                      className="ml-2 !px-1.5 !py-px font-mono text-[10px] leading-none"
+                      title={format(t.admin.moderation.pendingCount, { count: String(moderationPending) })}
+                    >
+                      {moderationPending}
+                    </Badge>
+                  )}
                 </Link>
               );
             })}
@@ -132,6 +148,16 @@ export function AdminHeader({
                       }`}
                     >
                       {l.label}
+                      {l.href === MODERATION_HREF && moderationPending > 0 && (
+                        <Badge
+                          variant="amber"
+                          size="sm"
+                          className="ml-2 !px-1.5 !py-px font-mono text-[10px] leading-none"
+                          title={format(t.admin.moderation.pendingCount, { count: String(moderationPending) })}
+                        >
+                          {moderationPending}
+                        </Badge>
+                      )}
                     </Link>
                   </li>
                 );

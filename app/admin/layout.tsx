@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
+import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -18,6 +19,12 @@ export default async function AdminLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "admin" && user.role !== "judge") redirect("/");
+
+  const [pendingRerolls, pendingCompletions] = await Promise.all([
+    listPendingRerollRequests(),
+    listPendingCompletionRequests(),
+  ]);
+  const moderationPending = pendingRerolls.length + pendingCompletions.length;
 
   const adminNav = [
     { href: "/admin", label: t.admin.nav.dashboard },
@@ -38,6 +45,7 @@ export default async function AdminLayout({
       <div className="hazard-tape" aria-hidden />
       <AdminHeader
         navLinks={adminNav}
+        moderationPending={moderationPending}
         userName={user.displayName ?? user.username}
         userAvatar={user.avatarUrl}
         username={user.username}

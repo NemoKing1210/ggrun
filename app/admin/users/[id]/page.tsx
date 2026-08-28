@@ -9,9 +9,13 @@ import {
   listUserSeasons,
   listUserSessions,
 } from "@/lib/modules/player/service";
+import {
+  listUserCompletionRequests,
+  listUserRerollRequests,
+} from "@/lib/modules/catalog/repository/requests";
 import { UserDetailPage, type UserTab } from "@/components/admin/UserDetailPage";
 
-const TABS: UserTab[] = ["profile", "data", "sessions", "activity", "gameplay"];
+const TABS: UserTab[] = ["profile", "data", "sessions", "activity", "gameplay", "moderation"];
 
 export async function generateMetadata({
   params,
@@ -40,11 +44,13 @@ export default async function AdminUserDetailPage({
   const user = await getUserById(id);
   if (!user) notFound();
 
-  const [sessions, audit, seasons, rolls] = await Promise.all([
+  const [sessions, audit, seasons, rolls, rerollRequests, completionRequests] = await Promise.all([
     listUserSessions(id),
     listUserAuditTrail(id),
     listUserSeasons(id),
     listUserRolls(id),
+    listUserRerollRequests(id),
+    listUserCompletionRequests(id),
   ]);
   const activeTab: UserTab = TABS.includes(tab as UserTab) ? (tab as UserTab) : "profile";
 
@@ -57,6 +63,7 @@ export default async function AdminUserDetailPage({
       audit={audit}
       seasons={seasons}
       rolls={rolls}
+      requests={{ rerolls: rerollRequests, completions: completionRequests }}
     />
   );
 }

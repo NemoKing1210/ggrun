@@ -5,10 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
+  ArrowPathIcon,
   CheckIcon,
   ClipboardDocumentIcon,
   ClockIcon,
   DevicePhoneMobileIcon,
+  FilmIcon,
   IdentificationIcon,
   LinkIcon,
   NoSymbolIcon,
@@ -24,6 +26,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/ui/status";
+import { Textarea } from "@/components/ui/Textarea";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { actionMeta, payloadSummary } from "@/components/admin/audit-meta";
@@ -34,6 +37,12 @@ import {
   revokeSessionAction,
   updateUserAction,
 } from "@/lib/modules/player/actions";
+import {
+  approveCompletionAction,
+  approveRerollAction,
+  rejectCompletionAction,
+  rejectRerollAction,
+} from "@/lib/modules/moderation/actions/moderation";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import { getAccent } from "@/lib/shared/ui/accent";
@@ -44,8 +53,18 @@ import type {
   AdminUserRollRow,
   AdminUserSeasonRow,
 } from "@/lib/modules/player/service/admin";
+import type {
+  UserCompletionRequestRow,
+  UserRerollRequestRow,
+} from "@/lib/modules/catalog/repository/requests";
 
-export type UserTab = "profile" | "data" | "sessions" | "activity" | "gameplay";
+export type UserTab = "profile" | "data" | "sessions" | "activity" | "gameplay" | "moderation";
+
+/** Server action shape accepted by FormShell (admin form state). */
+type FormShellAction = (
+  prev: import("@/lib/use-cases/admin/actions/types").AdminFormState,
+  formData: FormData,
+) => Promise<import("@/lib/use-cases/admin/actions/types").AdminFormState>;
 
 const TABS: Array<{ key: UserTab; icon: typeof ClockIcon }> = [
   { key: "profile", icon: PencilSquareIcon },
@@ -53,6 +72,7 @@ const TABS: Array<{ key: UserTab; icon: typeof ClockIcon }> = [
   { key: "sessions", icon: DevicePhoneMobileIcon },
   { key: "activity", icon: ClockIcon },
   { key: "gameplay", icon: Squares2X2Icon },
+  { key: "moderation", icon: ShieldCheckIcon },
 ];
 
 const roles = ["admin", "judge", "player", "viewer"] as const;
@@ -113,6 +133,7 @@ export function UserDetailPage({
   audit,
   seasons,
   rolls,
+  requests,
 }: {
   user: User;
   actor: { id: string; username: string };
@@ -121,6 +142,7 @@ export function UserDetailPage({
   audit: AdminUserAuditRow[];
   seasons: AdminUserSeasonRow[];
   rolls: AdminUserRollRow[];
+  requests: { rerolls: UserRerollRequestRow[]; completions: UserCompletionRequestRow[] };
 }) {
   const { t } = useI18n();
   const u = t.admin.users;
@@ -168,6 +190,7 @@ export function UserDetailPage({
     sessions: u.tabSessions,
     activity: u.tabActivity,
     gameplay: u.tabGameplay,
+    moderation: u.tabModeration,
   };
 
   return (
@@ -295,6 +318,14 @@ export function UserDetailPage({
       {activeTab === "activity" && <ActivityPanel audit={audit} dateFmt={dateFmt} />}
       {activeTab === "gameplay" && (
         <GameplayPanel seasons={seasons} rolls={rolls} dayFmt={dayFmt} dateFmt={dateFmt} />
+      )}
+      {activeTab === "moderation" && (
+        <ModerationPanel
+          requests={requests}
+          playerName={name}
+          userId={user.id}
+          dateFmt={dateFmt}
+        />
       )}
     </div>
   );
@@ -853,5 +884,251 @@ function GameplayPanel({
         )}
       </section>
     </div>
+  );
+}
+
+/* ---------------------------- Moderation tab ----------------------------- */
+
+type RequestStatus = "pending" | "approved" | "rejected";
+
+/** Status chip for a moderation request — amber pulse / military / danger. */
+function RequestStatusChip({
+  status,
+  pendingLabel,
+  approvedLabel,
+  rejectedLabel,
+}: {
+  status: RequestStatus;
+  pendingLabel: string;
+  approvedLabel: string;
+  rejectedLabel: string;
+}) {
+  if (status === "approved") return <Badge variant="military" size="sm">{approvedLabel}</Badge>;
+  if (status === "rejected") return <Badge variant="danger" size="sm">{rejectedLabel}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1.5 border border-amber/40 bg-amber/10 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+      <span className="size-1.5 animate-pulse bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+      {pendingLabel}
+    </span>
+  );
+}
+
+/** Approve / reject mini-panels for one pending request (also revalidates the user page). */
+function RequestActions({
+  requestId,
+  userId,
+  approveAction,
+  rejectAction,
+  approveLabel,
+  rejectLabel,
+  approveConfirm,
+  rejectPlaceholder,
+}: {
+  requestId: string;
+  userId: string;
+  approveAction: FormShellAction;
+  rejectAction: FormShellAction;
+  approveLabel: string;
+  rejectLabel: string;
+  approveConfirm: string;
+  rejectPlaceholder: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <FormShell
+        action={approveAction}
+        submitLabel={approveLabel}
+        submitClassName="hud-btn hud-btn-primary w-full"
+        className="flex flex-col gap-2"
+      >
+        <input type="hidden" name="requestId" value={requestId} />
+        <input type="hidden" name="userId" value={userId} />
+        <p className="text-xs leading-relaxed text-dim">{approveConfirm}</p>
+      </FormShell>
+      <FormShell
+        action={rejectAction}
+        submitLabel={rejectLabel}
+        submitClassName="hud-btn hud-btn-danger w-full"
+        className="flex flex-col gap-2"
+      >
+        <input type="hidden" name="requestId" value={requestId} />
+        <input type="hidden" name="userId" value={userId} />
+        <Textarea name="adminNote" required minLength={5} rows={2} placeholder={rejectPlaceholder} aria-label={t.core.common.reason} />
+      </FormShell>
+    </div>
+  );
+}
+
+/** Moderation requests of this user — same approve/reject flow as /admin/moderation. */
+function ModerationPanel({
+  requests,
+  playerName,
+  userId,
+  dateFmt,
+}: {
+  requests: { rerolls: UserRerollRequestRow[]; completions: UserCompletionRequestRow[] };
+  playerName: string;
+  userId: string;
+  dateFmt: Intl.DateTimeFormat;
+}) {
+  const { t } = useI18n();
+  const u = t.admin.users;
+  const m = t.admin.moderation;
+  const c = t.admin.completions;
+
+  return (
+    <section className="hud-card p-4">
+      <div className="mb-1 flex items-center gap-2">
+        <ShieldCheckIcon className="h-5 w-5 text-amber" aria-hidden />
+        <h2 className="font-display text-lg uppercase tracking-wider">
+          {u.tabModeration}
+          <span className="ml-2 font-mono text-xs tracking-widest text-dim">
+            [{requests.rerolls.length + requests.completions.length}]
+          </span>
+        </h2>
+      </div>
+      <p className="font-mono text-xs tracking-widest text-dim">{u.moderation.hint}</p>
+      <div className="hazard-tape my-3 opacity-60" aria-hidden />
+
+      <div className="flex flex-col gap-6">
+        {/* Reroll requests */}
+        <div>
+          <h3 className="inline-flex items-center gap-2 font-display text-sm uppercase tracking-widest text-zinc-300">
+            <ArrowPathIcon className="size-4 text-amber" aria-hidden />
+            {c.tabs.rerolls}
+            <span className="font-mono text-xs text-dim">[{requests.rerolls.length}]</span>
+          </h3>
+          {requests.rerolls.length === 0 ? (
+            <p className="mt-2 py-6 text-center font-mono text-xs uppercase tracking-widest text-dim">{u.moderation.emptyRerolls}</p>
+          ) : (
+            <div className="mt-2 flex flex-col gap-2">
+              {requests.rerolls.map((req) => (
+                <div key={req.id} className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
+                        <span className="inline-flex items-center gap-1.5 text-zinc-200">
+                          <FilmIcon className="size-3.5 shrink-0 text-amber" aria-hidden />
+                          {req.gameTitle ?? "—"}
+                        </span>
+                        <Link href={`/admin/seasons/${req.seasonId}`} className="text-dim transition-colors hover:text-amber">
+                          {req.seasonTitle ?? "—"}
+                        </Link>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-[11px] text-dim">{dateFmt.format(req.requestedAt)}</span>
+                      <RequestStatusChip
+                        status={req.status}
+                        pendingLabel={m.pending}
+                        approvedLabel={m.approved}
+                        rejectedLabel={m.rejected}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed break-words text-zinc-400">{req.reason}</p>
+
+                  {req.status === "pending" ? (
+                    <RequestActions
+                      requestId={req.id}
+                      userId={userId}
+                      approveAction={approveRerollAction}
+                      rejectAction={rejectRerollAction}
+                      approveLabel={m.approve}
+                      rejectLabel={m.reject}
+                      approveConfirm={format(m.approveConfirm, { player: playerName })}
+                      rejectPlaceholder={m.rejectPlaceholder}
+                    />
+                  ) : (
+                    <p className="mt-2 border-t border-[#2a2a22] pt-2 font-mono text-[11px] text-dim">
+                      {req.adminNote ?? "—"}
+                      {req.resolvedAt ? <span> · {dateFmt.format(req.resolvedAt)}</span> : null}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Completion requests */}
+        <div>
+          <h3 className="inline-flex items-center gap-2 font-display text-sm uppercase tracking-widest text-zinc-300">
+            <FilmIcon className="size-4 text-amber" aria-hidden />
+            {c.tabs.completions}
+            <span className="font-mono text-xs text-dim">[{requests.completions.length}]</span>
+          </h3>
+          {requests.completions.length === 0 ? (
+            <p className="mt-2 py-6 text-center font-mono text-xs uppercase tracking-widest text-dim">{u.moderation.emptyCompletions}</p>
+          ) : (
+            <div className="mt-2 flex flex-col gap-2">
+              {requests.completions.map((req) => {
+                const passed = req.outcome === "passed";
+                return (
+                  <div key={req.id} className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
+                          <span className="inline-flex items-center gap-1.5 text-zinc-200">
+                            <FilmIcon className="size-3.5 shrink-0 text-amber" aria-hidden />
+                            {req.gameTitle ?? "—"}
+                          </span>
+                          <Link href={`/admin/seasons/${req.seasonId}`} className="text-dim transition-colors hover:text-amber">
+                            {req.seasonTitle ?? "—"}
+                          </Link>
+                          <Badge variant={passed ? "military" : "danger"} size="sm">
+                            {passed ? c.outcomePassed : c.outcomeDropped}
+                          </Badge>
+                          {req.rating ? (
+                            <span className="inline-flex items-center gap-1 text-amber">
+                              <StarIcon className="size-3" aria-hidden />
+                              {req.rating}/10
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-mono text-[11px] text-dim">{dateFmt.format(req.requestedAt)}</span>
+                        <RequestStatusChip
+                          status={req.status}
+                          pendingLabel={c.pending}
+                          approvedLabel={c.approved}
+                          rejectedLabel={c.rejected}
+                        />
+                      </div>
+                    </div>
+                    {req.reason ? (
+                      <p className="mt-2 text-sm leading-relaxed break-words text-zinc-400">{req.reason}</p>
+                    ) : null}
+
+                    {req.status === "pending" ? (
+                      <RequestActions
+                        requestId={req.id}
+                        userId={userId}
+                        approveAction={approveCompletionAction}
+                        rejectAction={rejectCompletionAction}
+                        approveLabel={c.approve}
+                        rejectLabel={c.reject}
+                        approveConfirm={format(c.approveConfirm, {
+                          outcome: passed ? c.outcomePassed : c.outcomeDropped,
+                          player: playerName,
+                        })}
+                        rejectPlaceholder={c.rejectPlaceholder}
+                      />
+                    ) : (
+                      <p className="mt-2 border-t border-[#2a2a22] pt-2 font-mono text-[11px] text-dim">
+                        {req.adminNote ?? "—"}
+                        {req.resolvedAt ? <span> · {dateFmt.format(req.resolvedAt)}</span> : null}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

@@ -36,6 +36,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";
+import { Switch } from "@/components/ui/Switch";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
@@ -46,6 +47,13 @@ import type { CatalogGame } from "@/db/schema";
 
 type Props = { games: CatalogGame[]; availableProviders?: Array<{ id: string; label: string }> };
 type FilterTab = "all" | "active" | "blacklisted";
+
+/** Small text suffix for bulk-action buttons (renders nothing at 0). */
+function CountSuffix({ count, tone = "default" }: { count: number; tone?: "amber" | "danger" | "default" }) {
+  if (count <= 0) return null;
+  const toneClass = tone === "danger" ? "text-danger/80" : tone === "amber" ? "text-amber/80" : "text-dim/80";
+  return <span className={`font-mono text-[10px] ${toneClass}`}>({count})</span>;
+}
 
 function AddGameModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
@@ -643,7 +651,7 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                   className="!pl-9"
                 />
               </div>
-              <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0 [-webkit-overflow-scrolling:touch]">
+              <div className="flex flex-wrap justify-end gap-1">
                 {(["all", "active", "blacklisted"] as const).map((v) => {
                   const isActive = tab === v;
                   return (
@@ -743,33 +751,55 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
           <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">{t.admin.catalog.hudPool}</span>
         </div>
         {games.length > 0 && (
-          <div className={`flex flex-col gap-2 border-b px-3 py-3 sm:px-4 ${selectedCount > 0 ? "bg-amber/[0.06] border-amber/20" : "bg-[#0f0f0f]/60 border-[#3d3d34]"}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="inline-flex items-center gap-2.5">
-                <input
-                  type="checkbox"
+          <div
+            className={`border-b transition-colors duration-150 ${selectedCount > 0 ? "bg-amber/[0.06] border-amber/20" : "bg-[#0f0f0f]/60 border-[#3d3d34]"}`}
+          >
+            {/* selector + targeting readout */}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-3 sm:px-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Switch
+                  size="sm"
                   checked={allFilteredSelected}
                   onChange={toggleAllFiltered}
-                  aria-label={t.admin.catalog.selectAll}
-                  className="size-4 appearance-none border border-[#3d3d34] bg-[#1a1a1a] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] checked:bg-amber checked:border-amber checked:[background-image:linear-gradient(45deg,transparent_45%,#171713_45%,#171713_55%,transparent_55%)]"
+                  label={allFilteredSelected ? t.admin.catalog.deselectAll : t.admin.catalog.selectAll}
                 />
-                <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
-                  {allFilteredSelected ? t.admin.catalog.deselectAll : t.admin.catalog.selectAll}
-                </span>
-                {selectedCount > 0 ? (
-                  <span className="rounded border border-amber/30 bg-amber/15 px-1.5 py-0.5 font-mono text-[11px] text-amber">{format(t.admin.catalog.bulkSelected, { count: String(selectedCount) })}</span>
-                ) : (
-                  <span className="hidden font-mono text-[11px] text-dim sm:inline">{t.admin.catalog.bulkNoSelectionHint}</span>
-                )}
-                {selectedCount > 0 && (
-                  <button type="button" onClick={clearSelection} className="font-mono text-[11px] text-amber hover:underline">
-                    {t.admin.catalog.deselectAll}
+                <span className="hidden h-5 w-px bg-[#3d3d34] sm:block" aria-hidden />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-widest">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className={`size-1.5 [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)] ${selectedCount > 0 ? "bg-amber shadow-[0_0_5px_rgba(242,169,0,0.8)]" : "bg-[#55554a]"}`}
+                      aria-hidden
+                    />
+                    <span className={selectedCount > 0 ? "text-amber" : "text-zinc-300"}>SEL {selectedCount}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-military">
+                    <span className="size-1.5 bg-military [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                    ON {selectedActive > 0 ? selectedActive : filteredActive}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-danger/90">
+                    <span className="size-1.5 bg-danger [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                    OFF {selectedBlacklisted > 0 ? selectedBlacklisted : filteredBlacklisted}
+                  </span>
+                </div>
+              </div>
+              {selectedCount > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-amber">
+                    <CheckIcon className="size-3.5" aria-hidden />
+                    {format(t.admin.catalog.bulkSelected, { count: String(selectedCount) })}
+                  </span>
+                  <button type="button" onClick={clearSelection} className="hud-btn !px-2 !py-1 text-[11px] inline-flex items-center gap-1 !text-amber">
+                    <XMarkIcon className="size-3.5" aria-hidden />
+                    <span className="hidden sm:inline">{t.admin.catalog.deselectAll}</span>
                   </button>
-                )}
-              </label>
-              <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:inline">{"// "}{t.admin.catalog.bulkBarLabel}</span>
+                </div>
+              ) : (
+                <span className="hidden font-mono text-[11px] text-dim sm:inline">{t.admin.catalog.bulkNoSelectionHint}</span>
+              )}
             </div>
-            <div className="flex flex-wrap gap-1.5">
+
+            {/* command row — scope-aware bulk actions */}
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-[#2a2a22] bg-black/10 px-3 py-2.5 sm:px-4">
               {selectedCount > 0 ? (
                 <>
                   <form
@@ -781,8 +811,12 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                   >
                     <input type="hidden" name="ids" value={selectedGames.filter((g) => g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="false" />
-                    <button type="submit" disabled={selectedBlacklisted === 0} className="hud-btn !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
-                      <ShieldCheckIcon className="size-3.5" aria-hidden /> {t.admin.catalog.bulkEnableSelected} {selectedBlacklisted > 0 ? `· ${selectedBlacklisted}` : ""}
+                    <button type="submit" disabled={selectedBlacklisted === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-military [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <ShieldCheckIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{t.admin.catalog.bulkEnableSelected}</span>
+                      <CountSuffix count={selectedBlacklisted} tone="amber" />
                     </button>
                   </form>
                   <form
@@ -794,8 +828,12 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                   >
                     <input type="hidden" name="ids" value={selectedGames.filter((g) => !g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="true" />
-                    <button type="submit" disabled={selectedActive === 0} className="hud-btn !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
-                      <NoSymbolIcon className="size-3.5" aria-hidden /> {t.admin.catalog.bulkDisableSelected} {selectedActive > 0 ? `· ${selectedActive}` : ""}
+                    <button type="submit" disabled={selectedActive === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <NoSymbolIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{t.admin.catalog.bulkDisableSelected}</span>
+                      <CountSuffix count={selectedActive} />
                     </button>
                   </form>
                   <form
@@ -805,8 +843,12 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                     }}
                   >
                     <input type="hidden" name="ids" value={Array.from(selected).join(",")} />
-                    <button type="submit" className="hud-btn hud-btn-danger !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5">
-                      <TrashIcon className="size-3.5" aria-hidden /> {t.admin.catalog.bulkDeleteSelected} · {selectedCount}
+                    <button type="submit" className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-danger [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <TrashIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{t.admin.catalog.bulkDeleteSelected}</span>
+                      <CountSuffix count={selectedCount} tone="danger" />
                     </button>
                   </form>
                 </>
@@ -821,8 +863,12 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                   >
                     <input type="hidden" name="ids" value={filtered.filter((g) => g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="false" />
-                    <button type="submit" disabled={filteredBlacklisted === 0} className="hud-btn !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
-                      <ShieldCheckIcon className="size-3.5" aria-hidden /> {filtered.length !== games.length ? t.admin.catalog.bulkEnableFiltered : t.admin.catalog.bulkEnableAll} {filteredBlacklisted > 0 ? `· ${filteredBlacklisted}` : ""}
+                    <button type="submit" disabled={filteredBlacklisted === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-military [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <ShieldCheckIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{filtered.length !== games.length ? t.admin.catalog.bulkEnableFiltered : t.admin.catalog.bulkEnableAll}</span>
+                      <CountSuffix count={filteredBlacklisted} tone="amber" />
                     </button>
                   </form>
                   <form
@@ -834,8 +880,12 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                   >
                     <input type="hidden" name="ids" value={filtered.filter((g) => !g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="true" />
-                    <button type="submit" disabled={filteredActive === 0} className="hud-btn !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
-                      <NoSymbolIcon className="size-3.5" aria-hidden /> {filtered.length !== games.length ? t.admin.catalog.bulkDisableFiltered : t.admin.catalog.bulkDisableAll} {filteredActive > 0 ? `· ${filteredActive}` : ""}
+                    <button type="submit" disabled={filteredActive === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <NoSymbolIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{filtered.length !== games.length ? t.admin.catalog.bulkDisableFiltered : t.admin.catalog.bulkDisableAll}</span>
+                      <CountSuffix count={filteredActive} />
                     </button>
                   </form>
                   <form
@@ -847,12 +897,20 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                     }}
                   >
                     <input type="hidden" name="ids" value={filtered.map((g) => g.id).join(",")} />
-                    <button type="submit" disabled={filtered.length === 0} className="hud-btn hud-btn-danger !px-3 !py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
-                      <TrashIcon className="size-3.5" aria-hidden /> {filtered.length !== games.length ? t.admin.catalog.bulkDeleteFiltered : t.admin.catalog.bulkDeleteAll} · {filtered.length}
+                    <button type="submit" disabled={filtered.length === 0} className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-danger [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <TrashIcon className="size-3" aria-hidden />
+                      </span>
+                      <span>{filtered.length !== games.length ? t.admin.catalog.bulkDeleteFiltered : t.admin.catalog.bulkDeleteAll}</span>
+                      <CountSuffix count={filtered.length} tone="danger" />
                     </button>
                   </form>
                 </>
               )}
+              <span className="ml-auto hidden items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim md:inline">
+                {"// "}{t.admin.catalog.bulkBarLabel}
+                <span className="inline-block h-3 w-[6px] animate-pulse bg-amber/70" aria-hidden />
+              </span>
             </div>
           </div>
         )}
