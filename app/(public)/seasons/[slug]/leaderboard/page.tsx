@@ -31,7 +31,7 @@ function PlayerAvatar({
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={displayName ?? username} className="size-8 shrink-0 border border-dim/40 object-cover" />
+      <img src={avatarUrl} alt={displayName ?? username} loading="lazy" decoding="async" className="size-8 shrink-0 border border-dim/40 object-cover" />
     );
   }
   return (

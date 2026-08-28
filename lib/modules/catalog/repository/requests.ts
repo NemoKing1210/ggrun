@@ -42,6 +42,7 @@ export async function getRerollRequestById(id: string): Promise<RerollRequest | 
 }
 
 export type PendingRerollRow = RerollRequest & {
+  userId: string;
   username: string;
   displayName: string | null;
   gameTitle: string | null;
@@ -87,6 +88,7 @@ export async function getCompletionRequestById(id: string): Promise<CompletionRe
 }
 
 export type PendingCompletionRow = CompletionRequest & {
+  userId: string;
   username: string;
   displayName: string | null;
   gameTitle: string | null;
@@ -97,6 +99,7 @@ export async function listPendingCompletionRequests(): Promise<PendingCompletion
   const rows = await db
     .select({
       request: completionRequests,
+      userId: users.id,
       username: users.username,
       displayName: users.displayName,
       gameTitle: gamesCatalog.title,
@@ -111,6 +114,7 @@ export async function listPendingCompletionRequests(): Promise<PendingCompletion
     .orderBy(desc(completionRequests.requestedAt));
   return rows.map((r) => ({
     ...r.request,
+    userId: r.userId,
     username: r.username,
     displayName: r.displayName,
     gameTitle: r.gameTitle ?? null,
@@ -122,6 +126,7 @@ export async function listPendingRerollRequests(): Promise<PendingRerollRow[]> {
   const rows = await db
     .select({
       request: rerollRequests,
+      userId: users.id,
       username: users.username,
       displayName: users.displayName,
       gameTitle: gamesCatalog.title,
@@ -136,6 +141,7 @@ export async function listPendingRerollRequests(): Promise<PendingRerollRow[]> {
     .orderBy(desc(rerollRequests.requestedAt));
   return rows.map((r) => ({
     ...r.request,
+    userId: r.userId,
     username: r.username,
     displayName: r.displayName,
     gameTitle: r.gameTitle ?? null,

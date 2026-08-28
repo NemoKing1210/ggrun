@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/lib/infrastructure/db";
 import {
@@ -54,7 +55,7 @@ function flattenLeaderboardRows(
   }));
 }
 
-export async function getLeaderboard(seasonId: string): Promise<LeaderboardRow[]> {
+export const getLeaderboard = cache(async (seasonId: string): Promise<LeaderboardRow[]> => {
   const rows = await db
     .select(leaderboardSelection)
     .from(seasonPlayers)
@@ -67,32 +68,31 @@ export async function getLeaderboard(seasonId: string): Promise<LeaderboardRow[]
       desc(seasonPlayers.balancePoints),
     );
   return flattenLeaderboardRows(rows);
-}
+});
 
-export async function getSeasonPlayerForUser(
-  seasonId: string,
-  userId: string,
-): Promise<SeasonPlayer | null> {
-  const rows = await db
-    .select()
-    .from(seasonPlayers)
-    .where(
-      and(eq(seasonPlayers.seasonId, seasonId), eq(seasonPlayers.playerId, userId)),
-    )
-    .limit(1);
-  return rows[0] ?? null;
-}
+export const getSeasonPlayerForUser = cache(
+  async (seasonId: string, userId: string): Promise<SeasonPlayer | null> => {
+    const rows = await db
+      .select()
+      .from(seasonPlayers)
+      .where(
+        and(eq(seasonPlayers.seasonId, seasonId), eq(seasonPlayers.playerId, userId)),
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  },
+);
 
-export async function getSeasonPlayerById(
-  id: string,
-): Promise<SeasonPlayer | null> {
-  const rows = await db
-    .select()
-    .from(seasonPlayers)
-    .where(eq(seasonPlayers.id, id))
-    .limit(1);
-  return rows[0] ?? null;
-}
+export const getSeasonPlayerById = cache(
+  async (id: string): Promise<SeasonPlayer | null> => {
+    const rows = await db
+      .select()
+      .from(seasonPlayers)
+      .where(eq(seasonPlayers.id, id))
+      .limit(1);
+    return rows[0] ?? null;
+  },
+);
 
 export async function addPlayerToSeason(
   seasonId: string,
@@ -128,29 +128,30 @@ export async function updateSeasonPlayer(
 
 export type PlayerMoveRow = typeof moves.$inferSelect;
 
-export async function getPlayerMoves(
-  seasonPlayerId: string,
-  limit = 50,
-): Promise<PlayerMoveRow[]> {
-  return db
-    .select()
-    .from(moves)
-    .where(eq(moves.seasonPlayerId, seasonPlayerId))
-    .orderBy(desc(moves.createdAt))
-    .limit(limit);
-}
+export const getPlayerMoves = cache(
+  async (seasonPlayerId: string, limit = 50): Promise<PlayerMoveRow[]> => {
+    return db
+      .select()
+      .from(moves)
+      .where(eq(moves.seasonPlayerId, seasonPlayerId))
+      .orderBy(desc(moves.createdAt))
+      .limit(limit);
+  },
+);
 
-export async function getPlayerLedger(
-  seasonPlayerId: string,
-  limit = 50,
-): Promise<Array<typeof ledgerEntries.$inferSelect>> {
-  return db
-    .select()
-    .from(ledgerEntries)
-    .where(eq(ledgerEntries.seasonPlayerId, seasonPlayerId))
-    .orderBy(desc(ledgerEntries.createdAt))
-    .limit(limit);
-}
+export const getPlayerLedger = cache(
+  async (
+    seasonPlayerId: string,
+    limit = 50,
+  ): Promise<Array<typeof ledgerEntries.$inferSelect>> => {
+    return db
+      .select()
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.seasonPlayerId, seasonPlayerId))
+      .orderBy(desc(ledgerEntries.createdAt))
+      .limit(limit);
+  },
+);
 
 // --- Event feed -----------------------------------------------------------
 
@@ -160,31 +161,29 @@ export type FeedRow = typeof eventLog.$inferSelect & {
   avatarUrl: string | null;
 };
 
-export async function getEventFeed(
-  seasonId: string,
-  limit = 30,
-): Promise<FeedRow[]> {
-  const rows = await db
-    .select({
-      entry: eventLog,
-      username: users.username,
-      displayName: users.displayName,
-      avatarUrl: users.avatarUrl,
-    })
-    .from(eventLog)
-    .leftJoin(seasonPlayers, eq(seasonPlayers.id, eventLog.seasonPlayerId))
-    .leftJoin(users, eq(users.id, seasonPlayers.playerId))
-    .where(eq(eventLog.seasonId, seasonId))
-    .orderBy(desc(eventLog.createdAt))
-    .limit(limit);
-  return rows.map((r) => ({
-    ...r.entry,
-    username: r.username,
-    displayName: r.displayName,
-    avatarUrl: r.avatarUrl,
-  }));
-}
-
+export const getEventFeed = cache(
+  async (seasonId: string, limit = 30): Promise<FeedRow[]> => {
+    const rows = await db
+      .select({
+        entry: eventLog,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(eventLog)
+      .leftJoin(seasonPlayers, eq(seasonPlayers.id, eventLog.seasonPlayerId))
+      .leftJoin(users, eq(users.id, seasonPlayers.playerId))
+      .where(eq(eventLog.seasonId, seasonId))
+      .orderBy(desc(eventLog.createdAt))
+      .limit(limit);
+    return rows.map((r) => ({
+      ...r.entry,
+      username: r.username,
+      displayName: r.displayName,
+      avatarUrl: r.avatarUrl,
+    }));
+  },
+);
 
 // --- Board page live data --------------------------------------------------
 
@@ -198,7 +197,7 @@ export type ActiveRollRow = {
 };
 
 /** Rolls that are currently being played (rolled / in_progress). */
-export async function getActiveRolls(seasonId: string): Promise<ActiveRollRow[]> {
+export const getActiveRolls = cache(async (seasonId: string): Promise<ActiveRollRow[]> => {
   return db
     .select({
       username: users.username,
@@ -219,7 +218,7 @@ export async function getActiveRolls(seasonId: string): Promise<ActiveRollRow[]>
       ),
     )
     .orderBy(asc(gameRolls.rolledAt));
-}
+});
 
 export type SeasonStats = {
   totalMoves: number;
@@ -229,7 +228,7 @@ export type SeasonStats = {
 };
 
 /** Aggregate activity counters for the board page stats bar. */
-export async function getSeasonStats(seasonId: string): Promise<SeasonStats> {
+export const getSeasonStats = cache(async (seasonId: string): Promise<SeasonStats> => {
   const [moveRow] = await db
     .select({ n: count() })
     .from(moves)
@@ -251,4 +250,4 @@ export async function getSeasonStats(seasonId: string): Promise<SeasonStats> {
     droppedRolls: rollCount("dropped"),
     rerolls: rollCount("rerolled"),
   };
-}
+});

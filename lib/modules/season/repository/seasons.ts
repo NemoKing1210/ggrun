@@ -1,4 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
+import { cache } from "react";
 import { db } from "@/lib/infrastructure/db";
 import {
   boardCells,
@@ -9,7 +10,7 @@ import {
   type Season,
 } from "@/db/schema";
 
-export async function getActiveSeason(): Promise<Season | null> {
+export const getActiveSeason = cache(async (): Promise<Season | null> => {
   const rows = await db
     .select()
     .from(seasons)
@@ -17,60 +18,56 @@ export async function getActiveSeason(): Promise<Season | null> {
     .orderBy(desc(seasons.startedAt))
     .limit(1);
   return rows[0] ?? null;
-}
+});
 
-export async function listSeasons(): Promise<Season[]> {
+export const listSeasons = cache(async (): Promise<Season[]> => {
   return db.select().from(seasons).orderBy(desc(seasons.createdAt));
-}
+});
 
 /** Public archive: active / paused / finished / archived, ordered by most recent first. */
-export async function listPublicSeasons(): Promise<Season[]> {
+export const listPublicSeasons = cache(async (): Promise<Season[]> => {
   return db
     .select()
     .from(seasons)
     .where(inArray(seasons.status, ["active", "paused", "finished", "archived"]))
     .orderBy(desc(seasons.startedAt), desc(seasons.createdAt));
-}
+});
 
 /** Finished seasons only (finished + archived) for the archive highlight. */
-export async function listArchivedSeasons(): Promise<Season[]> {
+export const listArchivedSeasons = cache(async (): Promise<Season[]> => {
   return db
     .select()
     .from(seasons)
     .where(inArray(seasons.status, ["finished", "archived"]))
     .orderBy(desc(seasons.finishedAt), desc(seasons.startedAt));
-}
+});
 
-export async function getSeasonBySlug(slug: string): Promise<Season | null> {
-  const rows = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.slug, slug))
-    .limit(1);
+export const getSeasonBySlug = cache(async (slug: string): Promise<Season | null> => {
+  const rows = await db.select().from(seasons).where(eq(seasons.slug, slug)).limit(1);
   return rows[0] ?? null;
-}
+});
 
-export async function getSeasonById(id: string): Promise<Season | null> {
+export const getSeasonById = cache(async (id: string): Promise<Season | null> => {
   const rows = await db.select().from(seasons).where(eq(seasons.id, id)).limit(1);
   return rows[0] ?? null;
-}
+});
 
-export async function getMainBoard(seasonId: string): Promise<Board | null> {
+export const getMainBoard = cache(async (seasonId: string): Promise<Board | null> => {
   const rows = await db
     .select()
     .from(boards)
     .where(eq(boards.seasonId, seasonId))
     .limit(1);
   return rows[0] ?? null;
-}
+});
 
-export async function getBoardCells(boardId: string): Promise<BoardCell[]> {
+export const getBoardCells = cache(async (boardId: string): Promise<BoardCell[]> => {
   return db
     .select()
     .from(boardCells)
     .where(eq(boardCells.boardId, boardId))
     .orderBy(boardCells.position);
-}
+});
 
 /** Atomic season status change (for draft→active and similar transitions). */
 export async function setSeasonStatus(

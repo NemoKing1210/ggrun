@@ -25,7 +25,7 @@ export async function approveRerollAction(
       requestId,
     });
   }
-  revalidatePath("/admin/rerolls");
+  revalidatePath("/admin/moderation");
   revalidatePath("/dashboard");
   revalidatePath("/board");
   return { ok: "approved" };
@@ -50,7 +50,7 @@ export async function rejectRerollAction(
       requestId,
     });
   }
-  revalidatePath("/admin/rerolls");
+  revalidatePath("/admin/moderation");
   revalidatePath("/dashboard");
   return { ok: "rejected" };
 }
@@ -71,7 +71,7 @@ export async function approveCompletionAction(
   } catch (e) {
     return await toError(e, "completion.approve", { actorId: actor?.id ?? null, requestId });
   }
-  revalidatePath("/admin/rerolls");
+  revalidatePath("/admin/moderation");
   revalidatePath("/admin/completions");
   revalidatePath("/dashboard");
   revalidatePath("/board");
@@ -95,7 +95,7 @@ export async function rejectCompletionAction(
   } catch (e) {
     return await toError(e, "completion.reject", { actorId: actor?.id ?? null, requestId });
   }
-  revalidatePath("/admin/rerolls");
+  revalidatePath("/admin/moderation");
   revalidatePath("/admin/completions");
   revalidatePath("/dashboard");
   return { ok: "rejected" };

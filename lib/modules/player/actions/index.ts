@@ -1,11 +1,13 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import {
   adminCreateUser,
   adminDeleteUser,
+  adminRevokeSessions,
   adminSetUserBlocked,
   adminUpdateUser,
   updateUserSettings,
@@ -65,6 +67,7 @@ export async function updateUserAction(
     });
     log.info("user.update", { actorId: actor?.id ?? null, targetId: userId });
     revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${userId}`);
     return { ok: (await getT()).t.admin.users.saved };
   } catch (e) {
     return await toError(e, "user.update", {
@@ -95,6 +98,52 @@ export async function blockUserAction(formData: FormData): Promise<void> {
     throw e;
   }
   revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+}
+
+/** Revokes one session of a user (admin console, sessions tab). */
+export async function revokeSessionAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  const userId = String(formData.get("userId"));
+  const sessionId = String(formData.get("sessionId"));
+  try {
+    await adminRevokeSessions(userId, sessionId);
+    log.info("user.session.revoke", {
+      actorId: actor?.id ?? null,
+      targetId: userId,
+      sessionId,
+    });
+  } catch (e) {
+    log.error("user.session.revoke", {
+      actorId: actor?.id ?? null,
+      targetId: userId,
+      sessionId,
+      err: e,
+    });
+    throw e;
+  }
+  revalidatePath(`/admin/users/${userId}`);
+}
+
+/** Revokes ALL sessions of a user (admin console, sessions tab). */
+export async function revokeAllSessionsAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  const userId = String(formData.get("userId"));
+  try {
+    await adminRevokeSessions(userId);
+    log.info("user.sessions.revoke_all", {
+      actorId: actor?.id ?? null,
+      targetId: userId,
+    });
+  } catch (e) {
+    log.error("user.sessions.revoke_all", {
+      actorId: actor?.id ?? null,
+      targetId: userId,
+      err: e,
+    });
+    throw e;
+  }
+  revalidatePath(`/admin/users/${userId}`);
 }
 
 export async function deleteUserAction(formData: FormData): Promise<void> {
@@ -108,6 +157,7 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
     throw e;
   }
   revalidatePath("/admin/users");
+  redirect("/admin/users");
 }
 
 /** Saves the current user's profile & preferences (settings page). */

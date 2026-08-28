@@ -48,6 +48,8 @@ export function GamesHistory({ rolls }: { rolls: HistoryRoll[] }) {
                   <img
                     src={roll.game.coverUrl}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="h-14 w-11 shrink-0 border border-[#3d3d34] bg-zinc-800 object-cover [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
                   />
                 ) : (

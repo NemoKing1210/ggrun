@@ -39,7 +39,7 @@ export function AvatarBadge({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="size-full object-cover" />
+        <img src={src} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
       ) : (
         <span className={cn("font-display tracking-wider", font)}>{name.slice(0, 2).toUpperCase()}</span>
       )}

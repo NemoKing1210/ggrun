@@ -317,8 +317,8 @@ export default async function AdminPage() {
               {t.admin.overview.auditLink}
               <ArrowRightIcon className="h-3 w-3" aria-hidden />
             </Link>
-            <Link href="/admin/rerolls" className="hud-btn !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5">
-              {t.admin.nav.rerolls}
+            <Link href="/admin/moderation" className="hud-btn !py-1.5 !px-3 text-xs inline-flex items-center gap-1.5">
+              {t.admin.nav.moderation}
               <ArrowRightIcon className="h-3 w-3" aria-hidden />
             </Link>
           </div>

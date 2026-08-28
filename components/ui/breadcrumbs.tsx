@@ -62,8 +62,8 @@ function getLabel(
       return t.admin.nav.catalog;
     case "audit":
       return t.admin.nav.audit;
-    case "rerolls":
-      return t.admin.nav.rerolls;
+    case "moderation":
+      return t.admin.nav.moderation;
     case "settings":
       return t.settings.heading;
     default: {

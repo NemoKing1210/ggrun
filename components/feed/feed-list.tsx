@@ -195,7 +195,7 @@ function Avatar({ entry, fallback }: { entry: FeedRow; fallback: string }) {
   const name = entry.displayName ?? entry.username ?? fallback;
   if (entry.avatarUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={entry.avatarUrl} alt="" className="size-8 shrink-0 border border-dim/20 object-cover" />;
+    return <img src={entry.avatarUrl} alt="" loading="lazy" decoding="async" className="size-8 shrink-0 border border-dim/20 object-cover" />;
   }
   return (
     <span className="inline-flex size-8 shrink-0 items-center justify-center border border-dim/20 bg-raised font-display text-xs text-dim">

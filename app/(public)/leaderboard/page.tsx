@@ -41,6 +41,8 @@ function PlayerAvatar({
       <img
         src={avatarUrl}
         alt=""
+        loading="lazy"
+        decoding="async"
         className={`${dim} shrink-0 border object-cover ${size === "lg" ? "border-amber/60" : "border-dim/30"}`}
       />
     );

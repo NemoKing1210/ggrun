@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/lib/infrastructure/db";
 import { inviteTokens, siteSettings, users } from "@/db/schema";
@@ -6,7 +7,7 @@ import { inviteTokens, siteSettings, users } from "@/db/schema";
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type RegistrationMode = SiteSettings["registrationMode"];
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const rows = await db.select().from(siteSettings).limit(1);
   if (rows[0]) return rows[0];
   // auto-create singleton
@@ -14,7 +15,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   if (created) return created;
   const fallback = await db.select().from(siteSettings).limit(1);
   return fallback[0]!;
-}
+});
 
 export async function updateSiteSettings(
   patch: Partial<

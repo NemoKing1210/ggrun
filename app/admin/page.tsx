@@ -91,7 +91,7 @@ export default async function AdminDashboardPage() {
     { href: "/admin/users", label: t.admin.nav.users, icon: UsersIcon },
     { href: "/admin/games", label: t.admin.nav.catalog, icon: PuzzlePieceIcon },
     { href: "/admin/audit", label: t.admin.nav.audit, icon: ClipboardDocumentListIcon },
-    { href: "/admin/rerolls", label: t.admin.nav.rerolls, icon: QueueListIcon },
+    { href: "/admin/moderation", label: t.admin.nav.moderation, icon: QueueListIcon },
     { href: "/admin/settings", label: t.admin.nav.settings, icon: Cog6ToothIcon },
   ];
 

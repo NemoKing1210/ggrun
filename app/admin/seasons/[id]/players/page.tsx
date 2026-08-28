@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import {
@@ -44,6 +45,7 @@ export default async function SeasonPlayersPage({
   const { t } = await getT();
   const actor = await getCurrentUser();
   if (!actor || !isStaff(actor)) redirect("/login");
+  const isAdmin = actor.role === "admin";
   const { id: seasonId } = await params;
   const season = await getSeasonById(seasonId);
   if (!season) notFound();
@@ -140,7 +142,15 @@ export default async function SeasonPlayersPage({
                     {(p.displayName ?? p.username).slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate font-display text-lg leading-none">{p.displayName ?? p.username}</div>
+                    <div className="truncate font-display text-lg leading-none">
+                      {isAdmin ? (
+                        <Link href={`/admin/users/${p.playerId}`} className="transition-colors hover:text-amber">
+                          {p.displayName ?? p.username}
+                        </Link>
+                      ) : (
+                        p.displayName ?? p.username
+                      )}
+                    </div>
                     <div className="mt-1 font-mono text-xs text-dim">@{p.username}</div>
                   </div>
                 </div>
