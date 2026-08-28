@@ -23,12 +23,12 @@ import {
   getActiveRolls,
   getLeaderboard,
   getSeasonStats,
-} from "@/lib/repositories/players.repo";
+} from "@/lib/modules/season/repository/players";
 import {
   getActiveSeason,
   getBoardCells,
   getMainBoard,
-} from "@/lib/repositories/seasons.repo";
+} from "@/lib/modules/season/repository/seasons";
 
 export async function generateMetadata() {
   const { t } = await getT();

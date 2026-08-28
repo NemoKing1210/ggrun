@@ -1,4 +1,4 @@
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";

@@ -15,7 +15,7 @@ import {
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import {
   eventLog,
   gameRolls,
@@ -24,7 +24,7 @@ import {
   seasons,
   users,
 } from "@/db/schema";
-import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { StatusBadge } from "@/components/ui/status";
 

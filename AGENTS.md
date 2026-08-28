@@ -47,15 +47,16 @@ Four layers; imports point strictly downward:
 
 ```
 app/ (route groups)  +  thin "use server" actions   ← presentation
-lib/use-cases/          zod-validate → domain → tx  ← application
-game-engine/            pure TS, game rules         ← domain
-lib/repositories/, lib/db.ts, lib/auth/             ← infrastructure
+lib/modules/*/        zod-validate → domain → tx  ← application (vertical slices)
+lib/engine/            pure TS, game rules         ← domain
+lib/infrastructure/    db, auth, http, logger       ← infrastructure
 ```
 
-- **Domain invariant**: `game-engine/` must not import `next/*`, `react`,
-  `drizzle-orm`, `pg`. Enforced by convention (doc comments in
-  `game-engine/index.ts`, `types.ts`); there is no ESLint rule — do not add
-  such imports.
+Shared cross-cutting code: `lib/shared/` (leaf — types/ui/utils/constants/stores), `lib/config/` (env), `lib/errors/` (AppError + code lists), `lib/use-cases/` (only cross-module adapters: `admin/actions/{helpers,types}`, `shared/action-error`), `lib/i18n/`.
+
+- **Domain invariant**: `lib/engine/` must not import `next/*`, `react`,
+  `drizzle-orm`, `pg`. Enforced by `eslint.config.mjs` (`no-restricted-imports`
+  for `lib/engine/**`); do not add such imports.
 - **Randomness is server-only**: the engine takes an injected
   `rng: () => number` (DI for testability); use-cases pass `Math.random` —
   the client can never fake dice.
@@ -79,10 +80,12 @@ blacklist and already-played) → player marks the outcome → `resolveAction` �
 | --- | --- |
 | `app/(public)/` | Public shell: landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/players/[username]`, `/login`, `/register`, `/dashboard` |
 | `app/admin/` | Admin console (own layout-guard): dashboard, `seasons/` + `seasons/[id]/{board,players}`, `users`, `games-catalog`, `audit` |
-| `game-engine/` | Domain: `dice.ts`, `movement.ts`, `roll-state-machine.ts`, `cell-effects.ts`, `config.ts`, `types.ts` + colocated `*.test.ts` |
-| `lib/use-cases/` | Business logic: `resolve-game-roll.ts`, `admin.ts`, `users.ts`, `auth.ts` + `*-actions.ts` (server actions) |
-| `lib/repositories/` | DB access: `seasons.repo.ts`, `players.repo.ts`, `games.repo.ts`, `events.repo.ts` |
-| `lib/auth/` | `session.ts` (cookie sessions, sha256 tokens), `password.ts` (scrypt), `actions.ts`, `dev-login.ts` (dev-only) |
+| `lib/engine/` | Domain (pure TS): `types/` (contracts), `config/` (Zod `SeasonConfigSchema` + `DEFAULT_SEASON_CONFIG`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts` barrel; colocated `*.test.ts` |
+| `lib/modules/*/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each with `repository/` + `service/` + `actions/` (thin `"use server"` adapters) + `index.ts` barrel |
+| `lib/infrastructure/` | DB adapters: `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts`, `dev-login.ts`), `http/` (external-fetch, proxy), `events/` (audit + public feed), `logger/` |
+| `lib/shared/` | Leaf (no app/infra imports): `types/{action-state,pagination}`, `ui/`, `utils/`, `constants/`, `stores/` |
+| `lib/config/`,`lib/errors/` | `env.ts` (zod-validated `getEnv()`); `AppError` base + `ErrorCode` union |
+| `lib/use-cases/` | Cross-module adapters only: `admin/actions/{helpers,types}`, `shared/action-error` (`makeToError`, `ActionState`) |
 | `lib/i18n/` | `config.ts`, `server.ts` (`getT()`), `client.tsx` (`useI18n`), `format.ts`, `widen.ts`, `errors.ts`, `dictionaries/{en,ru,uk}/` |
 | `db/schema.ts` | Drizzle schema — the source of truth for types (12 tables, 5 pg enums) |
 | `drizzle/` | Generated SQL migrations |
@@ -119,12 +122,14 @@ backlog).
 
 ## Code Conventions & Common Patterns
 
-- **Where to put what**: business logic lives only in `lib/use-cases/*`.
-  `*-actions.ts` files marked `"use server"` are thin FormData adapters:
-  parse → try/catch use-case → `{error?}`/`{ok?}` (the shape for
+- **Where to put what**: business logic lives only in `lib/modules/*/service`.
+  `lib/modules/*/actions/*.ts` files marked `"use server"` are thin FormData
+  adapters: parse → try/catch use-case → `{error?}`/`{ok?}` (the shape for
   `useActionState`, first argument `_prev`) → `revalidatePath` on success.
   Simple actions (`logoutAction`, `blockUserAction`) are void
   `<form action={...}>` handlers without useActionState.
+  Cross-module action helpers (`toError`, `revalidateAdmin`, `AdminFormState`)
+  live in `lib/use-cases/admin/actions/{helpers,types}`.
 - **i18n is mandatory for UI strings**: server components use
   `const { t, locale } = await getT()` → `t.namespace.key`; client components
   use `useI18n()` (provider in `app/layout.tsx`). Interpolation only via
@@ -141,14 +146,15 @@ backlog).
   `preventDefault` on cancel). A server component cannot pass `onSubmit` —
   don't try.
 - **Guards**: `app/admin/layout.tsx` redirects non-staff; `requireAdmin`
-  (`lib/use-cases/users.ts`) is stricter than `requireStaff` — judges cannot
-  manage users. Self-block/self-delete/self-demote are forbidden
-  (`adminSelf*` codes).
+  (`lib/modules/player/service/admin.ts` + `lib/modules/site-settings/service`) is
+  stricter than `requireStaff` — judges cannot manage users. Self-block/
+  self-delete/self-demote are forbidden (`adminSelf*` codes).
 - **Season statuses**: an explicit transition map
-  `draft→active→paused→finished→archived` (`lib/use-cases/admin.ts`);
+  `draft→active→paused→finished→archived` (`lib/modules/season/service/seasons.ts`);
   moving to `active` resets participant positions/balances. Roll FSM
-  `rolled→in_progress→passed|dropped|rerolled`; the use-case treats `rolled`
-  as `in_progress` at the moment the outcome is marked (`effectiveStatus`).
+  `rolled→in_progress→passed|dropped|rerolled` (`lib/engine/roll/state-machine.ts`);
+  the use-case treats `rolled` as `in_progress` at the moment the outcome is
+  marked (`effectiveStatus`).
 - **Versioning & changelog**: the version lives in `package.json`
   (`version`) and `CHANGELOG.md` (Keep a Changelog format); both are updated
   in a single release commit `chore(release): vX.Y.Z`. Semver rules: PATCH —
@@ -171,18 +177,18 @@ backlog).
 
 - `db/schema.ts` — all tables/enums/types (`$inferSelect`); schema edits →
   `drizzle-kit generate` + `push`.
-- `game-engine/config.ts` — `DEFAULT_SEASON_CONFIG` + `SeasonConfigSchema`
+- `lib/engine/config/index.ts` — `DEFAULT_SEASON_CONFIG` + `SeasonConfigSchema`
   (Zod, parses the partial JSONB from `seasons.config`).
-- `game-engine/cell-effects.ts` — the `CELL_EFFECTS` plugin registry (key is
-  the cellType or `config.effectKey`; penalty/bonus read `config.amount`,
+- `lib/engine/board/cell-effects/index.ts` — the `CELL_EFFECTS` plugin registry
+  (key is the cellType or `config.effectKey`; penalty/bonus read `config.amount`,
   teleport reads `config.target`; unknown keys → no-op). The extension point
   for new mechanics without migrations.
-- `game-engine/roll-state-machine.ts` — `nextRollStatus` throws `RangeError`
+- `lib/engine/roll/state-machine.ts` — `nextRollStatus` throws `RangeError`
   on illegal transitions; `canReroll` / `requestReroll` are pure helpers.
-- `lib/db.ts` — pg pool (max 10, cached on globalThis in dev) + drizzle with
-  the schema.
-- `lib/auth/session.ts` — `getCurrentUser()` (React `cache()`, filters out
-  `isBlocked`), `isStaff` = admin|judge.
+- `lib/infrastructure/db/index.ts` — pg pool (max 10, cached on globalThis in
+  dev) + drizzle with the schema.
+- `lib/infrastructure/auth/session.ts` — `getCurrentUser()` (React `cache()`,
+  filters out `isBlocked`), `isStaff` = admin|judge.
 - `app/admin/layout.tsx`, `app/(public)/layout.tsx` — two shells with
   different headers.
 
@@ -204,14 +210,14 @@ backlog).
 
 ## Testing & QA
 
-- **Vitest**, colocated files: `game-engine/<module>.test.ts`. Run:
+- **Vitest**, colocated files: `lib/engine/<module>.test.ts`. Run:
   `pnpm test`.
 - All domain branches are covered: dice (faces/validation), movement
   (passed/dropped, balance consumption, streak multiplier, clamp vs wrap),
   FSM (legal/illegal transitions, reroll limit), cell effects (all types +
   plugin routing by `effectKey`), Zod config (defaults/rejections). Style:
   pure deterministic functions with an injected `rng`, no mocks/DB/DOM.
-- There are no tests outside `game-engine/`; when adding UI tests keep them
+- There are no tests outside `lib/engine/`; when adding UI tests keep them
   next to the module under test and keep the DB out of them.
 - Before handing off changes: `pnpm lint` + `pnpm exec tsc --noEmit` +
   `pnpm test` + `pnpm build`; verify behavioral changes against a live dev

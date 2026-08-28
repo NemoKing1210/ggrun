@@ -9,10 +9,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { StatusBadge } from "@/components/ui/status";
-import { getSeasonBySlug } from "@/lib/repositories/seasons.repo";
+import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

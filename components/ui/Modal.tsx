@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/shared/utils/cn";
 
 const EXIT_MS = 160; // must match hud-backdrop-out / hud-panel-out durations
 

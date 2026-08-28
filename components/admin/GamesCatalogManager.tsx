@@ -26,11 +26,13 @@ import {
   bulkSetBlacklistedAction,
   deleteGameAction,
   toggleBlacklistAction,
-  searchExternalGamesAction,
+} from "@/lib/modules/catalog/actions/catalog";
+import {
   importExternalGameDirectAction,
-  resolveGameUrlAction,
   importGameFromUrlAction,
-} from "@/lib/use-cases/admin-actions";
+  resolveGameUrlAction,
+  searchExternalGamesAction,
+} from "@/lib/modules/catalog/actions/external";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";

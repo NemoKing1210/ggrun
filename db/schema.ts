@@ -131,7 +131,7 @@ export const seasons = pgTable(
     slug: text("slug").unique().notNull(),
     title: text("title").notNull(),
     status: seasonStatusEnum("status").notNull().default("draft"),
-    /** Season rules (dice, points, board) — see game-engine/types.ts SeasonConfig */
+    /** Season rules (dice, points, board) — see lib/engine/types.ts SeasonConfig */
     config: jsonb("config").notNull().default({}),
     /** Rules page text (markdown), edited from the admin area */
     rulesMd: text("rules_md"),

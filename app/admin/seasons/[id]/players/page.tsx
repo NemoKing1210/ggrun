@@ -10,12 +10,12 @@ import {
   TrophyIcon,
 } from "@heroicons/react/24/outline";
 
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import { seasonPlayers, users } from "@/db/schema";
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { getSeasonById } from "@/lib/repositories/seasons.repo";
-import { getLeaderboard } from "@/lib/repositories/players.repo";
-import { addPlayerToSeasonAction, adjustPlayerAction } from "@/lib/use-cases/admin-actions";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { getLeaderboard } from "@/lib/modules/season/repository/players";
+import { addPlayerToSeasonAction, adjustPlayerAction } from "@/lib/modules/season/actions/players";
 import { FormShell } from "@/components/admin/FormShell";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";

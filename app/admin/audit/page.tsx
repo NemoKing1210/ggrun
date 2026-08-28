@@ -3,9 +3,9 @@ import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { ClockIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import { adminAuditLog, users } from "@/db/schema";
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/config";
 import { Badge } from "@/components/ui/Badge";

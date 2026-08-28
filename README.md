@@ -41,11 +41,11 @@ See [Running locally](#running-locally) for full setup.
 ```
 presentation   → app/            pages, thin server actions
 application    → lib/use-cases/  orchestration (validate → domain → persist)
-domain         → game-engine/    pure TS without next/react/drizzle/pg (game rules)
+domain         → lib/engine/    pure TS without next/react/drizzle/pg (game rules)
 infrastructure → lib/repositories/, lib/db.ts, lib/auth/
 ```
 
-The domain (`game-engine/`) knows nothing about the DB or HTTP — it can be
+The domain (`lib/engine/`) knows nothing about the DB or HTTP — it can be
 reused in a bot/CLI without changes. Random numbers are generated server-side
 only; the client cannot fake a roll.
 
@@ -98,7 +98,7 @@ See [.env.example](./.env.example). Secrets are not committed.
 ```
 app/                  public pages, /dashboard, /admin
 components/           HUD components (board, dice, dashboard, admin, ui, layout)
-game-engine/          pure domain: dice, movement, roll FSM, cell effects
+lib/engine/          pure domain: dice, movement, roll FSM, cell effects
 lib/db.ts             Drizzle + pg pool
 lib/repositories/     data access
 lib/use-cases/        resolve-game-roll, admin, users, auth (+ *-actions.ts server actions)
@@ -110,7 +110,7 @@ scripts/              bootstrap-admin.ts, seed-demo.ts
 ## Extensibility
 
 New mechanics are added via the cell-effect plugin registry
-(`game-engine/cell-effects.ts`, key — the cell type or
+(`lib/engine/cell-effects.ts`, key — the cell type or
 `cell.config.effectKey`), via the season config (`seasons.config` JSONB,
 validated by Zod), and via separate modules — without rewriting the core.
 See the cell-effect plugin registry description above.

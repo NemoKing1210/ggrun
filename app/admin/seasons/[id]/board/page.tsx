@@ -13,13 +13,13 @@ import {
   TagIcon,
 } from "@heroicons/react/24/outline";
 
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/repositories/seasons.repo";
-import { setBoardCellAction } from "@/lib/use-cases/admin-actions";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { setBoardCellAction } from "@/lib/modules/season/actions/board";
 import { FormShell } from "@/components/admin/FormShell";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";

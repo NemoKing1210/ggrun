@@ -10,7 +10,7 @@ import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
 /** Session locale: user preference → cookie → system Accept-Language → DEFAULT_LOCALE (en). */
 export async function getLocale(): Promise<Locale> {
-  const { getCurrentUser } = await import("@/lib/auth/session");
+  const { getCurrentUser } = await import("@/lib/infrastructure/auth/session");
   const user = await getCurrentUser();
   if (user?.locale && isLocale(user.locale)) return user.locale;
   const jar = await cookies();

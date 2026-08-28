@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bars3Icon, Cog6ToothIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-import { logoutAction } from "@/lib/auth/actions";
+import { logoutAction } from "@/lib/modules/auth/actions/logout";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";

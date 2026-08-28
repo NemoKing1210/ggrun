@@ -1,0 +1,56 @@
+import type { SeasonConfig } from "../types/season";
+
+export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
+  dice: {
+    sides: 6,
+    passDiceCount: 1,
+    dropDiceCount: 2,
+    dropStreakMultiplier: true,
+  },
+  points: {
+    startingBalance: 0,
+    bonusAddsToRollOnPass: true,
+    resetBalanceAfterUse: true,
+  },
+  board: {
+    size: 40,
+    loop: false,
+    bonusCount: 4,
+    penaltyCount: 4,
+    teleportCount: 2,
+    eventCount: 3,
+    distribution: "random",
+    regenerateOnSave: false,
+  },
+  rerolls: { allowed: true, limitPerGame: 1, requireApproval: true },
+  moderation: { completionRequireApproval: false },
+  rules: { mode: "auto" },
+  gamePool: {
+    source: "catalog",
+    provider: "internal",
+    templateId: null,
+    filters: {
+      genres: [],
+      platforms: [],
+      tags: [],
+      metacriticMin: null,
+      metacriticMax: null,
+      ratingMin: null,
+      ratingMax: null,
+      yearMin: null,
+      yearMax: null,
+      esrb: [],
+      players: "any",
+      onlyWithCover: false,
+      ordering: "-metacritic",
+      searchQuery: null,
+    },
+    catalog: {
+      allowManualAdd: true,
+      fallbackToCatalog: true,
+    },
+    maxCandidates: 20,
+    cacheTtlHours: 24,
+    autoFetchOnRoll: false,
+  },
+};

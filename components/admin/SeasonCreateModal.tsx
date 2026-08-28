@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { PlusIcon, RocketLaunchIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-import { createSeasonAction } from "@/lib/use-cases/admin-actions";
+import { createSeasonAction } from "@/lib/modules/season/actions/seasons";
 import { useI18n } from "@/lib/i18n/client";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";

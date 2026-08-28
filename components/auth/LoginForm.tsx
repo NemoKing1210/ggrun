@@ -13,8 +13,9 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 
-import { loginAction, type FormState } from "@/lib/auth/actions";
-import { devQuickLoginAction } from "@/lib/auth/dev-login";
+import { loginAction } from "@/lib/modules/auth/actions/login";
+import type { FormState } from "@/lib/modules/auth/actions/types";
+import { devQuickLoginAction } from "@/lib/infrastructure/auth/dev-login";
 import { useI18n } from "@/lib/i18n/client";
 import { Input } from "@/components/ui/Input";
 import { DebugError } from "@/components/ui/DebugError";

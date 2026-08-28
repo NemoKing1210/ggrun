@@ -5,8 +5,8 @@ import { SeasonUptime } from "@/components/landing/SeasonUptime";
 import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
-import { getEventFeed, getLeaderboard } from "@/lib/repositories/players.repo";
-import { getActiveSeason, listArchivedSeasons } from "@/lib/repositories/seasons.repo";
+import { getEventFeed, getLeaderboard } from "@/lib/modules/season/repository/players";
+import { getActiveSeason, listArchivedSeasons } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 

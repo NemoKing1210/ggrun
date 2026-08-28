@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { PageContainer } from "@/components/ui/PageContainer";

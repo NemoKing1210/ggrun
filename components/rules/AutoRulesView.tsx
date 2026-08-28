@@ -1,4 +1,4 @@
-import type { SeasonConfig } from "@/game-engine/types";
+import type { SeasonConfig } from "@/lib/engine/types";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Season } from "@/db/schema";
 import { Badge } from "@/components/ui/Badge";

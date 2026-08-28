@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { LOCALE_COOKIE, isLocale } from "@/lib/i18n/config";
-import { setUserLocale } from "@/lib/use-cases/users";
+import { setUserLocale } from "@/lib/modules/player/service";
 
 /** Manual language switch (overrides the system-detected locale). */
 export async function setLocaleAction(

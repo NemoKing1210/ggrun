@@ -23,23 +23,23 @@ import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import {
   getCatalogPreview,
   getOpenRoll,
   getPendingRerollForPlayer,
   getPendingCompletionForPlayer,
   getRecentRolls,
-} from "@/lib/repositories/games.repo";
+} from "@/lib/modules/catalog/repository";
 import {
   getPlayerMoves,
   getSeasonPlayerForUser,
-} from "@/lib/repositories/players.repo";
+} from "@/lib/modules/season/repository/players";
 import {
   getActiveSeason,
   getBoardCells,
   getMainBoard,
-} from "@/lib/repositories/seasons.repo";
+} from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";

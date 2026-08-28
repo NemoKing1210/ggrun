@@ -23,7 +23,7 @@ import {
   TrophyIcon,
   TvIcon,
 } from "@heroicons/react/24/outline";
-import { updateSeasonSettingsAction } from "@/lib/use-cases/admin-actions";
+import { updateSeasonSettingsAction } from "@/lib/modules/season/actions/seasons";
 import { Switch } from "@/components/ui/Switch";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -37,8 +37,8 @@ import { useI18n } from "@/lib/i18n/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
-import type { SeasonConfig } from "@/game-engine/types";
-import { GAME_POOL_TEMPLATES } from "@/lib/game-pool/templates";
+import type { SeasonConfig } from "@/lib/engine/types";
+import { GAME_POOL_TEMPLATES } from "@/lib/modules/catalog/pool/templates";
 
 const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   EyeIcon,
@@ -55,14 +55,14 @@ const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>
   TrophyIcon,
 };
 import {
-  PLATFORMS,
-  GENRES,
-  TAGS,
-  ESRB,
-  ORDERINGS,
-  GAME_PROVIDERS,
   BOARD_DISTRIBUTIONS,
-} from "@/lib/game-pool/constants";
+  ESRB,
+  GAME_PROVIDERS,
+  GENRES,
+  ORDERINGS,
+  PLATFORMS,
+  TAGS,
+} from "@/lib/modules/catalog/pool/constants";
 type Props = {
   seasonId: string;
   initialConfig: SeasonConfig;

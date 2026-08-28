@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/shared/utils/cn";
 
 type Props = React.SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean };
 

@@ -10,9 +10,9 @@ import {
   FilmIcon,
 } from "@heroicons/react/24/outline";
 
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/repositories/games.repo";
-import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction } from "@/lib/use-cases/admin-actions";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
+import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction } from "@/lib/modules/moderation/actions/moderation";
 import { FormShell } from "@/components/admin/FormShell";
 import { Badge } from "@/components/ui/Badge";
 import { getT } from "@/lib/i18n/server";

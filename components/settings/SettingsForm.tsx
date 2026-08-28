@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
-import { updateUserSettingsAction } from "@/lib/use-cases/user-actions";
+import { updateUserSettingsAction } from "@/lib/modules/player/actions";
 import { useI18n } from "@/lib/i18n/client";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
-import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/accent";
+import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/shared/ui/accent";
 import { ImageCropper } from "@/components/ui/ImageCropper";
 import { Input } from "@/components/ui/Input";
 import { Field } from "@/components/ui/Field";
@@ -15,8 +15,8 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 import { DebugError } from "@/components/ui/DebugError";
-import { NETWORKS, isValidUrlForNetwork, type Network as NetworkType } from "@/lib/networks";
-import { MAX_BIO_LENGTH } from "@/lib/profile";
+import { NETWORKS, isValidUrlForNetwork, type Network as NetworkType } from "@/lib/shared/ui/networks";
+import { MAX_BIO_LENGTH } from "@/lib/shared/constants/profile";
 import { format } from "@/lib/i18n/format";
 
 type LinkRow = { network: string; url: string };

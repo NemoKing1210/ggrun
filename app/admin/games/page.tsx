@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PuzzlePieceIcon, CircleStackIcon, ShieldCheckIcon, NoSymbolIcon } from "@heroicons/react/24/outline";
 
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { listCatalogGames } from "@/lib/repositories/games.repo";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { listCatalogGames } from "@/lib/modules/catalog/repository";
 import { getT } from "@/lib/i18n/server";
-import { listAvailableProviders } from "@/lib/game-providers/keys";
+import { listAvailableProviders } from "@/lib/modules/catalog/providers/keys";
 import GamesCatalogManager from "@/components/admin/GamesCatalogManager";
 
 export async function generateMetadata(): Promise<Metadata> {

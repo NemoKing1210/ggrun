@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import type { AdminFormState } from "@/lib/use-cases/admin-actions";
+import type { AdminFormState } from "@/lib/use-cases/admin/actions/types";
 import { DebugError } from "@/components/ui/DebugError";
 
 type Action = (

@@ -21,7 +21,7 @@ import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsMo
 import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
-import { resolveAction, rollAction, type PlayerActionState } from "@/lib/use-cases/player-actions";
+import { resolveAction, rollAction, type PlayerActionState } from "@/lib/modules/player/actions/game";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";

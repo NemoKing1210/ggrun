@@ -7,7 +7,7 @@ import "./lib/load-env";
 
 import { Pool } from "pg";
 
-import { hashPassword } from "../lib/auth/password";
+import { hashPassword } from "../lib/infrastructure/auth/password";
 
 async function main() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { PageContainer } from "@/components/ui/PageContainer";

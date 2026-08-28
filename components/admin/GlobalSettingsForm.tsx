@@ -20,11 +20,11 @@ import {
 } from "@heroicons/react/24/outline";
 
 import {
-  updateSiteSettingsAction,
-  updateProviderKeysAction,
-  testProxyAction,
   createInviteAction,
-} from "@/lib/use-cases/site-settings-actions";
+  testProxyAction,
+  updateProviderKeysAction,
+  updateSiteSettingsAction,
+} from "@/lib/modules/site-settings/actions";
 import { Switch } from "@/components/ui/Switch";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
@@ -744,7 +744,7 @@ export function GlobalSettingsForm({
                         <ClipboardDocumentIcon className="size-3.5" aria-hidden />
                         {copied === inv.id ? s.inviteCopied : s.inviteCopy}
                       </button>
-                      <form action={async (fd: FormData) => { const { deleteInviteAction } = await import("@/lib/use-cases/site-settings-actions"); await deleteInviteAction(fd); }}>
+                      <form action={async (fd: FormData) => { const { deleteInviteAction } = await import("@/lib/modules/site-settings/actions"); await deleteInviteAction(fd); }}>
                         <input type="hidden" name="id" value={inv.id} />
                         <button
                           type="submit"
@@ -796,14 +796,14 @@ export function GlobalSettingsForm({
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <form action={async (fd: FormData) => { const { approveUserAction } = await import("@/lib/use-cases/site-settings-actions"); await approveUserAction(fd); }}>
+                        <form action={async (fd: FormData) => { const { approveUserAction } = await import("@/lib/modules/site-settings/actions"); await approveUserAction(fd); }}>
                           <input type="hidden" name="userId" value={u.id} />
                           <button type="submit" className="hud-btn hud-btn-primary !py-1.5 !px-3 text-xs inline-flex items-center gap-1">
                             <CheckCircleIcon className="size-4" aria-hidden />
                             {s.approveButton}
                           </button>
                         </form>
-                        <form action={async (fd: FormData) => { const { rejectUserAction } = await import("@/lib/use-cases/site-settings-actions"); await rejectUserAction(fd); }}>
+                        <form action={async (fd: FormData) => { const { rejectUserAction } = await import("@/lib/modules/site-settings/actions"); await rejectUserAction(fd); }}>
                           <input type="hidden" name="userId" value={u.id} />
                           <button type="submit" className="hud-btn hud-btn-danger !py-1.5 !px-3 text-xs inline-flex items-center gap-1">
                             <XCircleIcon className="size-4" aria-hidden />
@@ -819,7 +819,7 @@ export function GlobalSettingsForm({
                         <button type="button" onClick={() => copy(verifyLink, `v-${u.id}`)} className="hud-btn !py-1 !px-2 text-xs">
                           {copied === `v-${u.id}` ? s.inviteCopied : s.inviteCopy}
                         </button>
-                        <form action={async (fd: FormData) => { const { resendVerificationAction } = await import("@/lib/use-cases/site-settings-actions"); await resendVerificationAction(fd); }}>
+                        <form action={async (fd: FormData) => { const { resendVerificationAction } = await import("@/lib/modules/site-settings/actions"); await resendVerificationAction(fd); }}>
                           <input type="hidden" name="userId" value={u.id} />
                           <button type="submit" className="hud-btn !py-1 !px-2 text-xs inline-flex items-center gap-1">
                             <EnvelopeIcon className="size-3.5" aria-hidden />

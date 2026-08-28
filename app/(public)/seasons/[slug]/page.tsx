@@ -8,9 +8,9 @@ import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/repositories/seasons.repo";
-import { getLeaderboard, getSeasonStats } from "@/lib/repositories/players.repo";
-import { getEventFeed } from "@/lib/repositories/players.repo";
+import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
+import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
+import { getEventFeed } from "@/lib/modules/season/repository/players";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

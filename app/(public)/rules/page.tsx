@@ -6,10 +6,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
-import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 
 export async function generateMetadata() {
   const { t } = await getT();

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/shared/utils/cn";
 
 export function Field({
   label,

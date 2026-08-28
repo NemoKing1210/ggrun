@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeftIcon, Bars3Icon, CommandLineIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-import { logoutAction } from "@/lib/auth/actions";
+import { logoutAction } from "@/lib/modules/auth/actions/logout";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 

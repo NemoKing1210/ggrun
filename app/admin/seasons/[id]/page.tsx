@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArrowPathIcon, CalendarIcon, HashtagIcon, LockClosedIcon, TagIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { getActiveSeason, getSeasonById } from "@/lib/repositories/seasons.repo";
-import { listAvailableProviders } from "@/lib/game-providers/keys";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { getActiveSeason, getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { listAvailableProviders } from "@/lib/modules/catalog/providers/keys";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/game-engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import SeasonSettingsForm from "@/components/admin/SeasonSettingsForm";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { resetSeasonDirectAction } from "@/lib/use-cases/admin-actions";
+import { resetSeasonDirectAction } from "@/lib/modules/season/actions/seasons";
 
 export async function generateMetadata({
   params,

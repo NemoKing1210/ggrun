@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { getT } from "@/lib/i18n/server";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { PageContainer } from "@/components/ui/PageContainer";
-import { getActiveSeason } from "@/lib/repositories/seasons.repo";
-import { db } from "@/lib/db";
+import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
+import { db } from "@/lib/infrastructure/db";
 import { users } from "@/db/schema";
 import { count } from "drizzle-orm";
 import {
@@ -24,7 +24,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   const { invite } = await searchParams;
   const [{ t }, settings, activeSeason, [{ n: userCount }]] = await Promise.all([
     getT(),
-    import("@/lib/repositories/site-settings.repo").then((m) => m.getSiteSettings()),
+    import("@/lib/modules/site-settings/repository/site-settings").then((m) => m.getSiteSettings()),
     getActiveSeason(),
     db.select({ n: count() }).from(users),
   ]);

@@ -1,7 +1,7 @@
 import { PageContainer } from "@/components/ui/PageContainer";
 import { getT } from "@/lib/i18n/server";
-import { getActiveSeason, listPublicSeasons, getMainBoard, getBoardCells } from "@/lib/repositories/seasons.repo";
-import { getLeaderboard, getSeasonStats } from "@/lib/repositories/players.repo";
+import { getActiveSeason, listPublicSeasons, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
+import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { SeasonsArchiveClient } from "@/components/seasons/SeasonsArchiveClient";
 
 export async function generateMetadata() {

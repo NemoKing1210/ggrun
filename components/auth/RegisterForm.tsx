@@ -17,7 +17,8 @@ import {
   LinkIcon,
 } from "@heroicons/react/24/outline";
 
-import { registerAction, type FormState } from "@/lib/auth/actions";
+import { registerAction } from "@/lib/modules/auth/actions/register";
+import type { FormState } from "@/lib/modules/auth/actions/types";
 import { useI18n } from "@/lib/i18n/client";
 import { Input } from "@/components/ui/Input";
 import { DebugError } from "@/components/ui/DebugError";

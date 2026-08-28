@@ -10,8 +10,8 @@ import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
-import { getActiveRolls, getLeaderboard, getSeasonStats } from "@/lib/repositories/players.repo";
-import { getBoardCells, getMainBoard, getSeasonBySlug } from "@/lib/repositories/seasons.repo";
+import { getActiveRolls, getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
+import { getBoardCells, getMainBoard, getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

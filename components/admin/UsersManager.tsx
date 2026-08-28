@@ -22,9 +22,9 @@ import {
   createUserAction,
   deleteUserAction,
   updateUserAction,
-} from "@/lib/use-cases/user-actions";
+} from "@/lib/modules/player/actions";
 import { useI18n } from "@/lib/i18n/client";
-import type { AdminUserRow } from "@/lib/use-cases/users";
+import type { AdminUserRow } from "@/lib/modules/player/service/admin";
 
 const roles = ["admin", "judge", "player", "viewer"] as const;
 

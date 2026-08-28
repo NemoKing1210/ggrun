@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { FeedRow } from "@/lib/repositories/players.repo";
+import type { FeedRow } from "@/lib/modules/season/repository/players";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { format } from "@/lib/i18n/format";

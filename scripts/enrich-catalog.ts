@@ -16,8 +16,8 @@ const force = process.argv.includes("--force");
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function main() {
-  const { freetogameProvider } = await import("../lib/game-providers/freetogame");
-  const { rawgProvider } = await import("../lib/game-providers/rawg");
+  const { freetogameProvider } = await import("../lib/modules/catalog/providers/freetogame");
+  const { rawgProvider } = await import("../lib/modules/catalog/providers/rawg");
   const providers = [freetogameProvider, rawgProvider];
 
   const rows = await pool.query(
@@ -52,7 +52,7 @@ async function main() {
           },
           pageSize: 3,
         });
-        const exact = hits.find((h) => h.title.toLowerCase() === row.title.toLowerCase()) ?? hits[0];
+        const exact = hits.find((h: { title: string }) => h.title.toLowerCase() === row.title.toLowerCase()) ?? hits[0];
         if (exact) game = exact;
         if (game) break;
       } catch {

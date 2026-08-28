@@ -6,8 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { StatusBadge } from "@/components/ui/status";
-import { getEventFeed } from "@/lib/repositories/players.repo";
-import { getSeasonBySlug } from "@/lib/repositories/seasons.repo";
+import { getEventFeed } from "@/lib/modules/season/repository/players";
+import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 

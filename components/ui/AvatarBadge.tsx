@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/shared/utils/cn";
 
 type Props = {
   name: string;

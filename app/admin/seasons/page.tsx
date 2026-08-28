@@ -12,9 +12,9 @@ import {
 } from "@heroicons/react/24/outline";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser, isStaff } from "@/lib/auth/session";
-import { listSeasons } from "@/lib/repositories/seasons.repo";
-import { changeStatusAction, resetSeasonDirectAction } from "@/lib/use-cases/admin-actions";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
+import { listSeasons } from "@/lib/modules/season/repository/seasons";
+import { changeStatusAction, resetSeasonDirectAction } from "@/lib/modules/season/actions/seasons";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SeasonCreateModal } from "@/components/admin/SeasonCreateModal";

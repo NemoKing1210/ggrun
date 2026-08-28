@@ -14,7 +14,7 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useI18n } from "@/lib/i18n/client";
-import { buildStoreLinks, type StoreLink } from "@/lib/game-stores";
+import { buildStoreLinks, type StoreLink } from "@/lib/modules/catalog/store-links";
 import { format } from "@/lib/i18n/format";
 
 /** Serializable game info used by cards and the details modal. */

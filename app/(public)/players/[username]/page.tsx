@@ -16,10 +16,10 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import { gameRolls, rollStatusEnum, seasonPlayers, seasons, users } from "@/db/schema";
-import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/repositories/players.repo";
-import { getActiveSeason } from "@/lib/repositories/seasons.repo";
+import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/repository/players";
+import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 

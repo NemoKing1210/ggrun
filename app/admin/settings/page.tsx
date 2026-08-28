@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
-import { getSiteSettings, listInviteTokens } from "@/lib/repositories/site-settings.repo";
-import { maskKey } from "@/lib/game-providers/keys";
-import { db } from "@/lib/db";
+import { getSiteSettings, listInviteTokens } from "@/lib/modules/site-settings/repository/site-settings";
+import { maskKey } from "@/lib/modules/catalog/providers/keys";
+import { db } from "@/lib/infrastructure/db";
 import { users } from "@/db/schema";
 import { GlobalSettingsForm } from "@/components/admin/GlobalSettingsForm";
 

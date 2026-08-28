@@ -12,8 +12,8 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
-import { getLeaderboard, type LeaderboardRow } from "@/lib/repositories/players.repo";
-import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/repositories/seasons.repo";
+import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/repository/players";
+import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 

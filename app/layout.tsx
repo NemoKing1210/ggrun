@@ -5,9 +5,9 @@ import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { TopLoader } from "@/components/ui/top-loader";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getAccent } from "@/lib/accent";
-import { isDbAvailable } from "@/lib/db-health";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
+import { getAccent } from "@/lib/shared/ui/accent";
+import { isDbAvailable } from "@/lib/infrastructure/db/health";
 import { SiteUnavailableScreen } from "@/components/system/site-unavailable-screen";
 import "./globals.css";
 
@@ -74,7 +74,7 @@ export default async function RootLayout({
     : `:root{--hud-amber:${accent.primary};--hud-amber-border:${accent.border};--hud-amber-glow:${accent.glow};}`;
   let maintenanceMode = false;
   try {
-    const { getSiteSettings } = await import("@/lib/repositories/site-settings.repo");
+    const { getSiteSettings } = await import("@/lib/modules/site-settings/repository/site-settings");
     const s = await getSiteSettings();
     maintenanceMode = !!s.maintenanceMode;
   } catch {}

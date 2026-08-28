@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TagIcon } from "@heroicons/react/24/outline";
 
-import { slugify } from "@/lib/slugify";
+import { slugify } from "@/lib/shared/utils/slugify";
 import { useI18n } from "@/lib/i18n/client";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";

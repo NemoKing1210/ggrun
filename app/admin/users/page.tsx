@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth/session";
-import { listUsers } from "@/lib/use-cases/users";
+import { getCurrentUser } from "@/lib/infrastructure/auth/session";
+import { listUsers } from "@/lib/modules/player/service";
 import { getT } from "@/lib/i18n/server";
 import UsersManager from "@/components/admin/UsersManager";
 

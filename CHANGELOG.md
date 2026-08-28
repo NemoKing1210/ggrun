@@ -178,7 +178,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   audit.
 - Cookie-session authentication (scrypt), first-admin bootstrap
   (`scripts/bootstrap-admin.ts`).
-- Game engine `game-engine/` (pure TS): dice, movement, roll FSM, cell-effect
+- Game engine `lib/engine/` (pure TS): dice, movement, roll FSM, cell-effect
   plugin registry, Zod season config + 50 unit tests.
 - Player game loop: game roll, passed/dropped/rerolled outcomes, server-side
   RNG, `/dashboard` with dice animation.

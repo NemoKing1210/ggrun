@@ -6,8 +6,8 @@ import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
-import { getLeaderboard } from "@/lib/repositories/players.repo";
-import { getSeasonBySlug } from "@/lib/repositories/seasons.repo";
+import { getLeaderboard } from "@/lib/modules/season/repository/players";
+import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 

@@ -6,7 +6,7 @@ import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
-import { db } from "@/lib/db";
+import { db } from "@/lib/infrastructure/db";
 import { users } from "@/db/schema";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
