@@ -1,224 +1,255 @@
-# Repository Guidelines
+# AGENTS.md — GGRun agent guide
 
-> **Author:** [NemoKing1210](https://github.com/NemoKing1210) · **Repository:** [github.com/NemoKing1210/ggrun](https://github.com/NemoKing1210/ggrun) · **Issues:** [github.com/NemoKing1210/ggrun/issues](https://github.com/NemoKing1210/ggrun/issues)
+> How to work on this codebase fast and without breaking it. Read this before
+> any edit; read [`DESIGN.md`](./DESIGN.md) before any UI work.
 
-## Project Overview
+## 1. 30-second orientation
 
-GGRun — a web platform for a seasonal gaming event (HPG genre): seasons
-("runs"), a board of cells, random game rolls, outcomes (passed/dropped/rerolled),
-dice rolls and movement across the board, a leaderboard, an event feed, and an
-admin console.
+GGRun = web platform for a seasonal gaming event (HPG): seasons ("runs"),
+a board of cells, random game rolls with passed/dropped/rerolled outcomes,
+dice movement, leaderboard, public feed, player HQ and an admin console.
 
-> **Design System:** All UI must follow [`DESIGN.md`](./DESIGN.md) — HUD tactical style (square beveled, clipped corners, `hud-card`/`hud-btn`/`hud-input`/`Badge`/`Chip`/`Switch`/`Range`). Do not introduce rounded pills, soft shadows, or raw checkboxes/inputs outside `components/ui/*` and `app/globals.css`. See `DESIGN.md` §9 for Do/Don’t.
+- **Next.js 15.5** (App Router, RSC + server actions), **React 19**, **Turbopack**
+  (dev + build), **TS strict**, `@/*` → repo root.
+- **Tailwind v4** via `@tailwindcss/postcss` (theme = CSS vars + `hud-*`
+  classes in `app/globals.css`; no config file).
+- **PostgreSQL 17 + Drizzle** (`db/schema/**` is the source of truth),
+  **pnpm 9** (lockfile v9), **Node ≥ 20**, **Vitest**.
+- HUD tactical design system — square beveled, clipped corners, amber accent.
+  `DESIGN.md` is the source of truth for visuals.
 
-## Language Policy (always applies)
+## 2. Golden rules (never break)
 
-This is an international project. **English is the only language for:**
+1. **Layer direction** — imports point strictly downward:
 
-- all markdown documentation (`README.md`, `RUNBOOK.md`, `CHANGELOG.md`,
-  `AGENTS.md`) — including future edits to them;
-- all code comments and JSDoc in every `.ts`/`.tsx`/`.css` file;
-- commit messages, CLI output of `scripts/*`, zod validation messages,
-  DB default values, demo/seed content.
+   ```
+   app/ (pages) + thin "use server" actions        ← presentation
+   lib/modules/*/ (repository/service/actions)     ← application (vertical slices)
+   lib/engine/    pure TS, game rules              ← domain
+   lib/infrastructure/ (db, auth, http, events)    ← infrastructure
+   ```
 
-**The only multilingual text is site translations** — string values inside
-`lib/i18n/dictionaries/{en,ru,uk}/` (and the native locale display names in
-`lib/i18n/config.ts`). Never write UI strings, comments, or docs in Russian or
-Ukrainian outside those places. When editing files that already contain
-Russian/Ukrainian comments, translate them to English in the same change.
+   Cross-cutting leaf code: `lib/shared/` (ui/utils/constants/stores),
+   `lib/config/`, `lib/errors/`, `lib/use-cases/` (adapters only), `lib/i18n/`.
 
-## Agent Behavior
+2. **`lib/engine/` stays pure** — no `next/*`, `react`, `drizzle-orm`, `pg`
+   (enforced by ESLint `no-restricted-imports`; do not bypass).
 
-- **Do exactly what was asked, no more.** When the user says "commit and push",
-  do `git add -A && git commit && git push` in one pass. Do not split unrelated
-  work into separate commits, do not propose idealised commit histories, do not
-  spend time on partial staging of shared files, do not ask for confirmation
-  on a routine git operation. Same for "build", "test", "deploy", etc. — execute
-  the request, then stop.
-- **The user's word is the source of truth.** If the user tells you the change
-  is wrong, revert and follow the new instruction. If the user interrupts with
-  a shorter command, drop the in-flight plan and do the short command first.
-- **Don't over-engineer under uncertainty.** If a single commit covers a fix
-  and an unrelated feature, that's fine. Polish commit hygiene, split-merge
-  refactors, and other "professional touch" work is only wanted when the user
-  asks for it explicitly.
+3. **Randomness is server-only** — the engine takes an injected `rng` (DI for
+   tests); use-cases pass `Math.random`. The client can never fake dice.
 
-Four layers; imports point strictly downward:
+4. **Errors as codes** — `GameLoopError(code)` / `AdminError(code, params)` /
+   `AuthError(code)`; actions catch and translate via
+   `errorText(t.core.errors, code, params)`. Domain never knows UI languages.
 
-```
-app/ (route groups)  +  thin "use server" actions   ← presentation
-lib/modules/*/        zod-validate → domain → tx  ← application (vertical slices)
-lib/engine/            pure TS, game rules         ← domain
-lib/infrastructure/    db, auth, http, logger       ← infrastructure
-```
+5. **Two-tier audit** — every staff mutation → `logAdminAction`
+   (`admin_audit_log`, visible at `/admin/audit`); public events →
+   `logEvent` (`event_log`). Written inside the same use-case transactions.
 
-Shared cross-cutting code: `lib/shared/` (leaf — types/ui/utils/constants/stores), `lib/config/` (env), `lib/errors/` (AppError + code lists), `lib/use-cases/` (only cross-module adapters: `admin/actions/{helpers,types}`, `shared/action-error`), `lib/i18n/`.
+6. **i18n is mandatory** for every UI string (see §7). English is the only
+   language for docs, comments, commit messages, zod messages, seeds.
 
-- **Domain invariant**: `lib/engine/` must not import `next/*`, `react`,
-  `drizzle-orm`, `pg`. Enforced by `eslint.config.mjs` (`no-restricted-imports`
-  for `lib/engine/**`); do not add such imports.
-- **Randomness is server-only**: the engine takes an injected
-  `rng: () => number` (DI for testability); use-cases pass `Math.random` —
-  the client can never fake dice.
-- **Errors as codes**: use-cases throw `GameLoopError(code)` /
-  `AdminError(code, params)` / `AuthError(code)`; `"use server"` actions catch
-  them and translate via `errorText(t.core.errors, code, params)`
-  (`lib/i18n/errors.ts`). The domain never knows about UI languages.
-- **Two-tier audit**: `logAdminAction` → `admin_audit_log` (every staff
-  mutation, viewable at `/admin/audit`); `logEvent` → `event_log` (public
-  feed). Both are written inside the same use-case transactions.
+7. **Design system is law** — raw checkboxes, rounded pills, soft shadows are
+   off-policy (see §6).
 
-Turn flow: `rollAction` → `rollNewGame` (random catalog game, excluding
-blacklist and already-played) → player marks the outcome → `resolveAction` →
-`resolveGameRoll` → `resolveMovement` (engine) → `applyCellEffect` +
-`normalizePosition` → transaction: `game_rolls` + `moves` + `ledger_entries` +
-`event_log`.
-
-## Key Directories
-
-| Path | Purpose |
-| --- | --- |
-| `app/(public)/` | Public shell: landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/players/[username]`, `/login`, `/register`, `/dashboard` |
-| `app/admin/` | Admin console (own layout-guard): dashboard, `seasons/` + `seasons/[id]/{board,players}`, `users`, `games-catalog`, `audit` |
-| `lib/engine/` | Domain (pure TS): `types/` (contracts), `config/` (Zod `SeasonConfigSchema` + `DEFAULT_SEASON_CONFIG`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts` barrel; colocated `*.test.ts` |
-| `lib/modules/*/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each with `repository/` + `service/` + `actions/` (thin `"use server"` adapters) + `index.ts` barrel |
-| `lib/infrastructure/` | DB adapters: `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts`, `dev-login.ts`), `http/` (external-fetch, proxy), `events/` (audit + public feed), `logger/` |
-| `lib/shared/` | Leaf (no app/infra imports): `types/{action-state,pagination}`, `ui/`, `utils/`, `constants/`, `stores/` |
-| `lib/config/`,`lib/errors/` | `env.ts` (zod-validated `getEnv()`); `AppError` base + `ErrorCode` union |
-| `lib/use-cases/` | Cross-module adapters only: `admin/actions/{helpers,types}`, `shared/action-error` (`makeToError`, `ActionState`) |
-| `lib/i18n/` | `config.ts`, `server.ts` (`getT()`), `client.tsx` (`useI18n`), `format.ts`, `widen.ts`, `errors.ts`, `dictionaries/{en,ru,uk}/` |
-| `db/schema.ts` | Drizzle schema — the source of truth for types (12 tables, 5 pg enums) |
-| `drizzle/` | Generated SQL migrations |
-| `scripts/` | `bootstrap-admin.ts`, `seed-demo.ts` (tsx + dotenv) |
-
-## Development Commands
+## 3. Command line
 
 ```bash
-pnpm install
-pnpm dev                        # next dev (webpack: the Turbopack dev server
-                                # has a Windows-only _buildManifest.js.tmp
-                                # ENOENT race; use dev:turbo to opt back in)
-pnpm build                      # next build --turbopack
-pnpm lint                       # eslint (flat config)
-pnpm test                       # vitest run (domain)
+pnpm dev            # next dev (webpack). Turbopack dev = pnpm dev:turbo
+                    # (plain dev is the default because Turbopack dev has a
+                    # Windows-only _buildManifest.js.tmp ENOENT race)
+pnpm build          # next build --turbopack
+pnpm start          # production server
+pnpm lint           # eslint (flat config)
+pnpm exec tsc --noEmit
+pnpm test           # vitest (engine only)
 
-# Database helpers (all scripts load .env with override, so a stale
-# DATABASE_URL exported in the shell can never shadow the project .env):
-pnpm db:status                  # connectivity + server info + row counts per table
-pnpm db:generate                # drizzle-kit generate (SQL migration into drizzle/)
-pnpm db:push                    # drizzle-kit push --force (apply schema to the DB)
-pnpm db:seed                    # demo season run-1, 40-cell board, 8 games (idempotent)
-pnpm db:admin                   # first admin from BOOTSTRAP_ADMIN_* in .env
-pnpm db:reset                   # drop public schema + re-apply schema (asks to type YES)
-pnpm db:setup                   # full fresh-DB bootstrap: push + seed + admin
-
-pnpm drizzle-kit generate       # equivalent of pnpm db:generate
+pnpm db:status      # connectivity + row counts
+pnpm db:generate    # SQL migration into drizzle/
+pnpm db:push        # apply schema (drizzle-kit push --force)
+pnpm db:seed        # demo season run-1 (idempotent)
+pnpm db:admin       # first admin from BOOTSTRAP_ADMIN_* (idempotent)
+pnpm db:reset       # drop schema + re-apply (asks to type YES)
+pnpm db:setup       # push + seed + admin
 ```
 
-DB: PostgreSQL 17 (OSPanel) at `127.127.126.56:5432`, database `ggrun`.
-Env vars — see `.env.example` (`DATABASE_URL`, `AUTH_SECRET`,
-`NEXT_PUBLIC_SITE_URL`, `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`; Steam/IGDB —
-backlog).
+Production/deploy specifics: `Dockerfile` + `compose.yaml` +
+`docker/entrypoint.sh` (see [`DEPLOYMENT.md`](./DEPLOYMENT.md)). Container
+Postgres maps to host port `5433`.
 
-## Code Conventions & Common Patterns
+## 4. Codebase map (current)
 
-- **Where to put what**: business logic lives only in `lib/modules/*/service`.
-  `lib/modules/*/actions/*.ts` files marked `"use server"` are thin FormData
-  adapters: parse → try/catch use-case → `{error?}`/`{ok?}` (the shape for
-  `useActionState`, first argument `_prev`) → `revalidatePath` on success.
-  Simple actions (`logoutAction`, `blockUserAction`) are void
-  `<form action={...}>` handlers without useActionState.
-  Cross-module action helpers (`toError`, `revalidateAdmin`, `AdminFormState`)
-  live in `lib/use-cases/admin/actions/{helpers,types}`.
-- **i18n is mandatory for UI strings**: server components use
-  `const { t, locale } = await getT()` → `t.namespace.key`; client components
-  use `useI18n()` (provider in `app/layout.tsx`). Interpolation only via
-  `format("template {x}", { x })` (`lib/i18n/format.ts`). Adding a language:
-  copy `lib/i18n/dictionaries/en/*.ts` into a new folder, annotate with
-  `Widen<typeof EnNs.ns>`, register in `LOCALES` (`config.ts`) and
-  `dictionaries/index.ts`.
-- **Dictionaries are RSC-serializable**: values are strings only, no
-  functions; `pickCore()` in `dictionaries/index.ts` assembles a plain object
-  from the core exports. `Widen<T>` (`lib/i18n/widen.ts`) widens en as-const
-  literals to `string`, so ru/uk must match the structure, not the literals.
-- **Confirm in server forms**: the client-side
-  `components/admin/ConfirmButton.tsx` (onClick → `window.confirm` →
-  `preventDefault` on cancel). A server component cannot pass `onSubmit` —
-  don't try.
-- **Guards**: `app/admin/layout.tsx` redirects non-staff; `requireAdmin`
-  (`lib/modules/player/service/admin.ts` + `lib/modules/site-settings/service`) is
-  stricter than `requireStaff` — judges cannot manage users. Self-block/
-  self-delete/self-demote are forbidden (`adminSelf*` codes).
-- **Season statuses**: an explicit transition map
-  `draft→active→paused→finished→archived` (`lib/modules/season/service/seasons.ts`);
-  moving to `active` resets participant positions/balances. Roll FSM
-  `rolled→in_progress→passed|dropped|rerolled` (`lib/engine/roll/state-machine.ts`);
-  the use-case treats `rolled` as `in_progress` at the moment the outcome is
-  marked (`effectiveStatus`).
-- **Versioning & changelog**: the version lives in `package.json`
-  (`version`) and `CHANGELOG.md` (Keep a Changelog format); both are updated
-  in a single release commit `chore(release): vX.Y.Z`. Semver rules: PATCH —
-  fixes/styles/docs without behavior changes; MINOR — new features and
-  additive schema migrations; MAJOR — breaking changes (feature removal,
-  config/schema format changes requiring manual actions). While `0.x`,
-  breaking changes bump MINOR and are marked **BREAKING**. New entries go
-  into the `[Unreleased]` section and are promoted to a version on release.
-- **Formatting**: Prettier (double quotes, semi, 100 cols), ESLint
-  `next/core-web-vitals` + `next/typescript` + prettier. Commits follow
-  conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`).
-- **No narration comments**: when editing code, do not leave comments that
-  narrate or justify the change ("was X, now Y", "fixes scrollbar flash",
-  step-by-step explanations of the edit). Explain *why* in the commit message
-  (and in `DESIGN.md` / `CHANGELOG.md` when it affects the design system or
-  behavior). Keep only timeless comments that match the existing comment style
-  of the file; when in doubt, no comment.
+| Path | Contents |
+| --- | --- |
+| `app/(public)/` | Landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/seasons` + `/seasons/[slug]/{board,leaderboard,feed,rules}`, `/players/[username]`, `/login`, `/register`, `/dashboard`, `/settings` |
+| `app/admin/` | `layout.tsx` (staff guard + nav + moderation-pending badge), dashboard, `seasons` + `seasons/[id]/{board,players}`, `users`, `games`, `audit`, `moderation`, `settings` |
+| `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each `repository/ + service/ + actions/ + index.ts` |
+| `lib/engine/` | Pure domain: `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts` |
+| `lib/infrastructure/` | `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts` scrypt), `events/` (audit + feed), `logger/` |
+| `lib/use-cases/admin/actions/` | `helpers.ts` (`toError`, `revalidateAdmin`), `types.ts` (`AdminFormState`) |
+| `components/ui/` | `Input, Select, Textarea, Field, Badge, Chip, Switch, Range, Modal, BackLink, PageContainer, status, DebugError, ImageCropper, breadcrumbs…` |
+| `components/admin/`, `components/seasons/`, `components/game/`, `components/board/`, `components/dice/` | Screen-level components |
+| `db/schema/` | 12 tables, 5 pg enums (split files: users, seasons, players, games, moves, moderation, events, settings) |
+| `scripts/` | `seed-demo.ts`, `bootstrap-admin.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts` (tsx + dotenv) |
 
-## Important Files
+Key component/file pointers:
 
-- `db/schema.ts` — all tables/enums/types (`$inferSelect`); schema edits →
-  `drizzle-kit generate` + `push`.
-- `lib/engine/config/index.ts` — `DEFAULT_SEASON_CONFIG` + `SeasonConfigSchema`
-  (Zod, parses the partial JSONB from `seasons.config`).
-- `lib/engine/board/cell-effects/index.ts` — the `CELL_EFFECTS` plugin registry
-  (key is the cellType or `config.effectKey`; penalty/bonus read `config.amount`,
-  teleport reads `config.target`; unknown keys → no-op). The extension point
-  for new mechanics without migrations.
-- `lib/engine/roll/state-machine.ts` — `nextRollStatus` throws `RangeError`
-  on illegal transitions; `canReroll` / `requestReroll` are pure helpers.
-- `lib/infrastructure/db/index.ts` — pg pool (max 10, cached on globalThis in
-  dev) + drizzle with the schema.
-- `lib/infrastructure/auth/session.ts` — `getCurrentUser()` (React `cache()`,
-  filters out `isBlocked`), `isStaff` = admin|judge.
-- `app/admin/layout.tsx`, `app/(public)/layout.tsx` — two shells with
-  different headers.
+- Season editor tabs: `components/admin/SeasonTabs.tsx` (server, `getT`).
+  Public season tabs: `components/seasons/SeasonTabs.tsx` (client).
+- Player management: `components/admin/AddSeasonPlayer.tsx` (client, live
+  filter + `useActionState`), roster table in
+  `app/admin/seasons/[id]/players/page.tsx` (per-row `form=` pattern).
+- Games catalog manager: `components/admin/GamesCatalogManager.tsx`
+  (bulk console, import-by-URL modal, external search modal).
+- Admin header nav badge: `components/layout/AdminHeader.tsx`
+  (`moderationPending` prop, fed by `app/admin/layout.tsx` queries).
+- `revalidateAdmin(seasonId)` already covers `/admin/seasons/[id]` **and** its
+  `/board` + `/players` subroutes — don't add manual `revalidatePath` there.
 
-## Runtime/Tooling Preferences
+## 5. Task recipes (copy these steps)
 
-- **License — MIT** (`LICENSE`); the project is `private: true` in
-  `package.json` — public distribution is not planned, but the code may be
-  reused within the team.
-- **Package manager — pnpm** (lockfile v9). Node ≥ 20.
-- Next 15.5 App Router, React 19, Turbopack in both dev and build. TS strict,
-  `@/*` → repo root.
-- Tailwind v4 via `@tailwindcss/postcss` (no separate config file; the HUD
-  theme lives as CSS variables and the `hud-*`/`ammo-counter`/`hazard-tape`
-  classes in `app/globals.css`).
-- Windows/OSPanel environment: the DB is started by the OSPanel module; don't
-  hardcode absolute paths in code.
-- No CI; husky/lint-staged are in devDeps but pre-commit hooks are not wired
-  up — don't rely on them.
+### Add a server action — two flavors
 
-## Testing & QA
+- **Rich form (validation errors shown inline)** → `useActionState` shape:
+  `(_prev: AdminFormState, formData: FormData) => Promise<AdminFormState>`,
+  returns `{ok}` / `{error, debug}` via `toError(e, code, ctx)`. Wire through
+  `FormShell` (renders error + pending) or a custom form like `AddSeasonPlayer`.
+- **Simple control (button/icon)** → void shape:
+  `(formData: FormData) => Promise<void>`; `try/catch` with `log.error` +
+  **rethrow**, then `revalidateAdmin(seasonId)` /
+  `revalidatePath("/admin/…")` (pattern: `toggleBlacklistAction`,
+  `removePlayerFromSeasonAction`).
+- Never pass a 2-arg `useActionState` action to `<form action={…}>` — TS
+  rejects it and it breaks at runtime.
 
-- **Vitest**, colocated files: `lib/engine/<module>.test.ts`. Run:
-  `pnpm test`.
-- All domain branches are covered: dice (faces/validation), movement
-  (passed/dropped, balance consumption, streak multiplier, clamp vs wrap),
-  FSM (legal/illegal transitions, reroll limit), cell effects (all types +
-  plugin routing by `effectKey`), Zod config (defaults/rejections). Style:
-  pure deterministic functions with an injected `rng`, no mocks/DB/DOM.
-- There are no tests outside `lib/engine/`; when adding UI tests keep them
-  next to the module under test and keep the DB out of them.
-- Before handing off changes: `pnpm lint` + `pnpm exec tsc --noEmit` +
-  `pnpm test` + `pnpm build`; verify behavioral changes against a live dev
-  server.
+### Edit the schema
+
+1. Edit `db/schema/<file>.ts` → 2. `pnpm db:generate` (creates migration in
+   `drizzle/`) → 3. `pnpm db:push` → 4. commit schema + migration together.
+   `season_players` children cascade on delete (`moves`, `game_rolls`,
+   `ledger_entries`, moderation tables) — deleting a participant wipes their
+   history by design.
+
+### Add UI
+
+1. Follow `DESIGN.md`; use `components/ui/*` (never raw checkboxes → `Switch`,
+   never `rounded-*`).
+2. All labels go through dictionaries **en/ru/uk** in the same change
+   (§7). Server: `const { t, locale } = await getT()`. Client: `useI18n()`.
+3. Confirm destructive actions via `components/admin/ConfirmButton.tsx`
+   (server forms can't pass `onSubmit`). It now spreads extra button attrs
+   (`aria-label`, `title`).
+4. Admin pages must be reachable through the guard in
+   `app/admin/layout.tsx`; staff-only vs admin-only via `requireStaff` /
+   `requireAdmin` (judges cannot manage users).
+
+### Add a game mechanic (no migration needed)
+
+Register in the `CELL_EFFECTS` plugin registry
+(`lib/engine/board/cell-effects/index.ts`) — key = cellType or
+`config.effectKey`; penaltys/bonus read `config.amount`, teleport reads
+`config.target`; unknown keys are no-ops. Add engine unit tests next to the
+file.
+
+### Add i18n keys or a language
+
+- Keys: add to `lib/i18n/dictionaries/{en,ru,uk}/<ns>.ts` **all three at once**
+  (en is the source of truth; ru/uk must match the structure via
+  `Widen<typeof EnNs.ns>`, not the literals).
+- Language: copy `en/*` → new folder, translate, register in `LOCALES` +
+  `LOCALE_LABELS` (`lib/i18n/config.ts`) and `dictionaries/index.ts`.
+  `pickCore()` must stay RSC-serializable (strings only, no functions).
+
+### Change behavior that affects users
+
+Follow the canonical turn flow: `rollAction → rollNewGame → resolveAction →
+resolveGameRoll → resolveMovement (engine) → applyCellEffect +
+normalizePosition` inside one transaction (`game_rolls + moves +
+ledger_entries + event_log`). Season statuses follow the transition map
+`draft→active→paused→finished→archived` (activating resets participants);
+the roll FSM lives in `lib/engine/roll/state-machine.ts`
+(`rolled→in_progress→passed|dropped|rerolled`).
+
+### Deploy / run in Docker
+
+`docker compose up --build`; on boot the entrypoint waits for Postgres,
+runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
+(`BOOTSTRAP_ADMIN_*`). Container DB maps to host `5433`. Env template:
+`docker/env.example`. Full detail in `DEPLOYMENT.md`.
+
+## 6. UI pitfalls (all seen in this codebase — don't repeat)
+
+- **`overflow-x-auto` flashes a scrollbar** — it makes `overflow-y` compute to
+  `auto`. For tab rows / nav strips use `flex-wrap` (or `overflow-x-clip`)
+  instead of `overflow-x-auto`.
+- **Raw `<input type="checkbox">`** — off-policy; use `Switch` for booleans,
+  or the catalog's checked-style for table row selection.
+- **Forms across table rows** — a `<form>` cannot wrap `<td>` cells: give
+  inputs/buttons a `form="row-<id>"` attribute and render one hidden
+  `<form id="row-<id>" action={…}>` per row after the table (see the roster
+  page in the season editor). Void 1-arg actions only.
+- **`NEXT_PUBLIC_*` is inlined at build time** — changing
+  `NEXT_PUBLIC_SITE_URL` requires a rebuild (compose `build.args`).
+- **`.env` with `override: true`** in scripts/drizzle — a stale exported
+  `DATABASE_URL` can never shadow the project `.env`; the same loader makes
+  env vars pass-through in containers (no `.env` file baked in).
+- **Windows**: keep `docker/entrypoint.sh` LF via `.gitattributes`; git shows
+  cosmetic LF→CRLF warnings on commit — harmless.
+
+## 7. i18n quick rules
+
+- Site languages: `en` (default), `ru`, `uk` — nothing else is registered.
+- All prose goes to dictionaries; only HUD codes / brand names may be
+  hardcoded (e.g. `// FILTER`, `ACTIONS`, `RAWG · IGDB`).
+- Interpolation only via `format("template {x}", { x })`
+  (`lib/i18n/format.ts`).
+- Feed event types are rendered by `components/feed/feed-list.tsx` — adding a
+  new `logEvent` type requires: `EventType` union
+  (`lib/infrastructure/events/index.ts`), eventMeta/rendering cases, and
+  `actions.*` text in en/ru/uk `feed.ts`.
+
+## 8. Testing & verification
+
+- Vitest, colocated in `lib/engine/` — pure deterministic functions with
+  injected `rng`; no mocks/DB/DOM.
+- No tests outside `lib/engine/`; UI tests (if added) stay colocated and DB-free.
+- **Before handoff:** `pnpm lint` → `pnpm exec tsc --noEmit` → `pnpm test` →
+  `pnpm build`; verify behavioral changes against a live dev server (admin
+  flows included).
+
+## 9. Git & releases
+
+- Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `style:`),
+  English messages. One logical change per commit; fetch whole-tree with
+  `git add -A` when the user says "commit and push" — do not split or
+  over-polish history.
+- Version: `package.json` + `CHANGELOG.md` (Keep a Changelog), updated in one
+  release commit `chore(release): vX.Y.Z`. While `0.x`, breaking changes bump
+  MINOR and are marked **BREAKING** (exact rules at the bottom of
+  `CHANGELOG.md`).
+- No CI, husky not wired — run the checks yourself.
+
+## 10. Environment & runtime notes
+
+- Local DB: PostgreSQL 17 via OSPanel at `127.127.126.56:5432`, database
+  `ggrun` (not a typo — it's the OSPanel-internal host).
+- `.env` is git-ignored; `.env.example` documents every variable
+  (`DATABASE_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`,
+  `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`, optional RAWG/Steam/GameSpot/IGDB keys,
+  `PROXY_URL`).
+- Auth: cookie sessions, scrypt password hashes, `sessions` table; blocked
+  users are filtered out by `getCurrentUser()`.
+- The public feed filter tabs are fixed (rolls/passes/drops/moves/joins) —
+  new event types render under “All” until a filter is added.
+
+## 11. Docs map
+
+| File | For |
+| --- | --- |
+| `README.md` (+ `translations/README.{ru,uk}.md`) | Project overview, features, quick start |
+| `DEVELOPMENT.md` | Architecture, commands, conventions, testing, releases |
+| `DEPLOYMENT.md` | Docker + manual production deployment, env reference |
+| `CONTRIBUTING.md` | Issue/PR workflow, checklist |
+| `DESIGN.md` | HUD design system (read before any UI) |
+| `RUNBOOK.md` | Host guide for event day |
+| `CHANGELOG.md` | Release history + versioning rules |
