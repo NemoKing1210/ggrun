@@ -13,6 +13,7 @@ import {
   listUserCompletionRequests,
   listUserRerollRequests,
 } from "@/lib/modules/catalog/repository/requests";
+import { getUserActivityDays } from "@/lib/modules/season/repository/players";
 import { UserDetailPage, type UserTab } from "@/components/admin/UserDetailPage";
 
 const TABS: UserTab[] = ["profile", "data", "sessions", "activity", "gameplay", "moderation"];
@@ -44,13 +45,14 @@ export default async function AdminUserDetailPage({
   const user = await getUserById(id);
   if (!user) notFound();
 
-  const [sessions, audit, seasons, rolls, rerollRequests, completionRequests] = await Promise.all([
+  const [sessions, audit, seasons, rolls, rerollRequests, completionRequests, activityDays] = await Promise.all([
     listUserSessions(id),
     listUserAuditTrail(id),
     listUserSeasons(id),
     listUserRolls(id),
     listUserRerollRequests(id),
     listUserCompletionRequests(id),
+    getUserActivityDays(id),
   ]);
   const activeTab: UserTab = TABS.includes(tab as UserTab) ? (tab as UserTab) : "profile";
 
@@ -64,6 +66,7 @@ export default async function AdminUserDetailPage({
       seasons={seasons}
       rolls={rolls}
       requests={{ rerolls: rerollRequests, completions: completionRequests }}
+      activityDays={activityDays}
     />
   );
 }

@@ -60,6 +60,18 @@ export const profile = {
   emptyMoves: "No moves in the current season yet.",
   blocked: "blocked",
   diceLabel: "dice",
+  activity: {
+    title: "Activity",
+    hint: "contributions in the last year",
+    total: "{count} contributions in the last year",
+    less: "Less",
+    more: "More",
+    noData: "No activity yet — moves, rolls and plays will appear here",
+    tooltip: "{count} on {date}",
+    countOne: "1 contribution on {date}",
+    countOther: "{count} contributions on {date}",
+    noContrib: "No contributions on {date}",
+  },
   presence: {
     online: "Online",
     offline: "Offline",

@@ -62,6 +62,18 @@ export const profile: Widen<typeof ProfileEn.profile> = {
   emptyMoves: "Ходов в текущем сезоне ещё не было.",
   blocked: "заблокирован",
   diceLabel: "кубики",
+  activity: {
+    title: "Активность",
+    hint: "вклад за последний год",
+    total: "{count} вкладов за последний год",
+    less: "Меньше",
+    more: "Больше",
+    noData: "Пока нет активности — ходы, броски и игры появятся здесь",
+    tooltip: "{count} — {date}",
+    countOne: "1 вклад {date}",
+    countOther: "{count} вкладов {date}",
+    noContrib: "Нет вкладов {date}",
+  },
   presence: {
     online: "В сети",
     offline: "Не в сети",

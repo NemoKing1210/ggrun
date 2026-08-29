@@ -20,11 +20,12 @@ import { StatusBadge } from "@/components/ui/status";
 import { db } from "@/lib/infrastructure/db";
 import { gameRolls, seasonPlayers, seasons, users } from "@/db/schema";
 import { getOpenRoll } from "@/lib/modules/catalog/repository";
-import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/repository/players";
+import { getPlayerMoves, getSeasonPlayerForUser, getUserActivityDays } from "@/lib/modules/season/repository/players";
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
 
 type Params = { params: Promise<{ username: string }> };
 
@@ -65,8 +66,11 @@ export default async function PlayerProfilePage({ params }: Params) {
   ]);
 
   const activeParticipation = activeSeason ? await getSeasonPlayerForUser(activeSeason.id, user.id) : null;
-  const recentMoves = activeParticipation ? await getPlayerMoves(activeParticipation.id, 10) : [];
-  const openRoll = activeParticipation ? await getOpenRoll(activeParticipation.id) : null;
+  const [recentMoves, openRoll, activityDays] = await Promise.all([
+    activeParticipation ? getPlayerMoves(activeParticipation.id, 10) : Promise.resolve([] as Awaited<ReturnType<typeof getPlayerMoves>>),
+    activeParticipation ? getOpenRoll(activeParticipation.id) : Promise.resolve(null),
+    getUserActivityDays(user.id),
+  ]);
 
   const rollsByStatus = new Map(rollStats.map((r) => [r.status, Number(r.total)]));
   const totalRolls = rollStats.reduce((acc, r) => acc + Number(r.total), 0);
@@ -318,6 +322,11 @@ export default async function PlayerProfilePage({ params }: Params) {
           ))}
         </div>
       </section>
+
+      {/* activity calendar — GitHub-style */}
+      <div className="mt-6">
+        <ActivityCalendar days={activityDays} />
+      </div>
 
       {/* seasons + moves two-column */}
       <div className="mt-6 grid gap-6 lg:grid-cols-5">

@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
 import { actionMeta, payloadSummary } from "@/components/admin/audit-meta";
 import {
   blockUserAction,
@@ -59,6 +60,7 @@ import type {
   UserCompletionRequestRow,
   UserRerollRequestRow,
 } from "@/lib/modules/catalog/repository/requests";
+import type { UserActivityDay } from "@/lib/modules/season/repository/players";
 
 export type UserTab = "profile" | "data" | "sessions" | "activity" | "gameplay" | "moderation";
 
@@ -136,6 +138,7 @@ export function UserDetailPage({
   seasons,
   rolls,
   requests,
+  activityDays = [],
 }: {
   user: User;
   actor: { id: string; username: string };
@@ -145,6 +148,7 @@ export function UserDetailPage({
   seasons: AdminUserSeasonRow[];
   rolls: AdminUserRollRow[];
   requests: { rerolls: UserRerollRequestRow[]; completions: UserCompletionRequestRow[] };
+  activityDays?: UserActivityDay[];
 }) {
   const { t } = useI18n();
   const u = t.admin.users;
@@ -315,7 +319,7 @@ export function UserDetailPage({
       {activeTab === "sessions" && (
         <SessionsPanel user={user} sessions={sessions} dateFmt={dateFmt} />
       )}
-      {activeTab === "activity" && <ActivityPanel audit={audit} dateFmt={dateFmt} />}
+      {activeTab === "activity" && <ActivityPanel audit={audit} dateFmt={dateFmt} activityDays={activityDays} />}
       {activeTab === "gameplay" && (
         <GameplayPanel seasons={seasons} rolls={rolls} dayFmt={dayFmt} dateFmt={dateFmt} />
       )}
@@ -670,12 +674,14 @@ function SessionsPanel({ user, sessions, dateFmt }: { user: User; sessions: Admi
 
 /* ----------------------------- Activity tab ------------------------------ */
 
-function ActivityPanel({ audit, dateFmt }: { audit: AdminUserAuditRow[]; dateFmt: Intl.DateTimeFormat }) {
+function ActivityPanel({ audit, dateFmt, activityDays }: { audit: AdminUserAuditRow[]; dateFmt: Intl.DateTimeFormat; activityDays: UserActivityDay[] }) {
   const { t } = useI18n();
   const a = t.admin.users.activity;
 
   return (
-    <section className="hud-card p-4">
+    <div className="flex flex-col gap-4">
+      <ActivityCalendar days={activityDays} />
+      <section className="hud-card p-4">
       <div className="mb-1 flex items-center gap-2">
         <ClockIcon className="h-5 w-5 text-amber" aria-hidden />
         <h2 className="font-display text-lg uppercase tracking-wider">{a.heading}</h2>
@@ -738,6 +744,7 @@ function ActivityPanel({ audit, dateFmt }: { audit: AdminUserAuditRow[]; dateFmt
         </div>
       )}
     </section>
+    </div>
   );
 }
 
