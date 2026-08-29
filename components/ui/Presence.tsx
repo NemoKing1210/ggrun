@@ -14,7 +14,7 @@ type PresenceDotProps = {
   className?: string;
 };
 
-export function PresenceDot({ lastSeenAt, size = "md", pulse = true, bordered = false, className }: PresenceDotProps) {
+export function PresenceDot({ lastSeenAt, size = "md", pulse: _pulse = true, bordered = false, className }: PresenceDotProps) {
   const online = isOnline(lastSeenAt);
   const dim = size === "sm" ? "size-2" : size === "lg" ? "size-3" : "size-2.5";
   return (
@@ -24,8 +24,7 @@ export function PresenceDot({ lastSeenAt, size = "md", pulse = true, bordered = 
         "inline-block shrink-0 [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]",
         dim,
         bordered ? "border-2 border-raised shadow-[0_0_0_1px_rgba(0,0,0,0.6)]" : "border border-black/30",
-        online ? "bg-military" : "bg-zinc-500",
-        online && pulse ? "animate-pulse shadow-[0_0_6px_rgba(124,143,74,0.6)]" : "",
+        online ? "bg-military shadow-[0_0_8px_rgba(124,143,74,0.9)] shadow-[0_0_14px_rgba(124,143,74,0.6)]" : "bg-zinc-500",
         className ?? "",
       ]
         .filter(Boolean)
@@ -79,7 +78,7 @@ export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = t
             : "inline-flex items-center gap-1.5 font-mono text-xs text-military"
         }
       >
-        {showDot ? <span className="size-1.5 animate-pulse bg-military [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
+        {showDot ? <span className="size-1.5 bg-military shadow-[0_0_6px_rgba(124,143,74,0.9)] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
         {pr.online}
       </span>
     );
@@ -107,15 +106,15 @@ type AvatarWithPresenceProps = {
   dotSize?: "sm" | "md" | "lg";
 };
 
-/** Wraps any avatar element with an absolute presence dot at the bottom-right. */
+/** Wraps any avatar element with an absolute presence dot at the top-right inside. */
 export function AvatarWithPresence({ lastSeenAt, children, size = "md", dotSize }: AvatarWithPresenceProps) {
   const dot = dotSize ?? (size === "lg" || size === "xl" ? "lg" : size === "sm" ? "sm" : "md");
-  const offset = size === "lg" || size === "xl" ? "-bottom-0.5 -right-0.5" : "-bottom-1 -right-1";
+  const offset = size === "lg" || size === "xl" ? "top-1.5 right-1.5" : "top-1 right-1";
   return (
     <span className="relative inline-flex shrink-0">
       {children}
       <span className={`absolute ${offset}`}>
-        <PresenceDot lastSeenAt={lastSeenAt} size={dot} bordered pulse />
+        <PresenceDot lastSeenAt={lastSeenAt} size={dot} bordered />
       </span>
     </span>
   );

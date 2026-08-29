@@ -98,7 +98,7 @@ export default function UsersManager({
                 <span className="relative grid h-9 w-9 shrink-0 place-items-center border border-dim/40 bg-raised font-display text-xs tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                   {initials}
                   <span
-                    className={`absolute -bottom-0.5 -right-0.5 inline-block size-2.5 border-2 border-[#1a1a1a] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)] ${isOnline(usr.lastSeenAt) ? "bg-military shadow-[0_0_6px_rgba(124,143,74,0.5)]" : "bg-zinc-600"}`}
+                    className={`absolute top-0.5 right-0.5 inline-block size-2.5 border-2 border-[#1a1a1a] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)] ${isOnline(usr.lastSeenAt) ? "bg-military shadow-[0_0_8px_rgba(124,143,74,0.9)] shadow-[0_0_12px_rgba(124,143,74,0.6)]" : "bg-zinc-600"}`}
                     aria-hidden
                   />
                 </span>
