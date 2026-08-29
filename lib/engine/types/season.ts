@@ -22,6 +22,7 @@ export interface SeasonConfig {
     eventCount: number;
     distribution: import("./board").BoardDistribution;
     regenerateOnSave: boolean;
+    perCellGenre: boolean;
   };
   rerolls: { allowed: boolean; limitPerGame: number; requireApproval: boolean };
   moderation: { completionRequireApproval: boolean };

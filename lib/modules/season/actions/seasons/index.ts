@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -17,25 +18,26 @@ import { log } from "@/lib/infrastructure/logger";
 import { revalidateAdmin, toError } from "@/lib/use-cases/admin/actions/helpers";
 import type { AdminFormState } from "@/lib/use-cases/admin/actions/types";
 import { parseSeasonSettingsForm } from "./form";
-
 export async function createSeasonAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
   const actor = await getCurrentUser();
+  let createdId: string | null = null;
   try {
     const id = await createSeason({
       title: formData.get("title"),
       slug: formData.get("slug"),
-      cloneBoardFromSeasonId:
-        String(formData.get("cloneFrom") || "") || undefined,
+      cloneBoardFromSeasonId: String(formData.get("cloneFrom") || "") || undefined,
     });
     log.info("season.create", { actorId: actor?.id ?? null, seasonId: id });
     revalidateAdmin();
-    return { ok: format((await getT()).t.admin.feedback.seasonCreated, { id }) };
+    createdId = id;
   } catch (e) {
     return await toError(e, "season.create", { actorId: actor?.id ?? null });
   }
+  if (createdId) redirect(`/admin/seasons/${createdId}`);
+  return { ok: format((await getT()).t.admin.feedback.seasonCreated, { id: createdId ?? "" }) };
 }
 
 export async function changeStatusAction(

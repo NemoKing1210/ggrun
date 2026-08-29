@@ -21,6 +21,7 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     eventCount: 3,
     distribution: "random",
     regenerateOnSave: false,
+    perCellGenre: false,
   },
   rerolls: { allowed: true, limitPerGame: 1, requireApproval: true },
   moderation: { completionRequireApproval: false },

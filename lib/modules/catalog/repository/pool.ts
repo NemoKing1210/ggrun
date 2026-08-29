@@ -1,7 +1,7 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
+import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import type { SeasonConfig } from "@/lib/engine/types";
 
@@ -21,29 +21,48 @@ async function fetchSeasonConfig(seasonPlayerId: string): Promise<SeasonConfig |
   return parseSeasonConfig(row[0].config);
 }
 
+async function resolveEffectiveFilters(seasonPlayerId: string, config: SeasonConfig) {
+  const base = config.gamePool.filters;
+  if (!config.board.perCellGenre) return base;
+  try {
+    const spRows = await db.select({ position: seasonPlayers.position, seasonId: seasonPlayers.seasonId }).from(seasonPlayers).where(eq(seasonPlayers.id, seasonPlayerId)).limit(1);
+    const sp = spRows[0];
+    if (!sp) return base;
+    const boardRows = await db.select({ id: boards.id }).from(boards).where(eq(boards.seasonId, sp.seasonId)).limit(1);
+    const board = boardRows[0];
+    if (!board) return base;
+    const cellRows = await db.select({ config: boardCells.config }).from(boardCells).where(and(eq(boardCells.boardId, board.id), eq(boardCells.position, sp.position))).limit(1);
+    const cfg = cellRows[0]?.config as Record<string, unknown> | undefined;
+    const g = cfg?.genres;
+    if (Array.isArray(g) && g.length > 0) {
+      const clean = [...new Set(g.map((x) => String(x).trim().toLowerCase()).filter(Boolean))];
+      if (clean.length > 0) return { ...base, genres: clean };
+    }
+  } catch {}
+  return base;
+}
+
 /**
  * Picks a random game for a roll: excludes blacklisted games and games
  * already rolled for this player in the current season.
  * Respects SeasonConfig.gamePool filters and optionally fetches from external provider.
+ * When board.perCellGenre is enabled, overrides genres filter with the current cell's genres.
  */
 export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGame | null> {
-  const played = await db
-    .select({ gameId: gameRolls.gameId })
-    .from(gameRolls)
-    .where(eq(gameRolls.seasonPlayerId, seasonPlayerId));
+  const played = await db.select({ gameId: gameRolls.gameId }).from(gameRolls).where(eq(gameRolls.seasonPlayerId, seasonPlayerId));
   const playedIds = played.map((r) => r.gameId).filter((id): id is string => id !== null);
 
   const config = (await fetchSeasonConfig(seasonPlayerId)) ?? DEFAULT_SEASON_CONFIG;
   const pool = config.gamePool;
-  const filters = pool.filters;
+  const filters = await resolveEffectiveFilters(seasonPlayerId, config);
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: unknown[] = [];
   conditions.push(eq(gamesCatalog.isBlacklisted, false) as never);
   if (playedIds.length > 0) {
     conditions.push(notInArray(gamesCatalog.id, playedIds) as never);
   }
 
-  const extraSql: ReturnType<typeof sql>[] = [];
+  const extraSql: unknown[] = [];
   if (filters.genres.length) {
     extraSql.push(sql`${gamesCatalog.genres} && ARRAY[${sql.join(
       filters.genres.map((g) => sql`${g}`),
@@ -94,9 +113,9 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
     extraSql.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) <= ${filters.yearMax}` as never);
   }
 
-  const whereClause = extraSql.length > 0 ? and(...(conditions as never[]), ...extraSql) : and(...(conditions as never[]));
+  const whereClause = extraSql.length > 0 ? and(...(conditions as never[]), ...extraSql as never[]) : and(...(conditions as never[]));
 
-  let orderExpr: ReturnType<typeof sql> = sql`random()`;
+  let orderExpr: unknown = sql`random()`;
   if (filters.ordering === "-metacritic") orderExpr = sql`${gamesCatalog.metacritic} DESC NULLS LAST, random()`;
   else if (filters.ordering === "metacritic") orderExpr = sql`${gamesCatalog.metacritic} ASC NULLS LAST, random()`;
   else if (filters.ordering === "-rating") orderExpr = sql`${gamesCatalog.rating}::numeric DESC NULLS LAST, random()`;
@@ -110,7 +129,7 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
       .select()
       .from(gamesCatalog)
       .where(whereClause as never)
-      .orderBy(orderExpr)
+      .orderBy(orderExpr as never)
       .limit(pool.maxCandidates);
     if (candidates.length > 0) {
       const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
@@ -159,7 +178,7 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
               }
             }
           }
-          const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr).limit(pool.maxCandidates);
+          const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr as never).limit(pool.maxCandidates);
           if (refreshed.length > 0) {
             return refreshed[Math.floor(Math.random() * refreshed.length)]!;
           }
@@ -223,12 +242,7 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
     .limit(1);
   if (anyFallback[0]) return anyFallback[0];
   if (playedIds.length > 0) {
-    const replayFallback = await db
-      .select()
-      .from(gamesCatalog)
-      .where(eq(gamesCatalog.isBlacklisted, false) as never)
-      .orderBy(sql`random()`)
-      .limit(1);
+    const replayFallback = await db.select().from(gamesCatalog).where(eq(gamesCatalog.isBlacklisted, false) as never).orderBy(sql`random()`).limit(1);
     return replayFallback[0] ?? null;
   }
   return null;

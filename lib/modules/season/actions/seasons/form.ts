@@ -71,14 +71,12 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
         eventCount: parseIntOr("board_eventCount", 3),
         distribution: String(formData.get("board_distribution") || "random"),
         regenerateOnSave: parseBool("board_regenerateOnSave", false),
+        perCellGenre: parseBool("board_perCellGenre", false),
       },
       rerolls: {
         allowed: parseBool("rerolls_allowed", true),
         limitPerGame: parseIntOr("rerolls_limitPerGame", 1),
         requireApproval: parseBool("rerolls_requireApproval", true),
-      },
-      moderation: {
-        completionRequireApproval: parseBool("moderation_completionRequireApproval", false),
       },
       rules: { mode: rulesMode },
       gamePool: {

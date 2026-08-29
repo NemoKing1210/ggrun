@@ -16,6 +16,7 @@ import {
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { slugify } from "@/lib/shared/utils/slugify";
+import { generateSeasonTitle } from "@/lib/shared/utils/season-names";
 import { logAdminAction, logEvent } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
 import { SeasonConfigSchema } from "@/lib/engine";
@@ -26,6 +27,18 @@ async function requireStaff(): Promise<NonNullable<Awaited<ReturnType<typeof get
   const user = await getCurrentUser();
   if (!user || !isStaff(user)) throw new AdminError("adminStaffRequired");
   return user;
+}
+
+async function ensureUniqueSlug(base: string): Promise<string> {
+  const existing = await db.select({ slug: seasons.slug }).from(seasons).where(eq(seasons.slug, base)).limit(1);
+  if (existing.length === 0) return base;
+  for (let i = 2; i < 20; i++) {
+    const candidate = `${base}-${i}`;
+    const dup = await db.select({ slug: seasons.slug }).from(seasons).where(eq(seasons.slug, candidate)).limit(1);
+    if (dup.length === 0) return candidate;
+  }
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base}-${suffix}`;
 }
 
 export const createSeasonSchema = z.object({
@@ -42,11 +55,28 @@ export const createSeasonSchema = z.object({
 export async function createSeason(input: unknown): Promise<string> {
   const actor = await requireStaff();
   const raw = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
-  const title = typeof raw.title === "string" ? raw.title.trim() : "";
-  const requestedSlug = typeof raw.slug === "string" ? raw.slug.trim() : "";
-  const slug = requestedSlug || slugify(title);
-  const parsed = createSeasonSchema.parse({ ...raw, title: title || undefined, slug: slug || undefined });
+  let title = typeof raw.title === "string" ? raw.title.trim() : "";
+  const requestedSlug = typeof raw.slug === "string" ? raw.slug.trim().toLowerCase() : "";
 
+  if (!title) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateSeasonTitle();
+      const candSlug = slugify(candidate);
+      const exists = await db.select({ slug: seasons.slug }).from(seasons).where(eq(seasons.slug, candSlug)).limit(1);
+      if (exists.length === 0) {
+        title = candidate;
+        break;
+      }
+    }
+    if (!title) title = generateSeasonTitle();
+  }
+
+  let slug = requestedSlug || slugify(title);
+  slug = slugify(slug);
+  if (!slug) slug = slugify(title);
+  slug = await ensureUniqueSlug(slug);
+
+  const parsed = createSeasonSchema.parse({ ...raw, title, slug });
   const created = await db.transaction(async (tx) => {
     const [season] = await tx
       .insert(seasons)

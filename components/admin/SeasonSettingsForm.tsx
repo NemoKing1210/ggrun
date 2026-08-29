@@ -156,6 +156,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     formData.set("board_eventCount", String(cfg.board.eventCount));
     formData.set("board_distribution", cfg.board.distribution);
     formData.set("board_regenerateOnSave", cfg.board.regenerateOnSave ? "true" : "false");
+    formData.set("board_perCellGenre", (cfg.board.perCellGenre ?? false) ? "true" : "false");
     formData.set("rerolls_allowed", cfg.rerolls.allowed ? "true" : "false");
     formData.set("rerolls_limitPerGame", String(cfg.rerolls.limitPerGame));
     formData.set("rerolls_requireApproval", cfg.rerolls.requireApproval ? "true" : "false");
@@ -419,7 +420,21 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   <div style={{ flex: boardNormal }} className="bg-zinc-800" />
                   {!cfg.board.loop && <div style={{ flex: 1 }} className="bg-amber" />}
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-col gap-3">
+                  <Switch
+                    checked={cfg.board.perCellGenre ?? false}
+                    onChange={(v) => setBoard({ perCellGenre: v })}
+                    label={t.admin.settings.perCellGenreLabel}
+                    description={t.admin.settings.perCellGenreDescription}
+                  />
+                  {(cfg.board.perCellGenre ?? false) && (
+                    <div className="flex items-center gap-2 border border-amber/20 bg-amber/10 px-3 py-2 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                      <SparklesIcon className="h-4 w-4 shrink-0 text-amber" aria-hidden />
+                      <p className="text-xs leading-relaxed text-amber">
+                        {t.admin.settings.perCellGenreActiveHint} <Link href={`/admin/seasons/${seasonId}/board`} className="underline decoration-amber/50 underline-offset-4 hover:text-amber font-medium">{t.admin.settings.perCellGenreGoToBoard}</Link>
+                      </p>
+                    </div>
+                  )}
                   <Switch
                     checked={cfg.board.regenerateOnSave}
                     onChange={(v) => setBoard({ regenerateOnSave: v })}
@@ -437,7 +452,6 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               </div>
             </div>
           )}
-
           {activeTab === "rules" && (
             <div className="hud-card p-4 bg-[#0f0f0f] border-zinc-800 flex flex-col gap-4">
 <div className="flex flex-wrap items-center justify-between gap-3">

@@ -11,4 +11,5 @@ export const BoardConfigSchema = z.object({
   eventCount: int(0).max(100).default(DEFAULT_SEASON_CONFIG.board.eventCount),
   distribution: z.enum(["random", "even", "clustered", "manual"]).default(DEFAULT_SEASON_CONFIG.board.distribution),
   regenerateOnSave: z.boolean().default(DEFAULT_SEASON_CONFIG.board.regenerateOnSave),
+  perCellGenre: z.boolean().default(DEFAULT_SEASON_CONFIG.board.perCellGenre),
 });
