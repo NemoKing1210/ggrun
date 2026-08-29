@@ -113,7 +113,9 @@ function CellAvatarStack({ occupants }: { occupants: BoardPlayer[] }) {
   return (
     <span className="flex -space-x-1.5">
       {shown.map((p) => (
-        <Avatar key={p.username} {...p} className="size-6 ring-1 ring-background" />
+        <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm">
+          <Avatar {...p} className="size-6" />
+        </AvatarWithPresence>
       ))}
       {occupants.length > shown.length ? (
         <span className="inline-flex size-6 items-center justify-center border border-dim/50 bg-raised font-mono text-[9px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -362,7 +364,7 @@ export function BoardView({
             {rolls.map((r) => (
               <li key={r.username} className="hud-card group flex items-center gap-3 p-3 transition-colors hover:border-amber/40">
                 <div className="absolute inset-x-0 top-0 h-px bg-amber/0 transition-colors group-hover:bg-amber/30" aria-hidden />
-                <AvatarWithPresence lastSeenAt={r.lastSeenAt} size="sm" locale={locale}>
+                <AvatarWithPresence lastSeenAt={r.lastSeenAt} size="sm" locale={locale} href={`/players/${r.username}`}>
                   <Avatar username={r.username} displayName={r.displayName} avatarUrl={r.avatarUrl} />
                 </AvatarWithPresence>
                 <div className="min-w-0 flex-1">
@@ -597,7 +599,7 @@ export function BoardView({
                       <ul className="mt-2 flex flex-col divide-y divide-dim/20 border border-dim/30 bg-background/20 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
                         {here.map((p) => (
                           <li key={p.username} className="flex items-center gap-3 p-2.5">
-                            <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale}>
+                            <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
                               <Avatar {...p} />
                             </AvatarWithPresence>
                             <div className="min-w-0 flex-1">

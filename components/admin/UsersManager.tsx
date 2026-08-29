@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { AddUserModal } from "@/components/admin/AddUserModal";
 import { useI18n } from "@/lib/i18n/client";
 import type { AdminUserRow } from "@/lib/modules/player/service/admin";
-import { PresenceDot } from "@/components/ui/Presence";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 type Actor = { id: string; username: string };
 
@@ -88,19 +88,20 @@ export default function UsersManager({
           filtered.map((usr) => {
             const isSelf = usr.id === actor.id;
             const name = usr.displayName ?? usr.username;
-            const initials = name.slice(0, 2).toUpperCase();
             return (
               <Link
                 key={usr.id}
                 href={`/admin/users/${usr.id}`}
                 className="group flex w-full items-center gap-3 border border-[#3d3d34] bg-[#1a1a1a] p-3 text-left transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] hover:border-amber/40 hover:bg-amber/5"
               >
-                <span className="relative grid h-9 w-9 shrink-0 place-items-center border border-dim/40 bg-raised font-display text-xs tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                  {initials}
-                  <span className="absolute top-1 right-1 flex">
-                    <PresenceDot lastSeenAt={usr.lastSeenAt} size="sm" bordered />
-                  </span>
-                </span>
+                <AvatarWithPresence lastSeenAt={usr.lastSeenAt} size="sm" href={`/admin/users/${usr.id}`}>
+                  {usr.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={usr.avatarUrl} alt={name} className="size-9 object-cover" />
+                  ) : (
+                    <span className="grid h-9 w-9 place-items-center bg-raised font-display text-xs tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                  )}
+                </AvatarWithPresence>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="truncate font-display text-sm uppercase tracking-wide text-zinc-100 transition-colors group-hover:text-amber">

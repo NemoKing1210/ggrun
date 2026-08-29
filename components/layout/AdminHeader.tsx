@@ -9,6 +9,7 @@ import { logoutAction } from "@/lib/modules/auth/actions/logout";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
@@ -29,6 +30,7 @@ export function AdminHeader({
   userName,
   userAvatar,
   username,
+  lastSeenAt,
   t,
 }: {
   navLinks: Array<{ href: string; label: string }>;
@@ -36,6 +38,7 @@ export function AdminHeader({
   userName: string;
   userAvatar?: string | null;
   username: string;
+  lastSeenAt?: string | Date | null;
   t: Dictionary;
 }) {
   const [open, setOpen] = useState(false);
@@ -59,7 +62,9 @@ export function AdminHeader({
               className="hidden no-underline items-center gap-2 font-mono text-xs text-military hover:text-amber sm:inline-flex"
               title={userName}
             >
-              <AvatarBadge size="sm" name={userName} src={userAvatar ?? null} square />
+              <AvatarWithPresence lastSeenAt={lastSeenAt ?? null} size="sm">
+                <AvatarBadge size="sm" name={userName} src={userAvatar ?? null} square className="!border-0" />
+              </AvatarWithPresence>
               <span className="text-current">{userName}</span>
             </Link>
             <Link
@@ -130,7 +135,9 @@ export function AdminHeader({
               className="flex no-underline items-center gap-2 px-3 py-1 font-mono text-xs text-military hover:text-amber sm:hidden"
               title={userName}
             >
-              <AvatarBadge size="sm" name={userName} src={userAvatar ?? null} square />
+              <AvatarWithPresence lastSeenAt={lastSeenAt ?? null} size="sm">
+                <AvatarBadge size="sm" name={userName} src={userAvatar ?? null} square className="!border-0" />
+              </AvatarWithPresence>
               <span className="text-current">{userName}</span>
             </Link>
             <ul className="flex flex-col">

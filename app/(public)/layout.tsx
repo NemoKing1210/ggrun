@@ -25,6 +25,7 @@ export default async function PublicLayout({
                 displayName: user.displayName,
                 username: user.username,
                 avatarUrl: user.avatarUrl,
+                lastSeenAt: user.lastSeenAt,
                 isStaff: isStaff(user),
               }
             : null

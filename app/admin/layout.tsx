@@ -50,6 +50,7 @@ export default async function AdminLayout({
         userName={user.displayName ?? user.username}
         userAvatar={user.avatarUrl}
         username={user.username}
+        lastSeenAt={user.lastSeenAt}
         t={t}
       />
       <div className="mx-auto w-full max-w-7xl px-4 pt-4">

@@ -300,23 +300,25 @@ select:disabled {
   background-size: 48px 100%;
   animation: hud-stripes 0.9s linear infinite;
 }
-/* Presence — smooth breathing glow for online dot/badge */
-@keyframes presence-glow {
+/* Presence — breathing border around avatar: dark → military */
+@keyframes presence-border {
   0%, 100% {
-    box-shadow:
-      0 0 8px rgba(124, 143, 74, 0.9),
-      0 0 16px rgba(124, 143, 74, 0.55),
-      0 0 28px rgba(124, 143, 74, 0.28);
+    border-color: #3d3d34;
+    box-shadow: 0 0 0 rgba(124, 143, 74, 0);
   }
   50% {
+    border-color: #7c8f4a;
     box-shadow:
-      0 0 12px rgba(124, 143, 74, 1),
-      0 0 24px rgba(124, 143, 74, 0.75),
-      0 0 36px rgba(124, 143, 74, 0.42);
+      0 0 10px rgba(124, 143, 74, 0.65),
+      0 0 22px rgba(124, 143, 74, 0.35);
   }
 }
+.animate-presence-border {
+  animation: presence-border 2.8s ease-in-out infinite;
+}
+/* keep legacy name alias */
 .animate-presence-glow {
-  animation: presence-glow 2.8s ease-in-out infinite;
+  animation: presence-border 2.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -330,7 +332,8 @@ select:disabled {
   .animate-hud-backdrop-out,
   .animate-hud-panel-in,
   .animate-hud-panel-out,
-  .animate-presence-glow {
+  .animate-presence-glow,
+  .animate-presence-border {
     animation: none;
   }
   .hud-btn:active:not(:disabled),

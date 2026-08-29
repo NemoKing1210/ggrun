@@ -46,6 +46,8 @@ export type PendingRerollRow = RerollRequest & {
   userId: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
+  lastSeenAt: Date | null;
   gameTitle: string | null;
   seasonTitle: string | null;
 };
@@ -122,6 +124,8 @@ export type PendingCompletionRow = CompletionRequest & {
   userId: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
+  lastSeenAt: Date | null;
   gameTitle: string | null;
   seasonTitle: string | null;
 };
@@ -163,6 +167,8 @@ export async function listPendingCompletionRequests(): Promise<PendingCompletion
       userId: users.id,
       username: users.username,
       displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      lastSeenAt: users.lastSeenAt,
       gameTitle: gamesCatalog.title,
       seasonTitle: sql<string | null>`(select title from seasons where id = ${seasonPlayers.seasonId})`,
     })
@@ -178,6 +184,8 @@ export async function listPendingCompletionRequests(): Promise<PendingCompletion
     userId: r.userId,
     username: r.username,
     displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
+    lastSeenAt: r.lastSeenAt,
     gameTitle: r.gameTitle ?? null,
     seasonTitle: r.seasonTitle ?? null,
   }));
@@ -190,6 +198,8 @@ export async function listPendingRerollRequests(): Promise<PendingRerollRow[]> {
       userId: users.id,
       username: users.username,
       displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      lastSeenAt: users.lastSeenAt,
       gameTitle: gamesCatalog.title,
       seasonTitle: sql<string | null>`(select title from seasons where id = ${seasonPlayers.seasonId})`,
     })
@@ -205,6 +215,8 @@ export async function listPendingRerollRequests(): Promise<PendingRerollRow[]> {
     userId: r.userId,
     username: r.username,
     displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
+    lastSeenAt: r.lastSeenAt,
     gameTitle: r.gameTitle ?? null,
     seasonTitle: r.seasonTitle ?? null,
   }));

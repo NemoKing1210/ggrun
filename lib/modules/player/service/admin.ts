@@ -29,6 +29,7 @@ export type AdminUserRow = {
   email: string | null;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
   role: (typeof users.$inferSelect)["role"];
   isBlocked: boolean;
   lastSeenAt: Date | null;

@@ -24,7 +24,7 @@ import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/rep
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { AvatarWithPresence, PresenceBadge } from "@/components/ui/Presence";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 type Params = { params: Promise<{ username: string }> };
 
@@ -150,9 +150,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                 <span className="font-mono text-sm text-dim">@{user.username}</span>
                 {user.displayName && user.displayName !== user.username ? null : null}
               </div>
-              <div className="mt-2">
-                <PresenceBadge lastSeenAt={user.lastSeenAt} locale={locale} />
-              </div>
+
               {user.bio ? (
                 <p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed text-zinc-300">{user.bio}</p>
               ) : (

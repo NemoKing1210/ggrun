@@ -11,6 +11,7 @@ import { format } from "@/lib/i18n/format";
 import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
 import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { getEventFeed } from "@/lib/modules/season/repository/players";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -134,8 +135,18 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
             <ol className="mt-3 space-y-2">
               {top.map((p, idx) => (
                 <li key={p.id} className="flex items-center gap-2">
-                  <span className="ammo-counter w-6 text-center text-xs text-dim">#{idx + 1}</span>
-                  <span className="flex-1 truncate font-mono text-sm">{p.displayName ?? p.username}</span>
+                  <span className="ammo-counter w-6 shrink-0 text-center text-xs text-dim">#{idx + 1}</span>
+                  <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
+                    {p.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.avatarUrl} alt={p.displayName ?? p.username} loading="lazy" decoding="async" className="size-7 object-cover" />
+                    ) : (
+                      <span className="inline-flex size-7 items-center justify-center bg-raised font-mono text-xs text-dim">{(p.displayName ?? p.username).slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </AvatarWithPresence>
+                  <Link href={`/players/${p.username}`} className="flex-1 truncate font-mono text-sm hover:text-amber">
+                    {p.displayName ?? p.username}
+                  </Link>
                   <span className="font-mono text-xs text-amber">#{p.position}</span>
                   <Link href={`/players/${p.username}`} className="inline-flex items-center justify-center border border-dim/40 px-1 py-0.5 text-dim hover:text-amber" aria-label={p.username}>
                     <ArrowRightIcon className="h-3 w-3" aria-hidden />

@@ -17,6 +17,7 @@ import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejec
 import { FormShell } from "@/components/admin/FormShell";
 import { Badge } from "@/components/ui/Badge";
 import { Textarea } from "@/components/ui/Textarea";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 
@@ -28,7 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
 /** One moderation request card: player + game + reason, with approve/reject panels. */
 function RequestCard({
   accent,
-  initials,
+  avatarUrl,
+  lastSeenAt,
   name,
   username,
   userId,
@@ -40,7 +42,8 @@ function RequestCard({
   children,
 }: {
   accent: "amber" | "emerald";
-  initials: string;
+  avatarUrl: string | null;
+  lastSeenAt: Date | string | null;
   name: string;
   username: string;
   userId: string;
@@ -67,9 +70,14 @@ function RequestCard({
       <div className="p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center border border-amber/40 bg-amber/10 font-display text-xs tracking-widest text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-              {initials}
-            </span>
+            <AvatarWithPresence lastSeenAt={lastSeenAt} size="md" href={isAdmin ? `/admin/users/${userId}` : `/players/${username}`}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt={name} className="size-10 object-cover" />
+              ) : (
+                <span className="grid h-10 w-10 place-items-center bg-raised font-display text-xs tracking-widest text-amber">{name.slice(0, 2).toUpperCase()}</span>
+              )}
+            </AvatarWithPresence>
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2">
                 {nameEl}
@@ -200,7 +208,8 @@ export default async function AdminRerollsPage({
               <RequestCard
                 key={req.id}
                 accent="amber"
-                initials={(req.displayName ?? req.username).slice(0, 2).toUpperCase()}
+                avatarUrl={req.avatarUrl ?? null}
+                lastSeenAt={req.lastSeenAt ?? null}
                 name={req.displayName ?? req.username}
                 username={req.username}
                 userId={req.userId}
@@ -274,7 +283,8 @@ export default async function AdminRerollsPage({
               <RequestCard
                 key={req.id}
                 accent="emerald"
-                initials={(req.displayName ?? req.username).slice(0, 2).toUpperCase()}
+                avatarUrl={req.avatarUrl ?? null}
+                lastSeenAt={req.lastSeenAt ?? null}
                 name={req.displayName ?? req.username}
                 username={req.username}
                 userId={req.userId}

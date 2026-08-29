@@ -10,11 +10,13 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 export interface SiteHeaderUser {
   displayName: string | null;
   username: string;
   avatarUrl?: string | null;
+  lastSeenAt?: string | Date | null;
   isStaff: boolean;
 }
 
@@ -87,7 +89,9 @@ export function SiteHeader({
                   className="hidden no-underline items-center gap-2 hover:text-amber sm:inline-flex"
                   title={user.displayName ?? user.username}
                 >
-                  <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} />
+                  <AvatarWithPresence lastSeenAt={user.lastSeenAt ?? null} size="sm">
+                    <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} className="!border-0" />
+                  </AvatarWithPresence>
                   <span className="max-w-[10rem] truncate text-current">{user.displayName ?? user.username}</span>
                 </Link>
                 <Link
@@ -166,7 +170,9 @@ export function SiteHeader({
                       onClick={guard()}
                       className="flex no-underline items-center gap-2 border-l-2 border-transparent px-3 py-2.5 uppercase tracking-widest hover:text-amber"
                     >
-                      <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} />
+                      <AvatarWithPresence lastSeenAt={user.lastSeenAt ?? null} size="sm">
+                        <AvatarBadge size="sm" name={user.displayName ?? user.username} src={user.avatarUrl ?? null} className="!border-0" />
+                      </AvatarWithPresence>
                       {user.displayName ?? user.username}
                     </Link>
                   </li>

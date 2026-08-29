@@ -29,6 +29,7 @@ import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 const playerStatuses = ["active", "finished", "eliminated", "withdrawn"] as const;
 
@@ -200,9 +201,14 @@ export default async function SeasonPlayersPage({
                       <tr key={p.id} className="group align-middle transition-colors hover:bg-amber/[0.04]">
                         <td className="p-3">
                           <div className="flex min-w-0 items-center gap-2.5">
-                            <div className="flex size-9 shrink-0 items-center justify-center border border-dim/30 bg-raised font-display text-xs uppercase tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                              {name.slice(0, 2).toUpperCase()}
-                            </div>
+                            <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" href={`/admin/users/${p.playerId}`}>
+                              {p.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={p.avatarUrl} alt={name} className="size-9 object-cover" />
+                              ) : (
+                                <span className="flex size-9 items-center justify-center bg-raised font-display text-xs uppercase tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </AvatarWithPresence>
                             <div className="min-w-0">
                               <div className="truncate font-display text-sm uppercase tracking-wide transition-colors group-hover:text-amber">
                                 {isAdmin ? (
@@ -310,9 +316,14 @@ export default async function SeasonPlayersPage({
                   <div key={p.id} className="hud-card flex flex-col gap-3 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex size-9 shrink-0 items-center justify-center border border-dim/30 bg-raised font-display text-xs uppercase tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                          {name.slice(0, 2).toUpperCase()}
-                        </div>
+                        <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" href={`/admin/users/${p.playerId}`}>
+                          {p.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.avatarUrl} alt={name} className="size-9 object-cover" />
+                          ) : (
+                            <span className="flex size-9 items-center justify-center bg-raised font-display text-xs uppercase tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </AvatarWithPresence>
                         <div className="min-w-0">
                           <div className="truncate font-display text-base uppercase leading-none tracking-wide">
                             {name}

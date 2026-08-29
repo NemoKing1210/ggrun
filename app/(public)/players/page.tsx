@@ -4,7 +4,7 @@ import { ArrowRightIcon, MagnifyingGlassIcon, UsersIcon } from "@heroicons/react
 
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
-import { AvatarWithPresence, PresenceBadge } from "@/components/ui/Presence";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { db } from "@/lib/infrastructure/db";
@@ -166,7 +166,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                       src={u.avatarUrl}
                       size="lg"
                       square
-                      className="shrink-0 !size-14 border border-dim/30"
+                      className="shrink-0 !size-14 border-0"
                     />
                   </AvatarWithPresence>
                   <div className="min-w-0 flex-1">
@@ -176,7 +176,6 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     <p className="truncate font-mono text-xs text-dim">@{u.username}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <RoleBadge role={u.role} t={t} />
-                      <PresenceBadge lastSeenAt={u.lastSeenAt} locale={locale} variant="plain" />
                     </div>
                   </div>
                 </div>

@@ -163,6 +163,7 @@ export type FeedRow = typeof eventLog.$inferSelect & {
   username: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  lastSeenAt: Date | null;
 };
 
 export const getEventFeed = cache(
@@ -173,6 +174,7 @@ export const getEventFeed = cache(
         username: users.username,
         displayName: users.displayName,
         avatarUrl: users.avatarUrl,
+        lastSeenAt: users.lastSeenAt,
       })
       .from(eventLog)
       .leftJoin(seasonPlayers, eq(seasonPlayers.id, eventLog.seasonPlayerId))
@@ -185,6 +187,7 @@ export const getEventFeed = cache(
       username: r.username,
       displayName: r.displayName,
       avatarUrl: r.avatarUrl,
+      lastSeenAt: r.lastSeenAt,
     }));
   },
 );

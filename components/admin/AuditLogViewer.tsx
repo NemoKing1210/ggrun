@@ -22,6 +22,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { actionMeta, isPlainObject, payloadSummary } from "@/components/admin/audit-meta";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
@@ -389,7 +390,7 @@ export function AuditLogViewer({
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ entry, username }) => {
+                {rows.map(({ entry, username, avatarUrl, lastSeenAt }) => {
                   const meta = actionMeta(entry.actionType);
                   const Icon = meta.icon;
                   const payload = (entry.payload ?? {}) as Record<string, unknown>;
@@ -397,14 +398,19 @@ export function AuditLogViewer({
                     <tr
                       key={entry.id}
                       className="group cursor-pointer border-b border-[#2a2a22] transition-colors hover:bg-amber/[0.05]"
-                      onClick={() => setDetails({ entry, username })}
+                      onClick={() => setDetails({ entry, username, avatarUrl, lastSeenAt })}
                     >
                       <td className="p-3 font-mono text-xs whitespace-nowrap text-amber/80">{dateFmt.format(entry.createdAt)}</td>
                       <td className="p-3">
                         <span className="inline-flex items-center gap-2 font-mono text-xs font-semibold">
-                          <span className="grid size-5 shrink-0 place-items-center border border-amber/40 bg-amber/10 font-display text-[9px] tracking-wider text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
-                            {username.slice(0, 2).toUpperCase()}
-                          </span>
+                          <AvatarWithPresence lastSeenAt={lastSeenAt} size="sm" href={isAdmin ? `/admin/users/${entry.actorId}` : null}>
+                            {avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={avatarUrl} alt={username} className="size-5 object-cover" />
+                            ) : (
+                              <span className="grid size-5 place-items-center bg-amber/10 font-display text-[9px] tracking-wider text-amber">{username.slice(0, 2).toUpperCase()}</span>
+                            )}
+                          </AvatarWithPresence>
                           <span className="text-zinc-300">
                             <ActorName actorId={entry.actorId} username={username} isAdmin={isAdmin ?? false} />
                           </span>
@@ -434,7 +440,7 @@ export function AuditLogViewer({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDetails({ entry, username });
+                            setDetails({ entry, username, avatarUrl, lastSeenAt });
                           }}
                           className="hud-btn inline-flex items-center gap-1 !px-2 !py-1 text-[11px]"
                           aria-label={a.detailsButton}
@@ -514,7 +520,7 @@ function EntryModal({
   onClose: () => void;
   isAdmin: boolean;
 }) {
-  const { entry, username } = row;
+  const { entry, username, avatarUrl, lastSeenAt } = row;
   const meta = actionMeta(entry.actionType);
   const Icon = meta.icon;
   const payload = (entry.payload ?? {}) as Record<string, unknown>;
@@ -573,9 +579,14 @@ function EntryModal({
         <div className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <dt className="font-display text-[10px] tracking-widest text-dim uppercase">{a.actorLabel}</dt>
           <dd className="mt-1 inline-flex items-center gap-2 font-mono text-sm">
-            <span className="grid size-5 place-items-center border border-amber/40 bg-amber/10 font-display text-[9px] tracking-wider text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
-              {username.slice(0, 2).toUpperCase()}
-            </span>
+            <AvatarWithPresence lastSeenAt={lastSeenAt} size="sm" href={isAdmin ? `/admin/users/${entry.actorId}` : null}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt={username} className="size-5 object-cover" />
+              ) : (
+                <span className="grid size-5 place-items-center bg-amber/10 font-display text-[9px] tracking-wider text-amber">{username.slice(0, 2).toUpperCase()}</span>
+              )}
+            </AvatarWithPresence>
             <span className="text-zinc-200">
               <ActorName actorId={entry.actorId} username={username} isAdmin={isAdmin} />
             </span>

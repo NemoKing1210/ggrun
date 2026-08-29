@@ -44,10 +44,12 @@ export const AUDIT_PERIOD_HOURS: Record<Exclude<AuditPeriod, "all">, number> = {
   "30d": 24 * 30,
 };
 
-/** One audit row: the entry itself plus the actor's username (join). */
+/** One audit row: the entry itself plus the actor's username + avatar (join). */
 export type AdminAuditRow = {
   entry: AdminAuditLog;
   username: string;
+  avatarUrl: string | null;
+  lastSeenAt: Date | null;
 };
 
 /** Search/filter options for the admin audit log. */
@@ -109,7 +111,7 @@ export async function searchAdminAudit(
   const total = Number(totalRaw);
 
   const rows = await db
-    .select({ entry: adminAuditLog, username: users.username })
+    .select({ entry: adminAuditLog, username: users.username, avatarUrl: users.avatarUrl, lastSeenAt: users.lastSeenAt })
     .from(adminAuditLog)
     .innerJoin(users, eq(users.id, adminAuditLog.actorId))
     .where(where)

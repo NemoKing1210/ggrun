@@ -4,6 +4,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import {
   ArrowsRightLeftIcon,
   ArrowRightIcon,
@@ -204,14 +205,18 @@ function EventLine({ entry, t }: { entry: FeedRow; t: Dictionary["feed"] }) {
 
 function Avatar({ entry, fallback }: { entry: FeedRow; fallback: string }) {
   const name = entry.displayName ?? entry.username ?? fallback;
-  if (entry.avatarUrl) {
+  const lastSeenAt = (entry as unknown as { lastSeenAt?: Date | string | null }).lastSeenAt ?? null;
+  const inner = entry.avatarUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={entry.avatarUrl} alt="" loading="lazy" decoding="async" className="size-8 shrink-0 border border-dim/20 object-cover" />;
-  }
+    <img src={entry.avatarUrl} alt="" loading="lazy" decoding="async" className="size-8 object-cover" />
+  ) : (
+    <span className="inline-flex size-8 items-center justify-center bg-raised font-display text-xs text-dim">{name.slice(0, 2).toUpperCase()}</span>
+  );
+  const href = entry.username ? `/players/${entry.username}` : null;
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center border border-dim/20 bg-raised font-display text-xs text-dim">
-      {name.slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarWithPresence lastSeenAt={lastSeenAt} size="sm" href={href}>
+      {inner}
+    </AvatarWithPresence>
   );
 }
 
