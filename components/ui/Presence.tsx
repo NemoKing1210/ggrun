@@ -74,11 +74,11 @@ export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = t
       <span
         className={
           variant === "hud"
-            ? "inline-flex items-center gap-1.5 border border-military/30 bg-military/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-military [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-            : "inline-flex items-center gap-1.5 font-mono text-xs text-military"
+            ? "inline-flex items-center gap-1.5 border border-military bg-military/20 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-military shadow-[0_0_10px_rgba(124,143,74,0.55)] shadow-[0_0_20px_rgba(124,143,74,0.35)] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+            : "inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-military"
         }
       >
-        {showDot ? <span className="size-1.5 bg-military shadow-[0_0_6px_rgba(124,143,74,0.9)] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
+        {showDot ? <span className="size-1.5 bg-military shadow-[0_0_8px_rgba(124,143,74,1)] shadow-[0_0_12px_rgba(124,143,74,0.8)] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
         {pr.online}
       </span>
     );
@@ -109,7 +109,7 @@ type AvatarWithPresenceProps = {
 /** Wraps any avatar element with an absolute presence dot at the top-right inside. */
 export function AvatarWithPresence({ lastSeenAt, children, size = "md", dotSize }: AvatarWithPresenceProps) {
   const dot = dotSize ?? (size === "lg" || size === "xl" ? "lg" : size === "sm" ? "sm" : "md");
-  const offset = size === "lg" || size === "xl" ? "top-1.5 right-1.5" : "top-1 right-1";
+  const offset = size === "lg" || size === "xl" ? "top-2 right-2" : "top-1.5 right-1.5";
   return (
     <span className="relative inline-flex shrink-0">
       {children}
