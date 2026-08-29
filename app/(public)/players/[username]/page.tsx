@@ -183,10 +183,10 @@ export default async function PlayerProfilePage({ params }: Params) {
                 </span>
                 {activeSeason ? (
                   <Link
-                    href="/leaderboard"
-                    className="border border-amber/30 bg-amber/10 px-2 py-1 uppercase tracking-widest text-amber hover:bg-amber hover:text-black"
+                    href={`/seasons/${activeSeason.slug}`}
+                    className="inline-flex items-center gap-1 whitespace-nowrap border border-amber/30 bg-amber/10 px-2 py-1 uppercase tracking-widest text-amber hover:bg-amber hover:text-black"
                   >
-                    {t.profile.hero.activeRun} <ArrowRightIcon className="size-3" aria-hidden /> {activeSeason.title}
+                    {t.profile.hero.activeRun} <ArrowRightIcon className="size-3 shrink-0" aria-hidden /> {activeSeason.title}
                   </Link>
                 ) : null}
               </div>
@@ -321,48 +321,87 @@ export default async function PlayerProfilePage({ params }: Params) {
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
         {/* seasons */}
         <section className="lg:col-span-3">
-          <h2 className="font-display mb-3 flex items-center gap-2 text-sm uppercase tracking-widest text-amber">
-            <TrophyIcon className="h-4 w-4" aria-hidden />
-            {t.profile.seasonsHeading}
-            <span className="ml-auto font-mono text-[11px] tracking-widest text-dim">{participations.length}</span>
-          </h2>
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="font-display flex items-center gap-2 text-sm uppercase tracking-widest text-amber">
+              <TrophyIcon className="h-4 w-4" aria-hidden />
+              {t.profile.seasonsHeading}
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-dim/20 to-transparent" aria-hidden />
+            <span className="border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-dim">
+              {participations.length}
+            </span>
+          </div>
+          <div className="mb-3 h-px w-full bg-gradient-to-r from-amber/20 via-dim/10 to-transparent" aria-hidden />
           {participations.length === 0 ? (
             <EmptyState>{t.profile.emptySeasons}</EmptyState>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {participations.map(({ sp, season }) => (
-                <Link
-                  key={sp.id}
-                  href={season.status === "active" ? "/leaderboard" : `/seasons/${season.slug}`}
-                  className="hud-card hud-lift p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate font-display text-sm uppercase tracking-wide hover:text-amber">{season.title}</h3>
-                    <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
-                  </div>
-                  <p className="font-mono text-[11px] text-dim">/{season.slug}</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="border border-dim/15 bg-raised p-2">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.cell}</div>
-                      <div className="ammo-counter text-lg leading-none text-amber">{sp.position}</div>
-                    </div>
-                    <div className="border border-dim/15 bg-raised p-2">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.balance}</div>
-                      <div className="ammo-counter text-lg leading-none text-amber">{sp.balancePoints}</div>
-                    </div>
-                    <div className="border border-dim/15 bg-raised p-2">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.streak}</div>
-                      <div className="font-mono text-xs">
-                        <span className="text-military">+{sp.streakPass}</span> <span className="text-dim/40">/</span> <span className="text-danger">-{sp.streakDrop}</span>
+              {participations.map(({ sp, season }) => {
+                const isActive = season.status === "active";
+                return (
+                  <Link
+                    key={sp.id}
+                    href={`/seasons/${season.slug}`}
+                    className={`hud-card hud-lift group flex flex-col overflow-hidden p-0 ${isActive ? "border-amber/35 shadow-[0_0_16px_rgba(242,169,0,0.12)]" : ""}`}
+                  >
+                    {isActive ? (
+                      <div className="h-[2px] w-full bg-amber" aria-hidden />
+                    ) : (
+                      <div className="h-px w-full bg-dim/10" aria-hidden />
+                    )}
+                    <div className="flex flex-1 flex-col p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-display text-sm uppercase tracking-wide transition-colors group-hover:text-amber">
+                            {season.title}
+                          </h3>
+                          <p className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-dim">
+                            <span className="text-dim/50">/</span>
+                            <span className="truncate">{season.slug}</span>
+                            {isActive ? (
+                              <span
+                                className="ml-1 inline-block size-1 animate-pulse bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]"
+                                aria-hidden
+                              />
+                            ) : null}
+                          </p>
+                        </div>
+                        <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-3 gap-1.5">
+                        <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.cell}</div>
+                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">{sp.position}</div>
+                        </div>
+                        <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.balance}</div>
+                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">{sp.balancePoints}</div>
+                        </div>
+                        <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.streak}</div>
+                          <div className="mt-1 flex items-center justify-center gap-1 font-mono text-xs">
+                            <span className="text-military">+{sp.streakPass}</span>
+                            <span className="text-dim/40">/</span>
+                            <span className="text-danger">-{sp.streakDrop}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between border-t border-dim/10 pt-2.5">
+                        <StatusBadge status={sp.status} label={t.core.playerStatuses[sp.status]} />
+                        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-dim">
+                          rerolls {sp.rerollsUsed}
+                          <ArrowRightIcon
+                            className="size-3 text-dim transition-all group-hover:translate-x-0.5 group-hover:text-amber"
+                            aria-hidden
+                          />
+                        </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-dim/10 pt-2">
-                    <StatusBadge status={sp.status} label={t.core.playerStatuses[sp.status]} />
-                    <span className="font-mono text-[11px] text-dim">rerolls {sp.rerollsUsed}</span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </section>

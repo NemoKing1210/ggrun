@@ -7,13 +7,37 @@ import { cache } from "react";
 import { db } from "@/lib/infrastructure/db";
 import { log } from "@/lib/infrastructure/logger";
 import { isDbConnectionError } from "@/lib/infrastructure/db/health";
-import { sessions, users, type User } from "@/db/schema";
+import { sessions, users, type Session, type User } from "@/db/schema";
 
 export const SESSION_COOKIE = "ggrun_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-function tokenFingerprint(token: string): string {
+export function tokenFingerprint(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+export async function getCurrentSession(): Promise<Session | null> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const rows = await db
+      .select({ session: sessions })
+      .from(sessions)
+      .where(eq(sessions.tokenHash, tokenFingerprint(token)))
+      .limit(1);
+    const session = rows[0]?.session ?? null;
+    if (!session) return null;
+    if (session.expiresAt.getTime() <= Date.now()) return null;
+    return session;
+  } catch (error) {
+    if (!isDbConnectionError(error)) throw error;
+    const authLog = log.child({ scope: "auth" });
+    authLog.warn("database unreachable while resolving session id", {
+      err: error instanceof Error ? error : undefined,
+    });
+    return null;
+  }
 }
 
 export async function createSession(userId: string): Promise<void> {

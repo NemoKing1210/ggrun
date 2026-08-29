@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
+import { and, eq, ne } from "drizzle-orm";
 import {
   adminCreateUser,
   adminDeleteUser,
@@ -13,11 +14,13 @@ import {
   updateUserSettings,
 } from "@/lib/modules/player/service";
 import { AdminError } from "@/lib/modules/season/service";
-import { getCurrentUser } from "@/lib/infrastructure/auth/session";
+import { getCurrentUser, SESSION_COOKIE, tokenFingerprint } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { LOCALE_COOKIE } from "@/lib/i18n/config";
 import { log } from "@/lib/infrastructure/logger";
 import { makeToError, type ActionState } from "@/lib/use-cases/shared/action-error";
+import { db } from "@/lib/infrastructure/db";
+import { sessions } from "@/db/schema";
 
 export type UserFormState = ActionState;
 export type SettingsFormState = ActionState;
@@ -216,4 +219,49 @@ export async function updateUserSettingsAction(
   } catch (e) {
     return await toError(e, "user.settings.update", { actorId: actor?.id ?? null });
   }
+}
+
+/** Revokes one own session from the settings page (/settings). */
+export async function revokeOwnSessionAction(formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/login");
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!sessionId) return;
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  const currentHash = token ? tokenFingerprint(token) : null;
+  const [target] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!target || target.userId !== actor.id) {
+    log.warn("user.session.revoke_own.forbidden", { actorId: actor.id, sessionId });
+    throw new AdminError("authLoginRequired");
+  }
+  await db.delete(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.userId, actor.id)));
+  log.info("user.session.revoke_own", { actorId: actor.id, sessionId });
+  const isCurrent = currentHash !== null && target.tokenHash === currentHash;
+  if (isCurrent) {
+    jar.delete(SESSION_COOKIE);
+    revalidatePath("/settings");
+    redirect("/login");
+  }
+  revalidatePath("/settings");
+}
+
+/** Revokes all own sessions except the current one (/settings). */
+export async function revokeOtherSessionsAction(_formData: FormData): Promise<void> {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/login");
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) {
+    await db.delete(sessions).where(eq(sessions.userId, actor.id));
+    log.info("user.sessions.revoke_others.all", { actorId: actor.id });
+    revalidatePath("/settings");
+    jar.delete(SESSION_COOKIE);
+    redirect("/login");
+    return;
+  }
+  const currentHash = tokenFingerprint(token);
+  await db.delete(sessions).where(and(eq(sessions.userId, actor.id), ne(sessions.tokenHash, currentHash)));
+  log.info("user.sessions.revoke_others", { actorId: actor.id });
+  revalidatePath("/settings");
 }

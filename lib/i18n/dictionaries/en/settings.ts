@@ -60,4 +60,23 @@ export const settings = {
   },
   saved: "Settings saved",
   save: "Save settings",
+  tabs: {
+    profile: "Profile",
+    sessions: "Sessions",
+  },
+  sessions: {
+    heading: "Sessions",
+    hint: "Manage your active sessions across devices. Revoking a session logs that device out.",
+    currentBadge: "current",
+    activeBadge: "active",
+    expiredBadge: "expired",
+    colCreated: "Created",
+    colExpires: "Expires",
+    revoke: "Revoke",
+    revokeConfirm: "Revoke this session? The device will be logged out.",
+    revokeCurrentConfirm: "Revoke your current session? You will be logged out and need to sign in again.",
+    revokeOthers: "Revoke others",
+    revokeOthersConfirm: "Revoke all other sessions? Every other device will be logged out.",
+    empty: "No sessions yet.",
+  },
 } as const;
