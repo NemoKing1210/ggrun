@@ -131,16 +131,14 @@ export default async function PlayerProfilePage({ params }: Params) {
             {/* avatar */}
             <div className="-mt-10 sm:-mt-14 shrink-0">
               <AvatarWithPresence lastSeenAt={user.lastSeenAt} size="xl" locale={locale}>
-                <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_18px_rgba(242,169,0,0.25)]">
-                  {user.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={user.avatarUrl} alt="" className="size-20 object-cover sm:size-24" />
-                  ) : (
-                    <span className="inline-flex size-20 items-center justify-center bg-raised font-display text-2xl tracking-widest text-dim sm:size-24">
-                      {displayName.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                </div>
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatarUrl} alt="" className="size-20 object-cover sm:size-24" />
+                ) : (
+                  <span className="inline-flex size-20 items-center justify-center bg-raised font-display text-2xl tracking-widest text-dim sm:size-24">
+                    {displayName.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
               </AvatarWithPresence>
             </div>
 

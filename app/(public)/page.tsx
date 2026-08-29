@@ -153,14 +153,12 @@ function ChampionRow({
         <div className="flex items-end gap-3">
           <div className="-mt-10 shrink-0">
             <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
-              <div className="border-2 border-amber bg-raised p-0.5">
-                <PlayerAvatar
-                  username={row.username}
-                  displayName={row.displayName}
-                  avatarUrl={row.avatarUrl}
-                  size="md"
-                />
-              </div>
+              <PlayerAvatar
+                username={row.username}
+                displayName={row.displayName}
+                avatarUrl={row.avatarUrl}
+                size="md"
+              />
             </AvatarWithPresence>
           </div>
           <div className="min-w-0 flex-1">

@@ -14,6 +14,7 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { SeasonCard, type SeasonCardStats } from "./SeasonCard";
 import { Badge } from "@/components/ui/Badge";
 import type { Season } from "@/db/schema";
@@ -151,10 +152,52 @@ export function SeasonsArchiveClient({
                   <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statMoves}</div>
                 </div>
               </div>
-              {spotlight.stats.topPlayerName && (
+              {spotlight.stats.topPlayer ? (
+                <p className="mt-3 inline-flex items-center gap-2 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                  <TrophyIcon className="size-3.5 shrink-0" aria-hidden />
+                  <span>{t.seasons.card.topPlayer}:</span>
+                  <AvatarWithPresence lastSeenAt={spotlight.stats.topPlayer.lastSeenAt} size="sm" locale={locale}>
+                    {spotlight.stats.topPlayer.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={spotlight.stats.topPlayer.avatarUrl} alt={spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username} className="size-6 object-cover" />
+                    ) : (
+                      <span className="inline-flex size-6 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
+                        {(spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username).slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </AvatarWithPresence>
+                  <span className="truncate">{spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}</span>
+                </p>
+              ) : spotlight.stats.topPlayerName ? (
                 <p className="mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                   <TrophyIcon className="size-3.5" aria-hidden /> {t.seasons.card.topPlayer}: {spotlight.stats.topPlayerName}
                 </p>
+              ) : null}
+              {spotlight.stats.participantsAvatars && spotlight.stats.participantsAvatars.length > 0 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex -space-x-1.5">
+                    {spotlight.stats.participantsAvatars.map((p) => (
+                      <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm" locale={locale}>
+                        {p.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.avatarUrl} alt={p.displayName ?? p.username} className="size-7 object-cover" />
+                        ) : (
+                          <span className="inline-flex size-7 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
+                            {(p.displayName ?? p.username).slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </AvatarWithPresence>
+                    ))}
+                    {spotlight.stats.participants > spotlight.stats.participantsAvatars.length && (
+                      <span className="inline-flex size-7 items-center justify-center border border-dim/20 bg-raised font-mono text-[10px] text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                        +{spotlight.stats.participants - spotlight.stats.participantsAvatars.length}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-xs text-dim">
+                    {spotlight.stats.participants} {t.seasons.overview.statPlayers}
+                  </span>
+                </div>
               )}
             </div>
             <div className="flex lg:flex-col gap-2 lg:w-44 shrink-0">

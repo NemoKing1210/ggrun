@@ -126,9 +126,7 @@ function ChampionCard({
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="-mt-12 sm:-mt-16 shrink-0">
               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="lg">
-                <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_16px_rgba(242,169,0,0.25)]">
-                  <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
-                </div>
+                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
               </AvatarWithPresence>
             </div>
             <div className="min-w-0 flex-1">

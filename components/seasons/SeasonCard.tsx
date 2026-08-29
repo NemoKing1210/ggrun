@@ -9,6 +9,7 @@ import {
   SignalIcon,
 } from "@heroicons/react/24/outline";
 
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import { StatusBadge } from "@/components/ui/status";
 import type { Season, BoardCell } from "@/db/schema";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -57,7 +58,19 @@ export type SeasonCardStats = {
   cells: number;
   moves?: number;
   topPlayerName?: string | null;
+  topPlayer?: {
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    lastSeenAt: Date | null;
+  } | null;
   boardCells?: BoardCell[];
+  participantsAvatars?: Array<{
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    lastSeenAt: Date | null;
+  }>;
 };
 
 export function SeasonCard({
@@ -123,7 +136,25 @@ export function SeasonCard({
           </div>
 
           {/* Top player + board bar */}
-          {stats?.topPlayerName ? (
+          {stats?.topPlayer ? (
+            <div className="mt-3 flex items-center gap-2 border border-amber/20 bg-amber/5 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+              <TrophyIcon className="size-3.5 text-amber shrink-0" aria-hidden />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.topPlayer}</span>
+              <span className="ml-auto flex items-center gap-2 truncate">
+                <AvatarWithPresence lastSeenAt={stats.topPlayer.lastSeenAt} size="sm" locale={locale}>
+                  {stats.topPlayer.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={stats.topPlayer.avatarUrl} alt={stats.topPlayer.displayName ?? stats.topPlayer.username} className="size-6 object-cover" />
+                  ) : (
+                    <span className="inline-flex size-6 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
+                      {(stats.topPlayer.displayName ?? stats.topPlayer.username).slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </AvatarWithPresence>
+                <span className="truncate font-mono text-xs text-amber">{stats.topPlayer.displayName ?? stats.topPlayer.username}</span>
+              </span>
+            </div>
+          ) : stats?.topPlayerName ? (
             <div className="mt-3 flex items-center gap-2 border border-amber/20 bg-amber/5 px-2.5 py-2 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
               <TrophyIcon className="size-3.5 text-amber shrink-0" aria-hidden />
               <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.topPlayer}</span>
@@ -134,6 +165,30 @@ export function SeasonCard({
               {t.seasons.overview.noPlayers}
             </div>
           ) : null}
+          {stats?.participantsAvatars && stats.participantsAvatars.length > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex -space-x-1.5">
+                {stats.participantsAvatars.map((p) => (
+                  <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm" locale={locale}>
+                    {p.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.avatarUrl} alt={p.displayName ?? p.username} className="size-7 object-cover" />
+                    ) : (
+                      <span className="inline-flex size-7 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
+                        {(p.displayName ?? p.username).slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </AvatarWithPresence>
+                ))}
+                {stats.participants > stats.participantsAvatars.length && (
+                  <span className="inline-flex size-7 items-center justify-center border border-dim/20 bg-raised font-mono text-[10px] text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                    +{stats.participants - stats.participantsAvatars.length}
+                  </span>
+                )}
+              </div>
+              <span className="font-mono text-xs text-dim">{stats.participants} {t.seasons.overview.statPlayers}</span>
+            </div>
+          )}
 
           {stats?.boardCells && stats.boardCells.length > 0 && (
             <div className="mt-3">

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
@@ -38,6 +39,97 @@ function usePresenceTip(lastSeenAt: string | Date | null | undefined, locale?: s
 }
 
 // ---------------------------------------------------------------------------
+// Portal tooltip — teleported to document.body so no overflow:hidden parent
+// can clip it. Fixed position, centered above anchor, flips below if needed.
+// ---------------------------------------------------------------------------
+function PresencePortalTip({
+  anchorRef,
+  open,
+  children,
+  online,
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  open: boolean;
+  children: React.ReactNode;
+  online?: boolean;
+}) {
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, ready: false });
+
+  const update = useCallback(() => {
+    const a = anchorRef.current;
+    const t = tipRef.current;
+    if (!a || !t) return;
+    const ar = a.getBoundingClientRect();
+    const tr = t.getBoundingClientRect();
+    const gap = 8;
+    const pad = 8;
+    let top = ar.top - tr.height - gap;
+    let left = ar.left + ar.width / 2 - tr.width / 2;
+    // clamp horizontally inside viewport
+    const minLeft = pad;
+    const maxLeft = window.innerWidth - tr.width - pad;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+    // flip below if not enough room above
+    if (top < pad) top = ar.bottom + gap;
+    const maxTop = window.innerHeight - tr.height - pad;
+    if (top > maxTop) top = Math.max(pad, maxTop);
+    setPos({ top, left, ready: true });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    if (!open) {
+      setPos((p) => ({ ...p, ready: false }));
+      return;
+    }
+    const raf = requestAnimationFrame(update);
+    const onScroll = () => update();
+    const onResize = () => update();
+    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open, update, children]);
+
+  useEffect(() => {
+    if (!open || !tipRef.current) return;
+    const ro = new ResizeObserver(() => update());
+    ro.observe(tipRef.current);
+    return () => ro.disconnect();
+  }, [open, update]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  const toneClass = online
+    ? "border-military bg-[#1c2416] text-military shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_16px_rgba(124,143,74,0.35)]"
+    : "border-[#3d3d34] bg-[#1e1e1c] text-dim shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_12px_rgba(0,0,0,0.4)]";
+
+  return createPortal(
+    <span
+      ref={tipRef}
+      role="tooltip"
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        opacity: pos.ready ? 1 : 0,
+        transform: pos.ready ? "translateY(0)" : "translateY(4px)",
+        transition: "opacity 150ms ease, transform 150ms ease",
+      }}
+      className={`pointer-events-none z-[100] whitespace-nowrap border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${toneClass}`}
+    >
+      {children}
+    </span>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Legacy: PresenceDot — kept for backwards compat, now renders border-style
 // Deprecated: prefer AvatarWithPresence with border
 // ---------------------------------------------------------------------------
@@ -54,27 +146,36 @@ export function PresenceDot({ lastSeenAt, size = "md", bordered = false, classNa
   const online = isOnline(lastSeenAt);
   const tip = usePresenceTip(lastSeenAt, locale);
   const dim = size === "sm" ? "size-2" : size === "lg" ? "size-3" : "size-2.5";
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+
   return (
-    <span className="group/tooltip relative inline-block shrink-0 leading-none">
+    <>
       <span
-        aria-hidden
-        className={[
-          "inline-block shrink-0",
-          dim,
-          bordered ? (online ? "border-0" : "border-2 border-raised") : "border border-black/30",
-          online ? "bg-military animate-presence-border" : "bg-zinc-500",
-          className ?? "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap border border-amber/60 bg-[#1e1c0a] px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest text-amber opacity-0 shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_16px_rgba(242,169,0,0.35)] transition-all duration-200 ease-out group-hover/tooltip:translate-y-0 group-hover/tooltip:opacity-100 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+        ref={anchorRef}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="inline-block shrink-0 leading-none"
       >
-        {tip}
+        <span
+          aria-hidden
+          className={[
+            "inline-block shrink-0",
+            dim,
+            bordered ? (online ? "border-0" : "border-2 border-raised") : "border border-black/30",
+            online ? "bg-military animate-presence-border" : "bg-zinc-500",
+            className ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        />
       </span>
-    </span>
+      <PresencePortalTip anchorRef={anchorRef} open={open} online={online}>
+        {tip}
+      </PresencePortalTip>
+    </>
   );
 }
 
@@ -90,10 +191,12 @@ type PresenceBadgeProps = {
 
 export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = true }: PresenceBadgeProps) {
   const tip = usePresenceTip(lastSeenAt, locale);
-  void tip; // tip computed for tooltip consistency, but badge now uses same wrapper logic
+  void tip;
   const { t } = useI18n();
   const pr = t.profile.presence;
   const online = isOnline(lastSeenAt);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
 
   const timeText = useMemo(() => {
     if (online) return pr.online;
@@ -125,23 +228,29 @@ export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = t
     );
   }
 
+  const tooltipText = lastSeenAt ? new Date(lastSeenAt).toLocaleString(locale ?? undefined) : pr.never;
+
   return (
-    <span
-      className={
-        variant === "hud"
-          ? "group/tooltip relative inline-flex items-center gap-1.5 border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-          : "group/tooltip relative inline-flex items-center gap-1.5 font-mono text-xs text-dim"
-      }
-    >
-      {showDot ? <span className="size-1.5 bg-zinc-500" aria-hidden /> : null}
-      {timeText}
+    <>
       <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap border border-amber/50 bg-[#1e1c0a] px-3 py-1.5 font-mono text-xs font-semibold tracking-widest text-amber opacity-0 shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_14px_rgba(242,169,0,0.3)] transition-all duration-200 ease-out group-hover/tooltip:translate-y-0 group-hover/tooltip:opacity-100 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+        ref={anchorRef}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className={
+          variant === "hud"
+            ? "inline-flex items-center gap-1.5 border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+            : "inline-flex items-center gap-1.5 font-mono text-xs text-dim"
+        }
       >
-        {lastSeenAt ? new Date(lastSeenAt).toLocaleString(locale ?? undefined) : pr.never}
+        {showDot ? <span className="size-1.5 bg-zinc-500" aria-hidden /> : null}
+        {timeText}
       </span>
-    </span>
+      <PresencePortalTip anchorRef={anchorRef} open={open} online={false}>
+        {tooltipText}
+      </PresencePortalTip>
+    </>
   );
 }
 
@@ -172,35 +281,54 @@ const sizeToClip: Record<string, string> = {
   xl: "[clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]",
 };
 
+const sizeToPad: Record<string, string> = {
+  sm: "p-0.5",
+  md: "p-1",
+  lg: "p-1",
+  xl: "p-1",
+};
+
 export function AvatarWithPresence({ lastSeenAt, children, size = "md", locale, href, className }: AvatarWithPresenceProps) {
   const online = isOnline(lastSeenAt);
   const tip = usePresenceTip(lastSeenAt, locale);
   const borderW = sizeToBorder[size] ?? "border-2";
   const clip = sizeToClip[size] ?? sizeToClip.md;
-  const borderState = online ? "border-military animate-presence-border" : "border-[#2a2a22]";
+  const pad = sizeToPad[size] ?? "p-0.5";
+  const borderState = online ? "border-military" : "border-[#3d3d34]";
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
 
-  const frameClass = ["inline-flex shrink-0 overflow-hidden bg-raised", borderW, borderState, clip, className ?? ""]
+  const frameClass = ["inline-flex shrink-0 overflow-hidden bg-raised", borderW, borderState, pad, clip, className ?? ""]
     .filter(Boolean)
     .join(" ");
 
   const inner = <span className={frameClass}>{children}</span>;
 
   return (
-    <span className="group/avatar relative inline-flex shrink-0 leading-none">
-      {href ? (
-        <Link href={href} className="inline-flex shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-          {inner}
-        </Link>
-      ) : (
-        inner
-      )}
+    <>
       <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap border border-amber/60 bg-[#1e1c0a] px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest text-amber opacity-0 shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_16px_rgba(242,169,0,0.35)] transition-all duration-200 ease-out group-hover/avatar:translate-y-0 group-hover/avatar:opacity-100 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+        ref={anchorRef}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="inline-flex shrink-0 leading-none"
       >
-        {tip}
+        {href ? (
+          <Link
+            href={href}
+            className="inline-flex shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            {inner}
+          </Link>
+        ) : (
+          inner
+        )}
       </span>
-    </span>
+      <PresencePortalTip anchorRef={anchorRef} open={open} online={online}>
+        {tip}
+      </PresencePortalTip>
+    </>
   );
 }
 

@@ -40,7 +40,21 @@ export default async function SeasonsArchivePage() {
           cells: cells.length,
           moves: stats.totalMoves,
           topPlayerName: top ? (top.displayName ?? top.username) : null,
+          topPlayer: top
+            ? {
+                username: top.username,
+                displayName: top.displayName,
+                avatarUrl: top.avatarUrl,
+                lastSeenAt: top.lastSeenAt,
+              }
+            : null,
           boardCells: cells,
+          participantsAvatars: leaderboard.slice(0, 6).map((r) => ({
+            username: r.username,
+            displayName: r.displayName,
+            avatarUrl: r.avatarUrl,
+            lastSeenAt: r.lastSeenAt,
+          })),
         },
       };
     }),
