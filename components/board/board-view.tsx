@@ -339,56 +339,90 @@ export function BoardView({
         </div>
       </section>
 
-      {/* Playing right now */}
-      <section aria-label={t.board.live.title} className="hud-card p-3 sm:p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
+
+      {/* Roster: all participants + current game + status */}
+      <section aria-label={t.board.roster.title} className="hud-card p-3 sm:p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 font-display text-sm uppercase tracking-widest">
-            <span className="relative inline-flex size-2.5 items-center justify-center" aria-hidden>
-              <span className="absolute inline-flex size-2.5 animate-ping bg-amber opacity-40 [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]" />
-              <span className="relative inline-block size-2 bg-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]" />
-            </span>
-            {t.board.live.title}
-            <span className="hidden font-mono text-[10px] tracking-widest text-dim sm:inline">— LIVE FEED</span>
+            <UserGroupIcon className="size-4 text-amber" aria-hidden />
+            {t.board.roster.title}
+            <span className="hidden font-mono text-[10px] tracking-widest text-dim sm:inline">— {t.board.roster.hint}</span>
           </h2>
-          <span className="hidden font-mono text-[10px] uppercase tracking-widest text-dim sm:block">
-            {rolls.length} {rolls.length === 1 ? "player" : "players"} in run
+          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
+            {players.length} {players.length === 1 ? "player" : "players"}
           </span>
         </div>
-
-        {rolls.length === 0 ? (
+        {players.length === 0 ? (
           <p className="border border-dashed border-dim/20 bg-background/40 px-3 py-6 text-center font-mono text-xs tracking-wide text-dim">
-            {t.board.live.empty}
+            {t.board.roster.noGame}
           </p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {rolls.map((r) => (
-              <li key={r.username} className="hud-card group flex items-center gap-3 p-3 transition-colors hover:border-amber/40">
-                <div className="absolute inset-x-0 top-0 h-px bg-amber/0 transition-colors group-hover:bg-amber/30" aria-hidden />
-                <AvatarWithPresence lastSeenAt={r.lastSeenAt} size="sm" locale={locale} href={`/players/${r.username}`}>
-                  <Avatar username={r.username} displayName={r.displayName} avatarUrl={r.avatarUrl} />
-                </AvatarWithPresence>
-                <div className="min-w-0 flex-1">
-                  <Link href={`/players/${r.username}`} className="block truncate font-mono text-xs font-semibold tracking-wide text-amber hover:underline">
-                    {r.displayName ?? r.username}
-                  </Link>
-                  <div className="truncate text-sm leading-tight" title={r.gameTitle ?? undefined}>
-                    {r.gameTitle ?? t.board.live.unknownGame}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {r.platform ? (
-                      <span className="border border-dim/40 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] leading-none uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                        {r.platform}
-                      </span>
-                    ) : null}
-                    <span className="ammo-counter font-mono text-[11px] leading-none text-dim">
-                      {now !== null ? format(t.board.live.since, { time: formatDuration(now - new Date(r.rolledAt).getTime(), t.board.units) }) : ""}
-                    </span>
-                  </div>
-                </div>
-                <span className="hidden size-1.5 shrink-0 bg-amber opacity-60 group-hover:opacity-100 sm:inline-block [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]" aria-hidden />
-              </li>
-            ))}
-          </ul>
+          <>
+            {/* header row - desktop */}
+            <div className="hidden grid-cols-[1fr_110px_70px_1.2fr] gap-2 border-b border-[#2a2a22] pb-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dim sm:grid">
+              <span>{t.board.roster.colPlayer}</span>
+              <span>{t.board.roster.colStatus}</span>
+              <span className="text-center">{t.board.roster.colPosition}</span>
+              <span>{t.board.roster.colGame}</span>
+            </div>
+            <ul className="divide-y divide-[#1e1e18]">
+              {(() => {
+                const rollByUser: Record<string, BoardRoll> = {};
+                for (const r of rolls) rollByUser[r.username] = r;
+                return players.map((p) => {
+                  const roll = rollByUser[p.username] ?? null;
+                  const statusLabel = (t.core.playerStatuses as Record<string, string>)[p.status] ?? p.status;
+                  return (
+                    <li key={p.username} className="grid grid-cols-1 gap-2 py-2.5 sm:grid-cols-[1fr_110px_70px_1.2fr] sm:items-center sm:gap-2 sm:py-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
+                          <Avatar username={p.username} displayName={p.displayName} avatarUrl={p.avatarUrl} />
+                        </AvatarWithPresence>
+                        <div className="min-w-0">
+                          <Link href={`/players/${p.username}`} className="block truncate font-mono text-xs font-semibold tracking-wide text-foreground hover:text-amber hover:underline">
+                            {p.displayName ?? p.username}
+                          </Link>
+                          <span className="truncate font-mono text-[10px] tracking-wide text-dim">@{p.username}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:block">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-dim sm:hidden">{t.board.roster.colStatus}</span>
+                        <span className="inline-flex border border-dim/30 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">{statusLabel}</span>
+                      </div>
+                      <div className="flex items-center gap-2 sm:justify-center">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-dim sm:hidden">{t.board.roster.colPosition}</span>
+                        <span className="ammo-counter text-sm text-amber">#{p.position}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 sm:hidden">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.board.roster.colGame}</span>
+                        </div>
+                        {roll ? (
+                          <div className="min-w-0">
+                            <div className="truncate text-sm leading-tight" title={roll.gameTitle ?? undefined}>
+                              {roll.gameTitle ?? t.board.live.unknownGame}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              {roll.platform ? (
+                                <span className="border border-dim/40 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] leading-none uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                  {roll.platform}
+                                </span>
+                              ) : null}
+                              <span className="font-mono text-[10px] leading-none text-dim">
+                                {now !== null ? format(t.board.live.since, { time: formatDuration(now - new Date(roll.rolledAt).getTime(), t.board.units) }) : ""}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-xs tracking-wide text-dim">{t.board.roster.noGame}</span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                });
+              })()}
+            </ul>
+          </>
         )}
       </section>
 

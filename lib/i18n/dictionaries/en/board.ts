@@ -38,6 +38,15 @@ export const board = {
     since: "in the run for {time}",
     unknownGame: "Unknown game",
   },
+  roster: {
+    title: "Roster",
+    hint: "everyone in the run",
+    colPlayer: "Player",
+    colStatus: "Status",
+    colPosition: "Cell",
+    colGame: "Current game",
+    noGame: "— idle",
+  },
   cell: {
     occupants: "Players on this cell",
     nobody: "The cell is empty.",

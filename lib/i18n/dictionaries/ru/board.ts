@@ -40,6 +40,15 @@ export const board: Widen<typeof BoardEn.board> = {
     since: "в забеге уже {time}",
     unknownGame: "Неизвестная игра",
   },
+  roster: {
+    title: "Состав",
+    hint: "все в забеге",
+    colPlayer: "Игрок",
+    colStatus: "Статус",
+    colPosition: "Клетка",
+    colGame: "Текущая игра",
+    noGame: "— отдыхает",
+  },
   cell: {
     occupants: "Игроки на этой клетке",
     nobody: "Клетка пуста.",
