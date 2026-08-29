@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/ui/status";
 import { Textarea } from "@/components/ui/Textarea";
+import { PresenceBadge, PresenceDot } from "@/components/ui/Presence";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { actionMeta, payloadSummary } from "@/components/admin/audit-meta";
@@ -209,21 +210,26 @@ export function UserDetailPage({
         <div className="flex flex-col gap-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-4">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.avatarUrl}
-                  alt={name}
-                  className="h-14 w-14 shrink-0 border border-amber/40 object-cover [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
-                />
-              ) : (
-                <span
-                  className="grid h-14 w-14 shrink-0 place-items-center border font-display text-lg tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
-                  style={{ borderColor: accent.border, color: accent.primary, background: `${accent.primary}14` }}
-                >
-                  {name.slice(0, 2).toUpperCase()}
+              <span className="relative inline-flex shrink-0">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt={name}
+                    className="h-14 w-14 shrink-0 border border-amber/40 object-cover [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+                  />
+                ) : (
+                  <span
+                    className="grid h-14 w-14 shrink-0 place-items-center border font-display text-lg tracking-widest [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+                    style={{ borderColor: accent.border, color: accent.primary, background: `${accent.primary}14` }}
+                  >
+                    {name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <span className="absolute -bottom-1 -right-1">
+                  <PresenceDot lastSeenAt={user.lastSeenAt} size="lg" bordered />
                 </span>
-              )}
+              </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate font-display text-2xl uppercase tracking-widest text-zinc-100 sm:text-3xl">
@@ -237,6 +243,7 @@ export function UserDetailPage({
                     {user.isBlocked ? <NoSymbolIcon className="h-3.5 w-3.5" aria-hidden /> : <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden />}
                     {user.isBlocked ? u.blocked : u.activeUser}
                   </span>
+                  <PresenceBadge lastSeenAt={user.lastSeenAt} locale={user.locale ?? undefined} />
                 </div>
                 <p className="mt-1.5 truncate font-mono text-sm text-dim">
                   @{user.username} · {user.email ?? "—"}

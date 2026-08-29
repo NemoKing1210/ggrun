@@ -21,6 +21,7 @@ export type LeaderboardRow = SeasonPlayer & {
   bannerUrl: string | null;
   bio: string | null;
   links: unknown;
+  lastSeenAt: Date | null;
 };
 
 const leaderboardSelection = {
@@ -31,6 +32,7 @@ const leaderboardSelection = {
   bannerUrl: users.bannerUrl,
   bio: users.bio,
   links: users.links,
+  lastSeenAt: users.lastSeenAt,
 } as const;
 
 function flattenLeaderboardRows(
@@ -42,6 +44,7 @@ function flattenLeaderboardRows(
     bannerUrl: string | null;
     bio: string | null;
     links: unknown;
+    lastSeenAt: Date | null;
   }>,
 ): LeaderboardRow[] {
   return rows.map((r) => ({
@@ -52,6 +55,7 @@ function flattenLeaderboardRows(
     bannerUrl: r.bannerUrl,
     bio: r.bio,
     links: r.links,
+    lastSeenAt: r.lastSeenAt,
   }));
 }
 
@@ -191,6 +195,7 @@ export type ActiveRollRow = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  lastSeenAt: Date | null;
   gameTitle: string | null;
   platform: string | null;
   rolledAt: Date;
@@ -203,6 +208,7 @@ export const getActiveRolls = cache(async (seasonId: string): Promise<ActiveRoll
       username: users.username,
       displayName: users.displayName,
       avatarUrl: users.avatarUrl,
+      lastSeenAt: users.lastSeenAt,
       gameTitle: gamesCatalog.title,
       platform: gamesCatalog.platform,
       rolledAt: gameRolls.rolledAt,

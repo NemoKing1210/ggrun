@@ -10,6 +10,7 @@ import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -83,7 +84,9 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                       <td className="px-3 py-2 font-mono text-xs text-dim">#{idx + 1}</td>
                       <td className="px-3 py-2">
                         <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
-                          <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
+                          <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm">
+                            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
+                          </AvatarWithPresence>
                           <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
                         </Link>
                       </td>

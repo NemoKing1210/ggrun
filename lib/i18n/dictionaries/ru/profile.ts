@@ -62,4 +62,14 @@ export const profile: Widen<typeof ProfileEn.profile> = {
   emptyMoves: "Ходов в текущем сезоне ещё не было.",
   blocked: "заблокирован",
   diceLabel: "кубики",
+  presence: {
+    online: "В сети",
+    offline: "Не в сети",
+    lastSeen: "Был в сети {time}",
+    justNow: "только что",
+    minutesAgo: "{count} мин назад",
+    hoursAgo: "{count} ч назад",
+    daysAgo: "{count} дн назад",
+    never: "никогда",
+  },
 };

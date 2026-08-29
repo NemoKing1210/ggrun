@@ -31,11 +31,13 @@ import { CELL_THEME } from "./cell-theme";
 import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 export type BoardPlayer = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  lastSeenAt: string | null;
   position: number;
   balancePoints: number;
   status: SeasonPlayer["status"];
@@ -48,6 +50,7 @@ export type BoardRoll = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  lastSeenAt: string | null;
   gameTitle: string | null;
   platform: string | null;
   rolledAt: string;
@@ -110,7 +113,9 @@ function CellAvatarStack({ occupants }: { occupants: BoardPlayer[] }) {
   return (
     <span className="flex -space-x-1.5">
       {shown.map((p) => (
-        <Avatar key={p.username} {...p} className="size-6 ring-1 ring-background" />
+        <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm">
+          <Avatar {...p} className="size-6 ring-1 ring-background" />
+        </AvatarWithPresence>
       ))}
       {occupants.length > shown.length ? (
         <span className="inline-flex size-6 items-center justify-center border border-dim/50 bg-raised font-mono text-[9px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -359,7 +364,9 @@ export function BoardView({
             {rolls.map((r) => (
               <li key={r.username} className="hud-card group flex items-center gap-3 p-3 transition-colors hover:border-amber/40">
                 <div className="absolute inset-x-0 top-0 h-px bg-amber/0 transition-colors group-hover:bg-amber/30" aria-hidden />
-                <Avatar username={r.username} displayName={r.displayName} avatarUrl={r.avatarUrl} />
+                <AvatarWithPresence lastSeenAt={r.lastSeenAt} size="sm">
+                  <Avatar username={r.username} displayName={r.displayName} avatarUrl={r.avatarUrl} />
+                </AvatarWithPresence>
                 <div className="min-w-0 flex-1">
                   <Link href={`/players/${r.username}`} className="block truncate font-mono text-xs font-semibold tracking-wide text-amber hover:underline">
                     {r.displayName ?? r.username}
@@ -592,7 +599,9 @@ export function BoardView({
                       <ul className="mt-2 flex flex-col divide-y divide-dim/20 border border-dim/30 bg-background/20 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
                         {here.map((p) => (
                           <li key={p.username} className="flex items-center gap-3 p-2.5">
-                            <Avatar {...p} />
+                            <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm">
+                              <Avatar {...p} />
+                            </AvatarWithPresence>
                             <div className="min-w-0 flex-1">
                               <Link href={`/players/${p.username}`} className="block truncate font-mono text-xs font-semibold text-amber hover:underline">
                                 {p.displayName ?? p.username}

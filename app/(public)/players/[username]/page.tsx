@@ -24,6 +24,7 @@ import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/rep
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
+import { AvatarWithPresence, PresenceBadge } from "@/components/ui/Presence";
 
 type Params = { params: Promise<{ username: string }> };
 
@@ -129,16 +130,18 @@ export default async function PlayerProfilePage({ params }: Params) {
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             {/* avatar */}
             <div className="-mt-10 sm:-mt-14 shrink-0">
-              <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_18px_rgba(242,169,0,0.25)]">
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.avatarUrl} alt="" className="size-20 object-cover sm:size-24" />
-                ) : (
-                  <span className="inline-flex size-20 items-center justify-center bg-raised font-display text-2xl tracking-widest text-dim sm:size-24">
-                    {displayName.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </div>
+              <AvatarWithPresence lastSeenAt={user.lastSeenAt} size="xl">
+                <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_18px_rgba(242,169,0,0.25)]">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.avatarUrl} alt="" className="size-20 object-cover sm:size-24" />
+                  ) : (
+                    <span className="inline-flex size-20 items-center justify-center bg-raised font-display text-2xl tracking-widest text-dim sm:size-24">
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              </AvatarWithPresence>
             </div>
 
             <div className="min-w-0 flex-1">
@@ -146,6 +149,9 @@ export default async function PlayerProfilePage({ params }: Params) {
                 <h1 className="font-display text-2xl uppercase tracking-wide text-amber sm:text-3xl">{displayName}</h1>
                 <span className="font-mono text-sm text-dim">@{user.username}</span>
                 {user.displayName && user.displayName !== user.username ? null : null}
+              </div>
+              <div className="mt-2">
+                <PresenceBadge lastSeenAt={user.lastSeenAt} locale={locale} />
               </div>
               {user.bio ? (
                 <p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed text-zinc-300">{user.bio}</p>

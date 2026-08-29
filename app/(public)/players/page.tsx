@@ -4,6 +4,7 @@ import { ArrowRightIcon, MagnifyingGlassIcon, UsersIcon } from "@heroicons/react
 
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
+import { AvatarWithPresence, PresenceBadge } from "@/components/ui/Presence";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { db } from "@/lib/infrastructure/db";
@@ -159,20 +160,23 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-60" aria-hidden />
 
                 <div className="flex items-start gap-3">
-                  <AvatarBadge
-                    name={u.displayName ?? u.username}
-                    src={u.avatarUrl}
-                    size="lg"
-                    square
-                    className="shrink-0 !size-14 border border-dim/30"
-                  />
+                  <AvatarWithPresence lastSeenAt={u.lastSeenAt} size="lg">
+                    <AvatarBadge
+                      name={u.displayName ?? u.username}
+                      src={u.avatarUrl}
+                      size="lg"
+                      square
+                      className="shrink-0 !size-14 border border-dim/30"
+                    />
+                  </AvatarWithPresence>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-lg uppercase leading-none tracking-wide group-hover:text-amber">
                       {u.displayName ?? u.username}
                     </p>
                     <p className="truncate font-mono text-xs text-dim">@{u.username}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <RoleBadge role={u.role} t={t} />
+                      <PresenceBadge lastSeenAt={u.lastSeenAt} locale={locale} variant="plain" />
                     </div>
                   </div>
                 </div>

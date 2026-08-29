@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { AddUserModal } from "@/components/admin/AddUserModal";
 import { useI18n } from "@/lib/i18n/client";
 import type { AdminUserRow } from "@/lib/modules/player/service/admin";
+import { isOnline } from "@/lib/shared/presence";
 
 type Actor = { id: string; username: string };
 
@@ -94,8 +95,12 @@ export default function UsersManager({
                 href={`/admin/users/${usr.id}`}
                 className="group flex w-full items-center gap-3 border border-[#3d3d34] bg-[#1a1a1a] p-3 text-left transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] hover:border-amber/40 hover:bg-amber/5"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center border border-dim/40 bg-raised font-display text-xs tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                <span className="relative grid h-9 w-9 shrink-0 place-items-center border border-dim/40 bg-raised font-display text-xs tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                   {initials}
+                  <span
+                    className={`absolute -bottom-0.5 -right-0.5 inline-block size-2.5 border-2 border-[#1a1a1a] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)] ${isOnline(usr.lastSeenAt) ? "bg-military shadow-[0_0_6px_rgba(124,143,74,0.5)]" : "bg-zinc-600"}`}
+                    aria-hidden
+                  />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">

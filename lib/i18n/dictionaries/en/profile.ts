@@ -60,4 +60,14 @@ export const profile = {
   emptyMoves: "No moves in the current season yet.",
   blocked: "blocked",
   diceLabel: "dice",
+  presence: {
+    online: "Online",
+    offline: "Offline",
+    lastSeen: "Last seen {time}",
+    justNow: "just now",
+    minutesAgo: "{count}m ago",
+    hoursAgo: "{count}h ago",
+    daysAgo: "{count}d ago",
+    never: "never",
+  },
 } as const;

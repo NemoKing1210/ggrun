@@ -58,6 +58,27 @@ export async function createSession(userId: string): Promise<void> {
   });
 }
 
+/** How often we actually write last_seen_at — avoids spamming the DB on every request. */
+const LAST_SEEN_THROTTLE_MS = 2 * 60 * 1000;
+/** Consider user online if seen within this window. */
+export const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+
+async function touchLastSeen(user: User): Promise<void> {
+  const now = Date.now();
+  const last = user.lastSeenAt ? new Date(user.lastSeenAt).getTime() : 0;
+  if (now - last < LAST_SEEN_THROTTLE_MS) return;
+  try {
+    await db.update(users).set({ lastSeenAt: new Date(now) }).where(eq(users.id, user.id));
+  } catch (error) {
+    if (isDbConnectionError(error)) return;
+    const authLog = log.child({ scope: "auth" });
+    authLog.warn("failed to touch last_seen_at", {
+      err: error instanceof Error ? error : undefined,
+      userId: user.id,
+    });
+  }
+}
+
 /** Returns the current user from the cookie session, or null. */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const jar = await cookies();
@@ -87,7 +108,12 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     });
     return null;
   }
-  return rows[0]?.user ?? null;
+  const user = rows[0]?.user ?? null;
+  if (user) {
+    // fire-and-forget — don't block the request on the write
+    void touchLastSeen(user);
+  }
+  return user;
 });
 
 export async function destroySession(): Promise<void> {

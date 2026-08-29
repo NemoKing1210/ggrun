@@ -31,6 +31,7 @@ export type AdminUserRow = {
   displayName: string | null;
   role: (typeof users.$inferSelect)["role"];
   isBlocked: boolean;
+  lastSeenAt: Date | null;
   createdAt: Date;
 };
 

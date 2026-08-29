@@ -17,6 +17,7 @@ import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/reposi
 import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -124,9 +125,11 @@ function ChampionCard({
         <div className="relative p-5 sm:p-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="-mt-12 sm:-mt-16 shrink-0">
-              <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_16px_rgba(242,169,0,0.25)]">
-                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
-              </div>
+              <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="lg">
+                <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_16px_rgba(242,169,0,0.25)]">
+                  <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
+                </div>
+              </AvatarWithPresence>
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -222,7 +225,9 @@ function ChampionCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex gap-3">
-          <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="md" />
+          <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
+            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="md" />
+          </AvatarWithPresence>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">{row.displayName ?? row.username}</p>
             <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
@@ -375,7 +380,9 @@ export default async function LeaderboardPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Link href={`/players/${row.username}`} className="flex items-center gap-3 group/link">
-                              <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="sm" />
+                              <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm">
+                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="sm" />
+                              </AvatarWithPresence>
                               <div className="min-w-0">
                                 <p className="truncate font-semibold leading-none group-hover/link:text-amber">{row.displayName ?? row.username}</p>
                                 <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
