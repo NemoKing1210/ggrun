@@ -95,7 +95,7 @@ export default async function RootLayout({
             </div>
           )}
           {children}
-          <GlobalChat />
+          <GlobalChat isAuthenticated={!!user} />
         </I18nProvider>
       </body>
     </html>

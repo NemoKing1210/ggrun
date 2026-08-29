@@ -321,6 +321,40 @@ select:disabled {
   animation: presence-border 2.8s ease-in-out infinite;
 }
 
+/* Chat — amber breathing + badge pulse */
+@keyframes chat-amber {
+  0%, 100% {
+    border-color: rgba(242, 169, 0, 0.55);
+    box-shadow:
+      0 0 14px rgba(242, 169, 0, 0.28),
+      0 0 32px rgba(242, 169, 0, 0.16),
+      0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+  50% {
+    border-color: rgba(242, 169, 0, 0.95);
+    box-shadow:
+      0 0 22px rgba(242, 169, 0, 0.52),
+      0 0 48px rgba(242, 169, 0, 0.28),
+      0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+}
+@keyframes chat-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+@keyframes chat-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+.animate-chat-amber {
+  animation: chat-amber 2.4s ease-in-out infinite;
+}
+.animate-chat-badge {
+  animation: chat-badge 1.1s ease-in-out infinite;
+}
+.animate-chat-ping {
+  animation: chat-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .hud-loader-blink,
   .hud-loader-cell,
@@ -333,7 +367,10 @@ select:disabled {
   .animate-hud-panel-in,
   .animate-hud-panel-out,
   .animate-presence-glow,
-  .animate-presence-border {
+  .animate-presence-border,
+  .animate-chat-amber,
+  .animate-chat-badge,
+  .animate-chat-ping {
     animation: none;
   }
   .hud-btn:active:not(:disabled),
