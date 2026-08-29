@@ -11,6 +11,7 @@ import { rules as rulesEn } from "./en/rules";
 import { admin as adminEn } from "./en/admin";
 import { seasons as seasonsEn } from "./en/seasons";
 import { settings as settingsEn } from "./en/settings";
+import { chat as chatEn } from "./en/chat";
 import * as coreRu from "./ru/core";
 import { landing as landingRu } from "./ru/landing";
 import { board as boardRu } from "./ru/board";
@@ -21,6 +22,7 @@ import { rules as rulesRu } from "./ru/rules";
 import { admin as adminRu } from "./ru/admin";
 import { seasons as seasonsRu } from "./ru/seasons";
 import { settings as settingsRu } from "./ru/settings";
+import { chat as chatRu } from "./ru/chat";
 import * as coreUk from "./uk/core";
 import { landing as landingUk } from "./uk/landing";
 import { board as boardUk } from "./uk/board";
@@ -31,6 +33,7 @@ import { rules as rulesUk } from "./uk/rules";
 import { admin as adminUk } from "./uk/admin";
 import { seasons as seasonsUk } from "./uk/seasons";
 import { settings as settingsUk } from "./uk/settings";
+import { chat as chatUk } from "./uk/chat";
 
 /** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
@@ -70,6 +73,7 @@ export type Dictionary = {
   admin: Widen<typeof adminEn>;
   seasons: Widen<typeof seasonsEn>;
   settings: Widen<typeof settingsEn>;
+  chat: Widen<typeof chatEn>;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -84,6 +88,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     admin: adminEn,
     seasons: seasonsEn,
     settings: settingsEn,
+    chat: chatEn,
   },
   ru: {
     core: coreRuDict,
@@ -96,6 +101,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     admin: adminRu,
     seasons: seasonsRu,
     settings: settingsRu,
+    chat: chatRu,
   },
   uk: {
     core: coreUkDict,
@@ -108,6 +114,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     admin: adminUk,
     seasons: seasonsUk,
     settings: settingsUk,
+    chat: chatUk,
   },
 };
 

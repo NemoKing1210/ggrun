@@ -4,6 +4,7 @@ import { Big_Shoulders_Stencil, Share_Tech_Mono, Barlow_Condensed } from "next/f
 import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { TopLoader } from "@/components/ui/top-loader";
+import { GlobalChat } from "@/components/chat/GlobalChat";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getAccent } from "@/lib/shared/ui/accent";
 import { isDbAvailable } from "@/lib/infrastructure/db/health";
@@ -84,7 +85,6 @@ export default async function RootLayout({
         className={`${stencil.variable} ${techMono.variable} ${body.variable} antialiased`}
         suppressHydrationWarning
       >
-        {accentCss ? <style>{accentCss}</style> : null}
         <I18nProvider locale={locale} t={t}>
           <TopLoader />
           {showMaintenanceBanner && (
@@ -95,6 +95,7 @@ export default async function RootLayout({
             </div>
           )}
           {children}
+          <GlobalChat />
         </I18nProvider>
       </body>
     </html>
