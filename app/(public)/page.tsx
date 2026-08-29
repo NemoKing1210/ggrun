@@ -17,6 +17,7 @@ import { SeasonUptime } from "@/components/landing/SeasonUptime";
 import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
+import { AvatarWithPresence } from "@/components/ui/Presence";
 import {
   getEventFeed,
   getLeaderboard,
@@ -150,13 +151,17 @@ function ChampionRow({
 
       <div className="p-4">
         <div className="flex items-end gap-3">
-          <div className="-mt-10 shrink-0 border-2 border-amber bg-raised p-0.5">
-            <PlayerAvatar
-              username={row.username}
-              displayName={row.displayName}
-              avatarUrl={row.avatarUrl}
-              size="md"
-            />
+          <div className="-mt-10 shrink-0">
+            <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
+              <div className="border-2 border-amber bg-raised p-0.5">
+                <PlayerAvatar
+                  username={row.username}
+                  displayName={row.displayName}
+                  avatarUrl={row.avatarUrl}
+                  size="md"
+                />
+              </div>
+            </AvatarWithPresence>
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-lg uppercase leading-tight tracking-wide group-hover:text-amber">
@@ -231,12 +236,14 @@ function TopRow({ row, rank, t }: { row: LeaderboardRow; rank: number; t: T }) {
         >
           {rank}
         </span>
-        <PlayerAvatar
-          username={row.username}
-          displayName={row.displayName}
-          avatarUrl={row.avatarUrl}
-          size="sm"
-        />
+        <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm">
+          <PlayerAvatar
+            username={row.username}
+            displayName={row.displayName}
+            avatarUrl={row.avatarUrl}
+            size="sm"
+          />
+        </AvatarWithPresence>
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm uppercase leading-tight tracking-wide group-hover:text-amber">
             {row.displayName ?? row.username}

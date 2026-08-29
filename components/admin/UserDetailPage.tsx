@@ -226,7 +226,7 @@ export function UserDetailPage({
                     {name.slice(0, 2).toUpperCase()}
                   </span>
                 )}
-                <span className="absolute top-2 right-2">
+                <span className="absolute top-2 right-2 flex">
                   <PresenceDot lastSeenAt={user.lastSeenAt} size="lg" bordered />
                 </span>
               </span>

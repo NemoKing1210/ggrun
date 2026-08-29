@@ -263,7 +263,7 @@ function ChampionCard({
 }
 
 export default async function LeaderboardPage() {
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
   const kicker = format(t.core.common.seasonKicker, { season: season.title });
@@ -380,7 +380,7 @@ export default async function LeaderboardPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Link href={`/players/${row.username}`} className="flex items-center gap-3 group/link">
-                              <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm">
+                              <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
                                 <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="sm" />
                               </AvatarWithPresence>
                               <div className="min-w-0">

@@ -130,7 +130,7 @@ export default async function PlayerProfilePage({ params }: Params) {
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             {/* avatar */}
             <div className="-mt-10 sm:-mt-14 shrink-0">
-              <AvatarWithPresence lastSeenAt={user.lastSeenAt} size="xl">
+              <AvatarWithPresence lastSeenAt={user.lastSeenAt} size="xl" locale={locale}>
                 <div className="border-2 border-amber bg-raised p-1 shadow-[0_0_18px_rgba(242,169,0,0.25)]">
                   {user.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element

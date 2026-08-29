@@ -44,7 +44,7 @@ function PlayerAvatar({
 
 export default async function SeasonLeaderboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const season = await getSeasonBySlug(slug);
   if (!season) notFound();
 
@@ -84,7 +84,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                       <td className="px-3 py-2 font-mono text-xs text-dim">#{idx + 1}</td>
                       <td className="px-3 py-2">
                         <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
-                          <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm">
+                          <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
                             <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
                           </AvatarWithPresence>
                           <span className="font-mono text-sm">{row.displayName ?? row.username}</span>

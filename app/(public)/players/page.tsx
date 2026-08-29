@@ -160,7 +160,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-60" aria-hidden />
 
                 <div className="flex items-start gap-3">
-                  <AvatarWithPresence lastSeenAt={u.lastSeenAt} size="lg">
+                  <AvatarWithPresence lastSeenAt={u.lastSeenAt} size="lg" locale={locale}>
                     <AvatarBadge
                       name={u.displayName ?? u.username}
                       src={u.avatarUrl}

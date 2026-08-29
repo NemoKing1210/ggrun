@@ -12,25 +12,49 @@ type PresenceDotProps = {
   pulse?: boolean;
   bordered?: boolean;
   className?: string;
+  locale?: string | null;
 };
 
-export function PresenceDot({ lastSeenAt, size = "md", pulse: _pulse = true, bordered = false, className }: PresenceDotProps) {
+export function PresenceDot({ lastSeenAt, size = "md", pulse: _pulse = true, bordered = false, className, locale }: PresenceDotProps) {
+  const { t } = useI18n();
+  const pr = t.profile.presence;
   const online = isOnline(lastSeenAt);
   const dim = size === "sm" ? "size-2" : size === "lg" ? "size-3" : "size-2.5";
+  const tip = (() => {
+    if (online) return pr.online;
+    const diff = diffSince(lastSeenAt);
+    const bucket = bucketForDiff(diff);
+    if (!bucket) return pr.never;
+    if (bucket.bucket === "justNow") return format(pr.lastSeen, { time: pr.justNow });
+    if (bucket.bucket === "minutes") return format(pr.lastSeen, { time: format(pr.minutesAgo, { count: String(bucket.value) }) });
+    if (bucket.bucket === "hours") return format(pr.lastSeen, { time: format(pr.hoursAgo, { count: String(bucket.value) }) });
+    if (bucket.bucket === "days") return format(pr.lastSeen, { time: format(pr.daysAgo, { count: String(bucket.value) }) });
+    if (!lastSeenAt) return pr.never;
+    const d = new Date(lastSeenAt);
+    const fmt = new Intl.DateTimeFormat(locale ?? undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    return format(pr.lastSeen, { time: fmt.format(d) });
+  })();
   return (
-    <span
-      aria-hidden
-      className={[
-        "inline-block shrink-0 [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]",
-        dim,
-        bordered ? "border-2 border-raised shadow-[0_0_0_1px_rgba(0,0,0,0.6)]" : "border border-black/30",
-        online ? "bg-military shadow-[0_0_8px_rgba(124,143,74,0.9)] shadow-[0_0_14px_rgba(124,143,74,0.6)]" : "bg-zinc-500",
-        className ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      title={online ? "online" : "offline"}
-    />
+    <span className="group/tooltip relative inline-block shrink-0 leading-none">
+      <span
+        aria-hidden
+        className={[
+          "inline-block shrink-0",
+          dim,
+          bordered ? (online ? "border-0" : "border-2 border-raised") : "border border-black/30",
+          online ? "bg-military animate-presence-glow" : "bg-zinc-500",
+          className ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap border border-amber/60 bg-[#1e1c0a] px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest text-amber opacity-0 shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_16px_rgba(242,169,0,0.35)] transition-all duration-200 ease-out group-hover/tooltip:translate-y-0 group-hover/tooltip:opacity-100 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+      >
+        {tip}
+      </span>
+    </span>
   );
 }
 
@@ -74,11 +98,11 @@ export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = t
       <span
         className={
           variant === "hud"
-            ? "inline-flex items-center gap-1.5 border border-military bg-military/20 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-military shadow-[0_0_10px_rgba(124,143,74,0.55)] shadow-[0_0_20px_rgba(124,143,74,0.35)] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+            ? "inline-flex items-center gap-1.5 border border-military bg-military/20 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-military animate-presence-glow [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
             : "inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-military"
         }
       >
-        {showDot ? <span className="size-1.5 bg-military shadow-[0_0_8px_rgba(124,143,74,1)] shadow-[0_0_12px_rgba(124,143,74,0.8)] [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
+        {showDot ? <span className="size-1.5 bg-military animate-presence-glow" aria-hidden /> : null}
         {pr.online}
       </span>
     );
@@ -88,13 +112,18 @@ export function PresenceBadge({ lastSeenAt, locale, variant = "hud", showDot = t
     <span
       className={
         variant === "hud"
-          ? "inline-flex items-center gap-1.5 border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-          : "inline-flex items-center gap-1.5 font-mono text-xs text-dim"
+          ? "group/tooltip relative inline-flex items-center gap-1.5 border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+          : "group/tooltip relative inline-flex items-center gap-1.5 font-mono text-xs text-dim"
       }
-      title={lastSeenAt ? new Date(lastSeenAt).toLocaleString(locale ?? undefined) : undefined}
     >
-      {showDot ? <span className="size-1.5 bg-zinc-500 [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> : null}
+      {showDot ? <span className="size-1.5 bg-zinc-500" aria-hidden /> : null}
       {timeText}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap border border-amber/50 bg-[#1e1c0a] px-3 py-1.5 font-mono text-xs font-semibold tracking-widest text-amber opacity-0 shadow-[0_4px_20px_rgba(0,0,0,0.7),0_0_14px_rgba(242,169,0,0.3)] transition-all duration-200 ease-out group-hover/tooltip:translate-y-0 group-hover/tooltip:opacity-100 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+      >
+        {lastSeenAt ? new Date(lastSeenAt).toLocaleString(locale ?? undefined) : pr.never}
+      </span>
     </span>
   );
 }
@@ -104,17 +133,19 @@ type AvatarWithPresenceProps = {
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
   dotSize?: "sm" | "md" | "lg";
+  locale?: string | null;
 };
 
-/** Wraps any avatar element with an absolute presence dot at the top-right inside. */
-export function AvatarWithPresence({ lastSeenAt, children, size = "md", dotSize }: AvatarWithPresenceProps) {
+/** Wraps any avatar element with an absolute presence dot at the top-right inside — equal offsets, proportional to avatar size. */
+export function AvatarWithPresence({ lastSeenAt, children, size = "md", dotSize, locale }: AvatarWithPresenceProps) {
   const dot = dotSize ?? (size === "lg" || size === "xl" ? "lg" : size === "sm" ? "sm" : "md");
-  const offset = size === "lg" || size === "xl" ? "top-2 right-2" : "top-1.5 right-1.5";
+  const offset =
+    size === "xl" ? "top-2.5 right-2.5" : size === "lg" ? "top-2 right-2" : size === "md" ? "top-1.5 right-1.5" : "top-1 right-1";
   return (
     <span className="relative inline-flex shrink-0">
       {children}
-      <span className={`absolute ${offset}`}>
-        <PresenceDot lastSeenAt={lastSeenAt} size={dot} bordered />
+      <span className={`absolute ${offset} flex`}>
+        <PresenceDot lastSeenAt={lastSeenAt} size={dot} bordered locale={locale} />
       </span>
     </span>
   );
