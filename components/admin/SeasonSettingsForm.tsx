@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import {
   AdjustmentsHorizontalIcon,
   ArrowRightIcon,
@@ -612,7 +613,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     <ExclamationTriangleIcon className="size-4 shrink-0 text-amber" aria-hidden />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-amber">{format(t.admin.settings.providerNotConfiguredShort, { provider: cfg.gamePool.provider })}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{t.admin.settings.providerFallbackNote} {cfg.gamePool.catalog.fallbackToCatalog ? t.admin.settings.providerFallbackYes : t.admin.settings.providerFallbackNo} · <a href="/admin/settings" className="underline decoration-amber/50 underline-offset-4 hover:text-amber">Settings → Integrations</a></p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{t.admin.settings.providerFallbackNote} {cfg.gamePool.catalog.fallbackToCatalog ? t.admin.settings.providerFallbackYes : t.admin.settings.providerFallbackNo} · <Link href="/admin/settings" className="underline decoration-amber/50 underline-offset-4 hover:text-amber">Settings → Integrations</Link></p>
                     </div>
                   </div>
                 )}
@@ -623,7 +624,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   <div className="mt-3 border border-danger/30 bg-danger/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
                     <p className="text-sm font-medium text-red-300">{t.admin.settings.noProvidersConfiguredShort}</p>
                     <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t.admin.settings.noProvidersConfiguredHint}</p>
-                    <a href="/admin/settings" className="hud-btn hud-btn-primary mt-2 inline-flex !py-1.5 !px-3 text-xs">Go to Settings</a>
+                    <Link href="/admin/settings" className="hud-btn hud-btn-primary mt-2 inline-flex !py-1.5 !px-3 text-xs">Go to Settings</Link>
                   </div>
                 )}
               </div>

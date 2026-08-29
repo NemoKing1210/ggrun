@@ -10,6 +10,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
 const MODERATION_HREF = "/admin/moderation";
 
@@ -69,12 +70,12 @@ export function AdminHeader({
               {t.admin.nav.backToSite}
             </Link>
             <form action={logoutAction} className="hidden sm:block">
-              <button
-                type="submit"
+              <ConfirmButton
+                message={t.core.nav.logoutConfirm}
                 className="hud-btn hud-btn-danger whitespace-nowrap !px-3 !py-1 text-xs"
               >
                 {t.core.nav.logout}
-              </button>
+              </ConfirmButton>
             </form>
             <button
               type="button"
@@ -165,12 +166,12 @@ export function AdminHeader({
 
               <li className="sm:hidden">
                 <form action={logoutAction}>
-                  <button
-                    type="submit"
+                  <ConfirmButton
+                    message={t.core.nav.logoutConfirm}
                     className="block w-full border-l-2 border-transparent px-3 py-2.5 text-left font-mono text-xs uppercase tracking-widest text-danger hover:text-danger"
                   >
                     {t.core.nav.logout}
-                  </button>
+                  </ConfirmButton>
                 </form>
               </li>
             </ul>

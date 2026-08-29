@@ -403,6 +403,7 @@ function ProfilePanel({ user, isSelf }: { user: User; isSelf: boolean }) {
               message={format(u.blockConfirm, { user: user.username })}
               className={`hud-btn mt-3 w-full text-xs ${user.isBlocked ? "hud-btn-primary" : ""}`}
               disabled={isSelf}
+              danger={!user.isBlocked}
             >
               {user.isBlocked ? u.unblockButton : u.blockButton}
             </ConfirmButton>

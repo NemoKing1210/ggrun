@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState, type MouseEvent } from "react";
+import Link from "next/link";
 import {
   BookOpenIcon,
   MagnifyingGlassIcon,
@@ -39,6 +40,7 @@ import { Field } from "@/components/ui/Field";
 import { Switch } from "@/components/ui/Switch";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { useConfirm } from "@/components/ui/useConfirm";
 import { DebugError } from "@/components/ui/DebugError";
 import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsModal";
 import { useI18n } from "@/lib/i18n/client";
@@ -182,9 +184,9 @@ function SearchImportModal({
         <div className="border border-amber/30 bg-amber/10 p-4 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <p className="text-sm font-medium text-amber">{t.admin.catalog.noProvidersTitle}</p>
           <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t.admin.catalog.noProvidersHint}</p>
-          <a href="/admin/settings" className="hud-btn hud-btn-primary mt-3 inline-flex !py-1.5 !px-3 text-xs">
+          <Link href="/admin/settings" className="hud-btn hud-btn-primary mt-3 inline-flex !py-1.5 !px-3 text-xs">
             {t.admin.catalog.goToSettings}
-          </a>
+          </Link>
         </div>
       ) : (
         <form action={searchAction} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -608,6 +610,17 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
   };
   const clearSelection = () => setSelected(new Set());
 
+  const { confirm, dialog } = useConfirm();
+  const confirmSubmit =
+    (message: string, danger = false) =>
+    (e: MouseEvent<HTMLButtonElement>) => {
+      const form = e.currentTarget.form;
+      if (!form) return;
+      void confirm({ message, danger }).then((ok) => {
+        if (ok) form.requestSubmit();
+      });
+    };
+
   // keep selection in sync when games list shrinks (deleted)
   useEffect(() => {
     const ids = new Set(games.map((g) => g.id));
@@ -626,6 +639,7 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
         game={detailsGame ? toGameDetails(detailsGame as unknown as Record<string, unknown>) : null}
         onClose={() => setDetailsGame(null)}
       />
+      {dialog}
 
       {/* Toolbar — two stacked HUD panels: filter on top, actions below */}
       <div className="flex flex-col gap-3">
@@ -802,16 +816,15 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
             <div className="flex flex-wrap items-center gap-1.5 border-t border-[#2a2a22] bg-black/10 px-3 py-2.5 sm:px-4">
               {selectedCount > 0 ? (
                 <>
-                  <form
-                    action={bulkSetBlacklistedAction}
-                    onSubmit={(e) => {
-                      if (selectedBlacklisted === 0 || !window.confirm(format(t.admin.catalog.bulkConfirmEnable, { count: String(selectedBlacklisted) })))
-                        e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkSetBlacklistedAction}>
                     <input type="hidden" name="ids" value={selectedGames.filter((g) => g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="false" />
-                    <button type="submit" disabled={selectedBlacklisted === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={selectedBlacklisted === 0}
+                      className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40"
+                      onClick={confirmSubmit(format(t.admin.catalog.bulkConfirmEnable, { count: String(selectedBlacklisted) }))}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-military [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <ShieldCheckIcon className="size-3" aria-hidden />
                       </span>
@@ -819,16 +832,15 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                       <CountSuffix count={selectedBlacklisted} tone="amber" />
                     </button>
                   </form>
-                  <form
-                    action={bulkSetBlacklistedAction}
-                    onSubmit={(e) => {
-                      if (selectedActive === 0 || !window.confirm(format(t.admin.catalog.bulkConfirmDisable, { count: String(selectedActive) })))
-                        e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkSetBlacklistedAction}>
                     <input type="hidden" name="ids" value={selectedGames.filter((g) => !g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="true" />
-                    <button type="submit" disabled={selectedActive === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={selectedActive === 0}
+                      className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40"
+                      onClick={confirmSubmit(format(t.admin.catalog.bulkConfirmDisable, { count: String(selectedActive) }))}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <NoSymbolIcon className="size-3" aria-hidden />
                       </span>
@@ -836,14 +848,13 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                       <CountSuffix count={selectedActive} />
                     </button>
                   </form>
-                  <form
-                    action={bulkDeleteGamesAction}
-                    onSubmit={(e) => {
-                      if (!window.confirm(format(t.admin.catalog.bulkConfirmDelete, { count: String(selectedCount) }))) e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkDeleteGamesAction}>
                     <input type="hidden" name="ids" value={Array.from(selected).join(",")} />
-                    <button type="submit" className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5"
+                      onClick={confirmSubmit(format(t.admin.catalog.bulkConfirmDelete, { count: String(selectedCount) }), true)}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-danger [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <TrashIcon className="size-3" aria-hidden />
                       </span>
@@ -854,16 +865,15 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                 </>
               ) : (
                 <>
-                  <form
-                    action={bulkSetBlacklistedAction}
-                    onSubmit={(e) => {
-                      if (filteredBlacklisted === 0 || !window.confirm(format(t.admin.catalog.bulkConfirmEnable, { count: String(filteredBlacklisted) })))
-                        e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkSetBlacklistedAction}>
                     <input type="hidden" name="ids" value={filtered.filter((g) => g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="false" />
-                    <button type="submit" disabled={filteredBlacklisted === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={filteredBlacklisted === 0}
+                      className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40"
+                      onClick={confirmSubmit(format(t.admin.catalog.bulkConfirmEnable, { count: String(filteredBlacklisted) }))}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-military [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <ShieldCheckIcon className="size-3" aria-hidden />
                       </span>
@@ -871,16 +881,15 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                       <CountSuffix count={filteredBlacklisted} tone="amber" />
                     </button>
                   </form>
-                  <form
-                    action={bulkSetBlacklistedAction}
-                    onSubmit={(e) => {
-                      if (filteredActive === 0 || !window.confirm(format(t.admin.catalog.bulkConfirmDisable, { count: String(filteredActive) })))
-                        e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkSetBlacklistedAction}>
                     <input type="hidden" name="ids" value={filtered.filter((g) => !g.isBlacklisted).map((g) => g.id).join(",")} />
                     <input type="hidden" name="blacklisted" value="true" />
-                    <button type="submit" disabled={filteredActive === 0} className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={filteredActive === 0}
+                      className="hud-btn !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40"
+                      onClick={confirmSubmit(format(t.admin.catalog.bulkConfirmDisable, { count: String(filteredActive) }))}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <NoSymbolIcon className="size-3" aria-hidden />
                       </span>
@@ -888,16 +897,19 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                       <CountSuffix count={filteredActive} />
                     </button>
                   </form>
-                  <form
-                    action={bulkDeleteGamesAction}
-                    onSubmit={(e) => {
-                      const isAll = filtered.length === games.length;
-                      const msg = isAll ? format(t.admin.catalog.bulkConfirmDeleteAll, { count: String(filtered.length) }) : format(t.admin.catalog.bulkConfirmDelete, { count: String(filtered.length) });
-                      if (!window.confirm(msg)) e.preventDefault();
-                    }}
-                  >
+                  <form action={bulkDeleteGamesAction}>
                     <input type="hidden" name="ids" value={filtered.map((g) => g.id).join(",")} />
-                    <button type="submit" disabled={filtered.length === 0} className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={filtered.length === 0}
+                      className="hud-btn hud-btn-danger !px-2 !py-1 text-xs inline-flex items-center gap-1.5 disabled:opacity-40"
+                      onClick={confirmSubmit(
+                        filtered.length === games.length
+                          ? format(t.admin.catalog.bulkConfirmDeleteAll, { count: String(filtered.length) })
+                          : format(t.admin.catalog.bulkConfirmDelete, { count: String(filtered.length) }),
+                        true,
+                      )}
+                    >
                       <span className="inline-flex size-5 shrink-0 items-center justify-center bg-[#1a1a1a] border border-[#3d3d34] text-danger [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                         <TrashIcon className="size-3" aria-hidden />
                       </span>

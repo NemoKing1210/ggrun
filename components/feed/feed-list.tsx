@@ -268,9 +268,9 @@ export async function FeedTimeline({
     return (
       <div className="hud-card p-10 text-center">
         <p className="font-mono text-sm uppercase tracking-widest text-dim">{t.feed.noFilterResults}</p>
-        <a href="/feed" className="hud-btn hud-btn-primary mt-4 inline-flex">
+        <Link href="/feed" className="hud-btn hud-btn-primary mt-4 inline-flex">
           {t.feed.clearFilter}
-        </a>
+        </Link>
       </div>
     );
   }

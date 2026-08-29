@@ -6,6 +6,7 @@ import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PageTransition } from "@/components/ui/PageTransition";
 /**
  * Admin shell: its own console-style header with admin sections
  * and a switch back to the public site. Access limited to staff.
@@ -55,7 +56,7 @@ export default async function AdminLayout({
         <Breadcrumbs />
       </div>
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
       <SiteFooter t={t} showAdmin wide />
     </div>

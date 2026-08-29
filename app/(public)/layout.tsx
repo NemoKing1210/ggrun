@@ -3,6 +3,7 @@ import { getT } from "@/lib/i18n/server";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PageTransition } from "@/components/ui/PageTransition";
 /** Public shell: site header + footer. */
 export default async function PublicLayout({
   children,
@@ -34,7 +35,9 @@ export default async function PublicLayout({
         <div className="pt-4">
           <Breadcrumbs />
         </div>
-        <main className="flex-1 py-6 sm:py-8">{children}</main>
+        <main className="flex-1 py-6 sm:py-8">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
       <SiteFooter t={t} showAdmin={user ? isStaff(user) : false} />
     </div>

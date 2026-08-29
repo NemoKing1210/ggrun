@@ -161,6 +161,11 @@ export default async function AdminPage() {
                                   submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
                                   className="inline-flex items-center gap-2"
                                   submitClassName="hud-btn !py-1 !px-2.5 text-[11px] leading-none"
+                                  confirmMessage={format(
+                                    t.admin.overview.statusConfirm[next as keyof typeof t.admin.overview.statusConfirm],
+                                    { season: s.title },
+                                  )}
+                                  confirmDanger={next === "finished" || next === "archived"}
                                 >
                                   <input type="hidden" name="seasonId" value={s.id} />
                                   <input type="hidden" name="status" value={next} />
@@ -252,6 +257,11 @@ export default async function AdminPage() {
                             submitLabel={t.core.seasonStatuses[next as keyof typeof t.core.seasonStatuses]}
                             className="inline-flex"
                             submitClassName="hud-btn !py-1 !px-2.5 text-[11px]"
+                            confirmMessage={format(
+                              t.admin.overview.statusConfirm[next as keyof typeof t.admin.overview.statusConfirm],
+                              { season: s.title },
+                            )}
+                            confirmDanger={next === "finished" || next === "archived"}
                           >
                             <input type="hidden" name="seasonId" value={s.id} />
                             <input type="hidden" name="status" value={next} />

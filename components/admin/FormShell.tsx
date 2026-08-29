@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import type { AdminFormState } from "@/lib/use-cases/admin/actions/types";
 import { DebugError } from "@/components/ui/DebugError";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
 type Action = (
   prev: AdminFormState,
@@ -18,6 +19,8 @@ export function FormShell({
   hideSubmit = false,
   submitClassName = "hud-btn hud-btn-primary self-start",
   className,
+  confirmMessage,
+  confirmDanger = true,
 }: {
   action: Action;
   children: React.ReactNode;
@@ -25,8 +28,12 @@ export function FormShell({
   hideSubmit?: boolean;
   submitClassName?: string;
   className?: string;
+  /** When set, the submit button asks for in-app confirmation first. */
+  confirmMessage?: string;
+  confirmDanger?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  const label = pending ? "..." : (submitLabel ?? "OK");
   return (
     <form action={formAction} className={className ?? "flex flex-col gap-3"}>
       {children}
@@ -38,11 +45,21 @@ export function FormShell({
           <DebugError debug={state.debug} title="form" />
         </div>
       )}
-      {!hideSubmit && (
-        <button type="submit" className={submitClassName} disabled={pending}>
-          {pending ? "..." : (submitLabel ?? "OK")}
-        </button>
-      )}
+      {!hideSubmit &&
+        (confirmMessage ? (
+          <ConfirmButton
+            message={confirmMessage}
+            danger={confirmDanger}
+            className={submitClassName}
+            disabled={pending}
+          >
+            {label}
+          </ConfirmButton>
+        ) : (
+          <button type="submit" className={submitClassName} disabled={pending}>
+            {label}
+          </button>
+        ))}
     </form>
   );
 }

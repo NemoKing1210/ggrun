@@ -10,6 +10,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 export interface SiteHeaderUser {
   displayName: string | null;
   username: string;
@@ -108,9 +109,13 @@ export function SiteHeader({
                   </Link>
                 )}
                 <form action={logoutAction} className="hidden sm:block">
-                  <button type="submit" className="hud-btn !px-3 !py-1 text-xs">
+                  <ConfirmButton
+                    message={t.core.nav.logoutConfirm}
+                    danger={false}
+                    className="hud-btn !px-3 !py-1 text-xs"
+                  >
                     {t.core.nav.logout}
-                  </button>
+                  </ConfirmButton>
                 </form>
               </>
             ) : (
@@ -176,12 +181,13 @@ export function SiteHeader({
                   </li>
                   <li className="sm:hidden">
                     <form action={logoutAction}>
-                      <button
-                        type="submit"
+                      <ConfirmButton
+                        message={t.core.nav.logoutConfirm}
+                        danger={false}
                         className="block w-full border-l-2 border-transparent px-3 py-2.5 text-left uppercase tracking-widest text-dim hover:text-foreground"
                       >
                         {t.core.nav.logout}
-                      </button>
+                      </ConfirmButton>
                     </form>
                   </li>
                 </>

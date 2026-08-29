@@ -4,7 +4,6 @@ import { Big_Shoulders_Stencil, Share_Tech_Mono, Barlow_Condensed } from "next/f
 import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { TopLoader } from "@/components/ui/top-loader";
-import { PageTransition } from "@/components/ui/PageTransition";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getAccent } from "@/lib/shared/ui/accent";
 import { isDbAvailable } from "@/lib/infrastructure/db/health";
@@ -95,7 +94,7 @@ export default async function RootLayout({
               <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
             </div>
           )}
-          <PageTransition>{children}</PageTransition>
+          {children}
         </I18nProvider>
       </body>
     </html>

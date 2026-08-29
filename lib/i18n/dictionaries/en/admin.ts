@@ -197,6 +197,12 @@ export const admin = {
   auditLink: "Audit log",
   resetButton: "Reset",
   resetConfirm: "Reset {season}? All rolls, moves and points will be wiped and the season will start anew.",
+  statusConfirm: {
+    active: "Start “{season}”? Positions, balance and streaks will be reset for the new run.",
+    paused: "Pause “{season}”? The run freezes until it is resumed.",
+    finished: "Finish “{season}”? The run ends and moves to the archive.",
+    archived: "Archive “{season}”? It will leave the live list.",
+  },
   emptyHint: "Create your first season above — draft → active → finished",
   navigateLabel: "NAVIGATE",
   activeSeasonBanner: "Only one run can be live at a time — “{title}” is active. Starting another is blocked until it is finished or archived.",
