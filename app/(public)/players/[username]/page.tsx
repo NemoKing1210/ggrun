@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { count, desc, eq } from "drizzle-orm";
 import {
+  ArrowRightIcon,
   ChartBarIcon,
   MapIcon,
   TrophyIcon,
@@ -17,7 +18,8 @@ import { EmptyState } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/status";
 import { db } from "@/lib/infrastructure/db";
-import { gameRolls, rollStatusEnum, seasonPlayers, seasons, users } from "@/db/schema";
+import { gameRolls, seasonPlayers, seasons, users } from "@/db/schema";
+import { getOpenRoll } from "@/lib/modules/catalog/repository";
 import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/repository/players";
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
@@ -63,6 +65,7 @@ export default async function PlayerProfilePage({ params }: Params) {
 
   const activeParticipation = activeSeason ? await getSeasonPlayerForUser(activeSeason.id, user.id) : null;
   const recentMoves = activeParticipation ? await getPlayerMoves(activeParticipation.id, 10) : [];
+  const openRoll = activeParticipation ? await getOpenRoll(activeParticipation.id) : null;
 
   const rollsByStatus = new Map(rollStats.map((r) => [r.status, Number(r.total)]));
   const totalRolls = rollStats.reduce((acc, r) => acc + Number(r.total), 0);
@@ -114,7 +117,7 @@ export default async function PlayerProfilePage({ params }: Params) {
             </span>
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
-            <span className="border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-amber">
+            <span className="border border-amber/30 bg-[#111110] px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-amber">
               {format(t.profile.hero.seasonsCount, { count: participations.length })} • {format(t.profile.hero.movesCount, { count: recentMoves.length })}
             </span>
           </div>
@@ -183,48 +186,95 @@ export default async function PlayerProfilePage({ params }: Params) {
                     href="/leaderboard"
                     className="border border-amber/30 bg-amber/10 px-2 py-1 uppercase tracking-widest text-amber hover:bg-amber hover:text-black"
                   >
-                    {t.profile.hero.activeRun} → {activeSeason.title}
+                    {t.profile.hero.activeRun} <ArrowRightIcon className="size-3" aria-hidden /> {activeSeason.title}
                   </Link>
                 ) : null}
               </div>
             </div>
+          </div>
 
-            {/* active run quick stats */}
-            <div className="w-full shrink-0 sm:w-64">
-              {activeParticipation ? (
-                <div className="hud-card border-amber/25 bg-raised p-4">
-                  <p className="font-display text-[11px] uppercase tracking-widest text-amber">{t.profile.hero.activeRun}</p>
-                  <p className="font-mono text-xs text-dim">{activeSeason?.title}</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="border border-dim/15 bg-[#111110] p-2">
+          {/* active run quick stats — full width below */}
+          <div className="mt-5 w-full">
+            {activeParticipation ? (
+              <div className="hud-card border-amber/25 bg-raised p-4 sm:p-5">
+                {/* header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dim/10 pb-3">
+                  <div className="min-w-0">
+                    <p className="font-display text-[11px] uppercase tracking-widest text-amber">{t.profile.hero.activeRun}</p>
+                    <p className="truncate font-mono text-xs text-dim">{activeSeason?.title}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-dim">rerolls {activeParticipation.rerollsUsed}</span>
+                    <StatusBadge status={activeParticipation.status} label={t.core.playerStatuses[activeParticipation.status]} />
+                  </div>
+                </div>
+
+                {/* body */}
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  {/* current game */}
+                  <div className="flex items-center gap-3 border border-amber/20 bg-[#111110] p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+                    {openRoll?.game?.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={openRoll.game.coverUrl}
+                        alt=""
+                        className="size-16 shrink-0 border border-[#3d3d34] object-cover shadow-[0_4px_12px_rgba(0,0,0,0.4)] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+                      />
+                    ) : (
+                      <span className="flex size-16 shrink-0 items-center justify-center border border-dashed border-dim/30 bg-background/40 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                        {openRoll?.game ? "NO COVER" : "—"}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.currentGame}</p>
+                      {openRoll?.game ? (
+                        <>
+                          <p className="mt-1 truncate font-display text-base uppercase tracking-wide text-amber">{openRoll.game.title}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {openRoll.game.platform ? (
+                              <span className="border border-dim/30 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                {openRoll.game.platform}
+                              </span>
+                            ) : null}
+                            <span className="inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                              <span className="size-1.5 animate-pulse bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                              {"// ACTIVE ROLL"}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-1 font-mono text-xs text-dim/60">{t.profile.noCurrentGame}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* run stats */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
                       <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.cell}</div>
-                      <div className="ammo-counter text-xl leading-none text-amber">{activeParticipation.position}</div>
+                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">{activeParticipation.position}</div>
                     </div>
-                    <div className="border border-dim/15 bg-[#111110] p-2">
+                    <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
                       <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.balance}</div>
-                      <div className="ammo-counter text-xl leading-none text-amber">{activeParticipation.balancePoints}</div>
+                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">{activeParticipation.balancePoints}</div>
                     </div>
-                    <div className="border border-dim/15 bg-[#111110] p-2">
+                    <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
                       <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.streak}</div>
-                      <div className="mt-1 flex items-center justify-center gap-1 font-mono text-xs">
+                      <div className="mt-1.5 flex items-center justify-center gap-1 font-mono text-sm">
                         <span className="text-military">+{activeParticipation.streakPass}</span>
                         <span className="text-dim/40">/</span>
                         <span className="text-danger">-{activeParticipation.streakDrop}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-dim/10 pt-2 font-mono text-[11px] uppercase tracking-widest text-dim">
-                    <span>rerolls {activeParticipation.rerollsUsed}</span>
-                    <StatusBadge status={activeParticipation.status} label={t.core.playerStatuses[activeParticipation.status]} />
-                  </div>
                 </div>
-              ) : (
-                <div className="hud-card p-4 text-center">
-                  <p className="font-mono text-xs uppercase tracking-widest text-dim">{t.profile.hero.noActiveRun}</p>
-                  <p className="mt-1 font-mono text-[11px] text-dim/60">{totalRolls} rolls total • {participations.length} seasons</p>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="hud-card p-4 text-center">
+                <p className="font-mono text-xs uppercase tracking-widest text-dim">{t.profile.hero.noActiveRun}</p>
+                <p className="mt-1 font-mono text-[11px] text-dim/60">{totalRolls} rolls total • {participations.length} seasons</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -236,7 +286,16 @@ export default async function PlayerProfilePage({ params }: Params) {
             <ChartBarIcon className="h-4 w-4 text-amber" aria-hidden />
             {totalRolls} rolls
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-widest text-dim">{participations.length} seasons • {recentMoves.length} moves</span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-dim">{participations.length} seasons • {recentMoves.length} moves</span>
+            <Link
+              href={`/players/${user.username}/games`}
+              className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1 text-[11px]"
+            >
+              {t.profile.games.title}
+              <ArrowRightIcon className="size-3.5" aria-hidden />
+            </Link>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {(
@@ -331,7 +390,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <span className="font-mono text-sm">
                           <span className="ammo-counter text-amber">{move.fromPosition}</span>
-                          <span className="mx-1 text-dim">→</span>
+                          <ArrowRightIcon className="mx-1 inline size-3 text-dim" aria-hidden />
                           <span className="ammo-counter text-amber">{move.toPosition}</span>
                           {move.cellLandedType ? (
                             <Badge variant="sky" size="sm" className="ml-2 align-middle">
@@ -355,7 +414,7 @@ export default async function PlayerProfilePage({ params }: Params) {
               </ul>
               <div className="mt-3 text-center">
                 <Link href="/board" className="inline-flex border border-dim/20 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:border-amber/40 hover:text-amber">
-                  View board →
+                  View board <ArrowRightIcon className="size-3.5" aria-hidden />
                 </Link>
               </div>
             </div>

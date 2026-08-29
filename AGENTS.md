@@ -184,6 +184,12 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
   instead of `overflow-x-auto`.
 - **Raw `<input type="checkbox">`** — off-policy; use `Switch` for booleans,
   or the catalog's checked-style for table row selection.
+- **Text arrows as icons** — never render raw Unicode arrows (`→`, `←`, `↑`, `↓`,
+  `⇒`, …) as button/link affordances or element separators (e.g.
+  `view profile →`, `<span>→</span>` between two values). Use Heroicons instead
+  (`ArrowRightIcon` / `ArrowLeftIcon` from `@heroicons/react/24/outline`). Raw
+  arrows are OK only inside prose/dictionary strings, code comments and compact
+  data labels (e.g. `"Settings → Integrations"`, `"{from} → {to}"`).
 - **Forms across table rows** — a `<form>` cannot wrap `<td>` cells: give
   inputs/buttons a `form="row-<id>"` attribute and render one hidden
   `<form id="row-<id>" action={…}>` per row after the table (see the roster

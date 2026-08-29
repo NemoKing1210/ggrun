@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MagnifyingGlassIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightIcon, MagnifyingGlassIcon, UsersIcon } from "@heroicons/react/24/outline";
 
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -206,7 +206,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     {format(t.profile.listing.joined, { date: dateFmt.format(u.createdAt) })}
                   </span>
                   <span className="border border-amber/40 px-2 py-1 font-display text-[11px] uppercase tracking-widest text-amber group-hover:bg-amber group-hover:text-black">
-                    {t.profile.listing.viewProfile} →
+                    {t.profile.listing.viewProfile} <ArrowRightIcon className="size-3" aria-hidden />
                   </span>
                 </div>
               </Link>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowRightIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   FlagIcon,
@@ -148,7 +149,7 @@ function ChampionCard({
             </div>
             <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
               <span className="inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-3 py-1.5 font-display text-xs uppercase tracking-widest text-amber">
-                {t.leaderboard.viewProfile} →
+                {t.leaderboard.viewProfile} <ArrowRightIcon className="size-3.5" aria-hidden />
               </span>
             </div>
           </div>
@@ -415,7 +416,7 @@ export default async function LeaderboardPage() {
                               href={`/players/${row.username}`}
                               className="inline-flex border border-dim/20 px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-dim hover:border-amber/40 hover:text-amber"
                             >
-                              →
+                              <ArrowRightIcon className="size-4" aria-hidden />
                             </Link>
                           </td>
                         </tr>

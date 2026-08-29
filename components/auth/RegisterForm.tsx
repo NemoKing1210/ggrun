@@ -178,7 +178,7 @@ export function RegisterForm({
       <p className="mt-4 text-center text-sm text-dim">
         {t.core.auth.haveAccount}{" "}
         <Link href="/login" className="font-mono text-amber hover:underline uppercase tracking-widest text-xs">
-          {t.core.auth.goToLogin} →
+          {t.core.auth.goToLogin} <ArrowRightIcon className="inline size-3.5" aria-hidden />
         </Link>
       </p>
     </div>

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
+  ArrowRightIcon,
   CheckIcon,
   ClipboardDocumentIcon,
   ClockIcon,
@@ -715,7 +716,7 @@ function ActivityPanel({ audit, dateFmt }: { audit: AdminUserAuditRow[]; dateFmt
                   </div>
                   <p className="mt-1.5 truncate font-mono text-xs text-dim" title={payloadSummary(payload)}>
                     <span className="text-zinc-300">{isByUser ? `@${actorName}` : actorName}</span>
-                    <span className="mx-1.5 text-dim/50">→</span>
+                    <ArrowRightIcon className="mx-1.5 inline size-3 text-dim/50" aria-hidden />
                     {entry.targetId ? (
                       <span>
                         {entry.targetType}

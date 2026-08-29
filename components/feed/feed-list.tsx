@@ -6,6 +6,7 @@ import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
 import {
   ArrowsRightLeftIcon,
+  ArrowRightIcon,
   CheckCircleIcon,
   CubeIcon,
   FlagIcon,
@@ -410,7 +411,7 @@ export async function FeedTimeline({
                       className="flex items-center justify-between border-t border-dim/10 bg-raised/40 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:text-amber sm:px-4"
                     >
                       <span>@{entry.username}</span>
-                      <span>→</span>
+                      <ArrowRightIcon className="size-3.5" aria-hidden />
                     </Link>
                   ) : null}
                 </div>
