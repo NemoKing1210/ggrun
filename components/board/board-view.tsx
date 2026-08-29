@@ -25,7 +25,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
-import type { BoardCell, SeasonPlayer } from "@/db/schema";
+import type { BoardCell, GameRoll, SeasonPlayer } from "@/db/schema";
 
 import { CELL_THEME } from "./cell-theme";
 import { Modal } from "@/components/ui/Modal";
@@ -47,13 +47,21 @@ export type BoardPlayer = {
 };
 
 export type BoardRoll = {
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  lastSeenAt: string | null;
-  gameTitle: string | null;
-  platform: string | null;
-  rolledAt: string;
+ username: string;
+ displayName: string | null;
+ avatarUrl: string | null;
+ lastSeenAt: string | null;
+ gameTitle: string | null;
+ platform: string | null;
+ rolledAt: string;
+ status: GameRoll["status"];
+ coverUrl: string | null;
+ genres: string[];
+ metacritic: number | null;
+ releasedAt: string | null;
+ description: string | null;
+ playtimeHours: number | null;
+ externalSource: string | null;
 };
 
 export type BoardStats = {
@@ -359,7 +367,7 @@ export function BoardView({
         ) : (
           <>
             {/* header row - desktop */}
-            <div className="hidden grid-cols-[1fr_110px_70px_1.2fr] gap-2 border-b border-[#2a2a22] pb-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dim sm:grid">
+            <div className="hidden grid-cols-[1fr_110px_70px_1.6fr] gap-2 border-b border-[#2a2a22] pb-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dim sm:grid">
               <span>{t.board.roster.colPlayer}</span>
               <span>{t.board.roster.colStatus}</span>
               <span className="text-center">{t.board.roster.colPosition}</span>
@@ -373,7 +381,7 @@ export function BoardView({
                   const roll = rollByUser[p.username] ?? null;
                   const statusLabel = (t.core.playerStatuses as Record<string, string>)[p.status] ?? p.status;
                   return (
-                    <li key={p.username} className="grid grid-cols-1 gap-2 py-2.5 sm:grid-cols-[1fr_110px_70px_1.2fr] sm:items-center sm:gap-2 sm:py-2">
+                    <li key={p.username} className="grid grid-cols-1 gap-2 py-2.5 sm:grid-cols-[1fr_110px_70px_1.6fr] sm:items-start sm:gap-3 sm:py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
                           <Avatar username={p.username} displayName={p.displayName} avatarUrl={p.avatarUrl} />
@@ -398,19 +406,68 @@ export function BoardView({
                           <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.board.roster.colGame}</span>
                         </div>
                         {roll ? (
-                          <div className="min-w-0">
-                            <div className="truncate text-sm leading-tight" title={roll.gameTitle ?? undefined}>
-                              {roll.gameTitle ?? t.board.live.unknownGame}
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                              {roll.platform ? (
-                                <span className="border border-dim/40 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] leading-none uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                                  {roll.platform}
-                                </span>
-                              ) : null}
-                              <span className="font-mono text-[10px] leading-none text-dim">
-                                {now !== null ? format(t.board.live.since, { time: formatDuration(now - new Date(roll.rolledAt).getTime(), t.board.units) }) : ""}
+                          <div className="flex gap-2.5">
+                            {roll.coverUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={roll.coverUrl}
+                                alt={roll.gameTitle ?? ""}
+                                className="h-[76px] w-[56px] shrink-0 border border-[#3d3d34] object-cover [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                              />
+                            ) : (
+                              <span className="flex h-[76px] w-[56px] shrink-0 items-center justify-center border border-[#3d3d34] bg-raised [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                <PuzzlePieceIcon className="size-5 text-dim/40" aria-hidden />
                               </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold leading-tight text-foreground" title={roll.gameTitle ?? undefined}>
+                                {roll.gameTitle ?? t.board.live.unknownGame}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                {roll.platform ? (
+                                  <span className="border border-dim/40 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] leading-none uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                    {roll.platform}
+                                  </span>
+                                ) : null}
+                                {roll.releasedAt ? (
+                                  <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                    {new Date(roll.releasedAt).getFullYear()}
+                                  </span>
+                                ) : null}
+                                {roll.playtimeHours ? <span className="font-mono text-[10px] leading-none text-dim">≈{roll.playtimeHours}h</span> : null}
+                                {roll.metacritic ? (
+                                  <span className="inline-flex items-center gap-1 border border-amber/30 bg-amber/10 px-1.5 py-0.5 font-mono text-[10px] leading-none text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                                    ★ {roll.metacritic}
+                                  </span>
+                                ) : null}
+                                <span
+                                  className={`border px-1.5 py-0.5 font-mono text-[10px] leading-none uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${roll.status === "in_progress" ? "border-military/30 bg-military/10 text-military" : "border-amber/30 bg-amber/10 text-amber"}`}
+                                >
+                                  {roll.status === "in_progress" ? "IN PROGRESS" : "ROLLED"}
+                                </span>
+                              </div>
+                              {roll.genres.length > 0 ? (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {roll.genres.slice(0, 3).map((g) => (
+                                    <span
+                                      key={g}
+                                      className="border border-[#2a2a22] bg-[#1a1a16] px-1.5 py-0.5 font-mono text-[10px] leading-none tracking-wide text-dim [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]"
+                                    >
+                                      {g}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {roll.description ? (
+                                <p className="mt-1 line-clamp-2 font-mono text-[11px] leading-snug text-dim">{roll.description}</p>
+                              ) : null}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono text-[10px] leading-none text-dim/70">
+                                <ClockIcon className="size-3 shrink-0" aria-hidden />
+                                <span>{now !== null ? format(t.board.live.since, { time: formatDuration(now - new Date(roll.rolledAt).getTime(), t.board.units) }) : ""}</span>
+                                {roll.externalSource ? (
+                                  <span className="border border-dim/20 bg-background/40 px-1 py-0.5 text-[9px] uppercase tracking-widest">{roll.externalSource}</span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         ) : (

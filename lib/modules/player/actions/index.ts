@@ -6,12 +6,13 @@ import { cookies } from "next/headers";
 
 import { and, eq, ne } from "drizzle-orm";
 import {
-  adminCreateUser,
-  adminDeleteUser,
-  adminRevokeSessions,
-  adminSetUserBlocked,
-  adminUpdateUser,
-  updateUserSettings,
+ adminCreateUser,
+ adminDeleteUser,
+ adminRevokeSessions,
+ adminSetUserBlocked,
+ adminUpdateUser,
+ adminVerifyEmail,
+ updateUserSettings,
 } from "@/lib/modules/player/service";
 import { AdminError } from "@/lib/modules/season/service";
 import { getCurrentUser, SESSION_COOKIE, tokenFingerprint } from "@/lib/infrastructure/auth/session";
@@ -100,8 +101,22 @@ export async function blockUserAction(formData: FormData): Promise<void> {
     });
     throw e;
   }
-  revalidatePath("/admin/users");
-  revalidatePath(`/admin/users/${userId}`);
+ revalidatePath("/admin/users");
+ revalidatePath(`/admin/users/${userId}`);
+}
+
+export async function verifyEmailAction(formData: FormData): Promise<void> {
+ const actor = await getCurrentUser();
+ const userId = String(formData.get("userId") ?? "");
+ try {
+ await adminVerifyEmail(userId);
+ log.info("user.verify_email", { actorId: actor?.id ?? null, targetId: userId });
+ } catch (e) {
+ log.error("user.verify_email", { actorId: actor?.id ?? null, targetId: userId, err: e });
+ throw e;
+ }
+ revalidatePath("/admin/users");
+ revalidatePath(`/admin/users/${userId}`);
 }
 
 /** Revokes one session of a user (admin console, sessions tab). */

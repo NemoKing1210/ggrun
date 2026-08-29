@@ -272,12 +272,24 @@ export async function adminUpdateUser(input: unknown): Promise<void> {
 }
 
 export async function adminSetUserBlocked(userId: string, isBlocked: boolean): Promise<void> {
-  const actor = await requireAdmin();
-  if (userId === actor.id) throw new AdminError("adminSelfBlock");
-  const target = await getUserById(userId);
-  if (!target) throw new AdminError("adminPlayerNotFound");
-  await db.update(users).set({ isBlocked }).where(eq(users.id, userId));
-  await logAdminAction({ actorId: actor.id, actionType: isBlocked ? "user_blocked" : "user_unblocked", targetType: "user", targetId: userId });
+ const actor = await requireAdmin();
+ if (userId === actor.id) throw new AdminError("adminSelfBlock");
+ const target = await getUserById(userId);
+ if (!target) throw new AdminError("adminPlayerNotFound");
+ await db.update(users).set({ isBlocked }).where(eq(users.id, userId));
+ await logAdminAction({ actorId: actor.id, actionType: isBlocked ? "user_blocked" : "user_unblocked", targetType: "user", targetId: userId });
+}
+
+export async function adminVerifyEmail(userId: string): Promise<void> {
+ const actor = await requireAdmin();
+ const target = await getUserById(userId);
+ if (!target) throw new AdminError("adminPlayerNotFound");
+ if (target.emailVerified) return;
+ await db
+ .update(users)
+ .set({ emailVerified: true, emailVerificationToken: null, emailVerificationExpiresAt: null })
+ .where(eq(users.id, userId));
+ await logAdminAction({ actorId: actor.id, actionType: "user_email_verified", targetType: "user", targetId: userId, payload: { email: target.email } });
 }
 
 export async function adminDeleteUser(userId: string): Promise<void> {

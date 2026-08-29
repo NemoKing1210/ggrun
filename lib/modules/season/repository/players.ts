@@ -195,38 +195,53 @@ export const getEventFeed = cache(
 // --- Board page live data --------------------------------------------------
 
 export type ActiveRollRow = {
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  lastSeenAt: Date | null;
-  gameTitle: string | null;
-  platform: string | null;
-  rolledAt: Date;
+ username: string;
+ displayName: string | null;
+ avatarUrl: string | null;
+ lastSeenAt: Date | null;
+ gameTitle: string | null;
+ platform: string | null;
+ rolledAt: Date;
+ status: GameRoll["status"];
+ coverUrl: string | null;
+ genres: string[] | null;
+ metacritic: number | null;
+ releasedAt: Date | null;
+ description: string | null;
+ playtimeHours: number | null;
+ externalSource: string | null;
 };
-
 /** Rolls that are currently being played (rolled / in_progress). */
 export const getActiveRolls = cache(async (seasonId: string): Promise<ActiveRollRow[]> => {
-  return db
-    .select({
-      username: users.username,
-      displayName: users.displayName,
-      avatarUrl: users.avatarUrl,
-      lastSeenAt: users.lastSeenAt,
-      gameTitle: gamesCatalog.title,
-      platform: gamesCatalog.platform,
-      rolledAt: gameRolls.rolledAt,
-    })
-    .from(gameRolls)
-    .innerJoin(seasonPlayers, eq(gameRolls.seasonPlayerId, seasonPlayers.id))
-    .innerJoin(users, eq(users.id, seasonPlayers.playerId))
-    .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
-    .where(
-      and(
-        eq(seasonPlayers.seasonId, seasonId),
-        inArray(gameRolls.status, ["rolled", "in_progress"]),
-      ),
-    )
-    .orderBy(asc(gameRolls.rolledAt));
+ return db
+ .select({
+ username: users.username,
+ displayName: users.displayName,
+ avatarUrl: users.avatarUrl,
+ lastSeenAt: users.lastSeenAt,
+ gameTitle: gamesCatalog.title,
+ platform: gamesCatalog.platform,
+ rolledAt: gameRolls.rolledAt,
+ status: gameRolls.status,
+ coverUrl: gamesCatalog.coverUrl,
+ genres: gamesCatalog.genres,
+ metacritic: gamesCatalog.metacritic,
+ releasedAt: gamesCatalog.releasedAt,
+ description: gamesCatalog.description,
+ playtimeHours: gamesCatalog.playtimeHours,
+ externalSource: gamesCatalog.externalSource,
+ })
+ .from(gameRolls)
+ .innerJoin(seasonPlayers, eq(gameRolls.seasonPlayerId, seasonPlayers.id))
+ .innerJoin(users, eq(users.id, seasonPlayers.playerId))
+ .leftJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+ .where(
+ and(
+ eq(seasonPlayers.seasonId, seasonId),
+ inArray(gameRolls.status, ["rolled", "in_progress"]),
+ ),
+ )
+ .orderBy(asc(gameRolls.rolledAt));
 });
 
 export type SeasonStats = {

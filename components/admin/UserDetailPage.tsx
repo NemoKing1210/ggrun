@@ -34,11 +34,12 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
 import { actionMeta, payloadSummary } from "@/components/admin/audit-meta";
 import {
-  blockUserAction,
-  deleteUserAction,
-  revokeAllSessionsAction,
-  revokeSessionAction,
-  updateUserAction,
+ blockUserAction,
+ deleteUserAction,
+ revokeAllSessionsAction,
+ revokeSessionAction,
+ updateUserAction,
+ verifyEmailAction,
 } from "@/lib/modules/player/actions";
 import {
   approveCompletionAction,
@@ -483,22 +484,37 @@ function DataPanel({
           </button>
         </DataField>
 
-        <DataField label={u.emailLabel}>
-          <span className="break-all">{user.email ?? d.noValue}</span>
-        </DataField>
+ <DataField label={u.emailLabel}>
+ <span className="break-all">{user.email ?? d.noValue}</span>
+ </DataField>
 
-        <DataField label={d.emailVerified}>
-          {pendingVerification ? (
-            <span className="inline-flex items-center gap-1.5 text-amber">
-              <ClockIcon className="h-3.5 w-3.5" aria-hidden />
-              {d.verificationPending}
-            </span>
-          ) : user.emailVerified ? (
-            <span className="text-military">✓ {d.emailVerified}</span>
-          ) : (
-            <span className="text-danger">✕ {d.emailUnverified}</span>
-          )}
-        </DataField>
+ <DataField label={d.emailVerified}>
+ <div className="flex flex-col gap-2">
+ {pendingVerification ? (
+ <span className="inline-flex items-center gap-1.5 text-amber">
+ <ClockIcon className="h-3.5 w-3.5" aria-hidden />
+ {d.verificationPending}
+ </span>
+ ) : user.emailVerified ? (
+ <span className="text-military">✓ {d.emailVerified}</span>
+ ) : (
+ <span className="text-danger">✕ {d.emailUnverified}</span>
+ )}
+ {!user.emailVerified && (
+ <form action={verifyEmailAction}>
+ <input type="hidden" name="userId" value={user.id} />
+ <button
+ type="submit"
+ title={d.verifyEmailHint}
+ className="inline-flex items-center gap-1.5 border border-military/30 bg-military/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest text-military transition hover:border-military/60 hover:bg-military/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+ >
+ <CheckIcon className="h-3.5 w-3.5" aria-hidden />
+ {d.verifyEmail}
+ </button>
+ </form>
+ )}
+ </div>
+ </DataField>
 
         <DataField label={d.approved}>
           {user.isApproved ? (

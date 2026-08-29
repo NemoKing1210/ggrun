@@ -21,6 +21,25 @@ type ChatMsg = {
 const PAGE_SIZE = 30;
 const POLL_MS = 5000;
 
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function formatDayLabel(iso: string, locale: string | null): string {
+  const d = new Date(iso);
+  const now = new Date();
+  // today / yesterday check
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(d, now)) {
+    try { return new Intl.DateTimeFormat(locale ?? undefined, { day: "2-digit", month: "long" }).format(d) + " — TODAY"; } catch { return "TODAY"; }
+  }
+  if (isSameDay(d, yesterday)) {
+    try { return new Intl.DateTimeFormat(locale ?? undefined, { day: "2-digit", month: "long" }).format(d) + " — YESTERDAY"; } catch { return "YESTERDAY"; }
+  }
+  try {
+    return new Intl.DateTimeFormat(locale ?? undefined, { day: "2-digit", month: "short", year: "numeric" }).format(d).toUpperCase();
+  } catch { return d.toLocaleDateString(); }
+}
 function timeLabel(iso: string, locale: string | null): string {
   const d = new Date(iso);
   const now = Date.now();
@@ -421,46 +440,80 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {msgs.map((m) => {
-                const label = m.displayName ?? m.username;
-                const initials = label.slice(0, 2).toUpperCase();
-                const roleColor = m.role === "admin" ? "text-red-400" : m.role === "judge" ? "text-violet-400" : "text-amber";
-                return (
-                  <div
-                    key={m.id}
-                    className="group/msg flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 transition-colors hover:border-amber/15 hover:bg-[#191913] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
-                  >
-                    <Link
-                      href={`/players/${m.username}`}
-                      className="shrink-0"
-                      onClick={() => setOpen(false)}
-                    >
-                      {m.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.avatarUrl} alt={label} className="size-8 object-cover ring-1 ring-white/5 group-hover/msg:ring-amber/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" />
-                      ) : (
-                        <span className="inline-flex size-8 items-center justify-center bg-[#1e1e18] font-display text-[11px] tracking-widest text-dim ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                          {initials}
-                        </span>
+              {(() => {
+                const groups: Array<{ key: string; dayKey: string; dayIso: string; userId: string; username: string; displayName: string | null; avatarUrl: string | null; role: string; isNewDay: boolean; msgs: typeof msgs }> = [];
+                const GROUP_MS = 7 * 60 * 1000;
+                let cur: (typeof groups)[number] | null = null;
+                let lastDayKey: string | null = null;
+                for (const m of msgs) {
+                  const d = new Date(m.createdAt);
+                  const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                  const isNewDay = dayKey !== lastDayKey;
+                  if (isNewDay) lastDayKey = dayKey;
+                  const lastMsg = cur?.msgs[cur.msgs.length - 1];
+                  const gap = lastMsg ? d.getTime() - new Date(lastMsg.createdAt).getTime() : Infinity;
+                  const sameAuthor = cur !== null && cur.userId === m.userId && !isNewDay && gap < GROUP_MS;
+                  if (sameAuthor && cur) {
+                    cur.msgs.push(m);
+                  } else {
+                    const g = { key: m.id, dayKey, dayIso: m.createdAt, userId: m.userId, username: m.username, displayName: m.displayName, avatarUrl: m.avatarUrl, role: m.role, isNewDay: isNewDay, msgs: [m] as typeof msgs };
+                    // mark if this group starts a new day
+
+                    groups.push(g);
+                    cur = g;
+                  }
+                }
+                return groups.map((g) => {
+                  const label = g.displayName ?? g.username;
+                  const initials = label.slice(0, 2).toUpperCase();
+                  const roleColor = g.role === "admin" ? "text-red-400" : g.role === "judge" ? "text-violet-400" : "text-amber";
+                  const isNewDay = g.isNewDay;
+                  return (
+                    <div key={g.key}>
+                      {isNewDay && (
+                        <div className="flex items-center gap-2 py-3">
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#1e1e18]" aria-hidden />
+                          <span className="border border-[#2a2a21] bg-[#151510] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-dim/70 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                            {formatDayLabel(g.dayIso, locale)}
+                          </span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#1e1e18]" aria-hidden />
+                        </div>
                       )}
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Link
-                          href={`/players/${m.username}`}
-                          onClick={() => setOpen(false)}
-                          className={"truncate font-display text-[12px] uppercase tracking-wide hover:underline " + roleColor}
-                        >
-                          {label}
+                      <div className="group/msg flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 transition-colors hover:border-amber/15 hover:bg-[#191913] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                        <Link href={`/players/${g.username}`} className="shrink-0 self-start" onClick={() => setOpen(false)}>
+                          {g.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={g.avatarUrl} alt={label} className="size-8 object-cover ring-1 ring-white/5 group-hover/msg:ring-amber/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" />
+                          ) : (
+                            <span className="inline-flex size-8 items-center justify-center bg-[#1e1e18] font-display text-[11px] tracking-widest text-dim ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                              {initials}
+                            </span>
+                          )}
                         </Link>
-                        <span className="font-mono text-[10px] tracking-widest text-dim/50">@{m.username}</span>
-                        <span className="ml-auto shrink-0 font-mono text-[10px] tracking-widest text-dim/40">{timeLabel(m.createdAt, locale)}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link href={`/players/${g.username}`} onClick={() => setOpen(false)} className={"truncate font-display text-[12px] uppercase tracking-wide hover:underline " + roleColor}>
+                              {label}
+                            </Link>
+                            <span className="font-mono text-[10px] tracking-widest text-dim/50">@{g.username}</span>
+                            <span className="ml-auto shrink-0 font-mono text-[10px] tracking-widest text-dim/40">{timeLabel(g.msgs[g.msgs.length - 1].createdAt, locale)}</span>
+                          </div>
+                          <div className="mt-1.5 flex flex-col">
+                            {g.msgs.map((m, idx) => (
+                              <div key={m.id} className={idx === 0 ? "" : "mt-1.5 border-t border-[#1e1e18]/60 pt-1.5"}>
+                                <p className="break-words font-mono text-[12px] leading-relaxed text-zinc-200">{m.content}</p>
+                                {g.msgs.length > 1 && (
+                                  <span className="mt-0.5 block text-right font-mono text-[10px] tracking-widest text-dim/30">{timeLabel(m.createdAt, locale)}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <p className="mt-0.5 break-words font-mono text-[12px] leading-relaxed text-zinc-200">{m.content}</p>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
 

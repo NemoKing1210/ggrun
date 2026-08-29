@@ -89,6 +89,14 @@ export default async function BoardPage() {
     gameTitle: r.gameTitle,
     platform: r.platform,
     rolledAt: r.rolledAt.toISOString(),
+    status: r.status,
+    coverUrl: r.coverUrl,
+    genres: r.genres ?? [],
+    metacritic: r.metacritic,
+    releasedAt: r.releasedAt ? r.releasedAt.toISOString() : null,
+    description: r.description,
+    playtimeHours: r.playtimeHours,
+    externalSource: r.externalSource,
   }));
 
   return (
