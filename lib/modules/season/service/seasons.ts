@@ -19,7 +19,12 @@ import { slugify } from "@/lib/shared/utils/slugify";
 import { generateSeasonTitle } from "@/lib/shared/utils/season-names";
 import { logAdminAction, logEvent } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
-import { SeasonConfigSchema } from "@/lib/engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
+import {
+  boardMatchesConfig,
+  boardShapeChanged,
+  generateBoardCells,
+} from "@/lib/modules/catalog/pool/board-generator";
 
 import { AdminError } from "./errors";
 
@@ -108,12 +113,21 @@ export async function createSeason(input: unknown): Promise<string> {
       }
     } else {
       const [newBoard] = await tx.insert(boards).values({ seasonId: season!.id }).returning({ id: boards.id });
-      const cells = Array.from({ length: 40 }, (_, i) => ({
-        boardId: newBoard!.id,
-        position: i,
-        cellType: i === 0 ? ("start" as const) : i === 39 ? ("finish" as const) : ("normal" as const),
-      }));
-      await tx.insert(boardCells).values(cells);
+      // Build the board from the season's own config. Using a flat 40-cell
+      // board here used to strand every bonus/penalty/teleport/event count the
+      // admin set: the config stored them, the board never had them.
+      const cells = generateBoardCells(parsed.config ?? DEFAULT_SEASON_CONFIG);
+      if (cells.length > 0) {
+        await tx.insert(boardCells).values(
+          cells.map((c) => ({
+            boardId: newBoard!.id,
+            position: c.position,
+            cellType: c.cellType,
+            label: c.label,
+            config: c.config,
+          })),
+        );
+      }
     }
     return season!;
   });
@@ -216,22 +230,48 @@ export async function updateSeasonSettings(input: { seasonId: string; config: un
   const actor = await requireStaff();
   const config = SeasonConfigSchema.parse(input.config);
   await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select({ status: seasons.status, config: seasons.config })
+      .from(seasons)
+      .where(eq(seasons.id, input.seasonId))
+      .limit(1);
+
     await tx.update(seasons).set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) }).where(eq(seasons.id, input.seasonId));
-    if (config.board.regenerateOnSave) {
-      const [existingBoard] = await tx.select().from(boards).where(eq(boards.seasonId, input.seasonId)).limit(1);
-      let boardId = existingBoard?.id;
+
+    const [existingBoard] = await tx.select().from(boards).where(eq(boards.seasonId, input.seasonId)).limit(1);
+    let boardId = existingBoard?.id;
+
+    // A draft season is still being set up, so its layout follows the config
+    // automatically. A season that has already started keeps its board unless
+    // the admin explicitly asks to regenerate — players stand on those cells.
+    let autoRegenerate = false;
+    if (before?.status === "draft") {
+      const prev = SeasonConfigSchema.safeParse(before.config);
+      const prevBoard = prev.success ? prev.data.board : null;
+      if (boardShapeChanged(prevBoard, config.board)) {
+        autoRegenerate = true;
+      } else if (boardId) {
+        const rows = await tx.select({ cellType: boardCells.cellType }).from(boardCells).where(eq(boardCells.boardId, boardId));
+        autoRegenerate = !boardMatchesConfig(config, rows.map((r) => r.cellType));
+      } else {
+        autoRegenerate = true;
+      }
+    }
+
+    if (config.board.regenerateOnSave || autoRegenerate) {
       if (!boardId) {
         const [created] = await tx.insert(boards).values({ seasonId: input.seasonId }).returning({ id: boards.id });
         boardId = created!.id;
       }
       await tx.delete(boardCells).where(eq(boardCells.boardId, boardId));
-      const { generateBoardCells } = await import("@/lib/modules/catalog/pool/board-generator");
       const cells = generateBoardCells(config);
       if (cells.length > 0) {
         await tx.insert(boardCells).values(cells.map((c) => ({ boardId: boardId!, position: c.position, cellType: c.cellType, label: c.label, config: c.config })));
       }
-      const withoutRegen = { ...config, board: { ...config.board, regenerateOnSave: false } };
-      await tx.update(seasons).set({ config: withoutRegen }).where(eq(seasons.id, input.seasonId));
+      if (config.board.regenerateOnSave) {
+        const withoutRegen = { ...config, board: { ...config.board, regenerateOnSave: false } };
+        await tx.update(seasons).set({ config: withoutRegen }).where(eq(seasons.id, input.seasonId));
+      }
     }
   });
   log.info("season.settings.update.persisted", { actorId: actor.id, seasonId: input.seasonId });

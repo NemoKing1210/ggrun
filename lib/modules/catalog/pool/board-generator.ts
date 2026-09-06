@@ -129,3 +129,48 @@ function clustered(pool: CellType[]): CellType[] {
   }
   return result;
 }
+
+/**
+ * The board fields that determine the generated layout. Anything outside this
+ * set (perCellGenre, regenerateOnSave) changes no cell, so it must not trigger
+ * a regeneration.
+ */
+export function boardShapeOf(board: SeasonConfig["board"]) {
+  const { size, loop, bonusCount, penaltyCount, teleportCount, eventCount, distribution } = board;
+  return { size, loop, bonusCount, penaltyCount, teleportCount, eventCount, distribution };
+}
+
+/** True when two board configs would produce a different layout. */
+export function boardShapeChanged(
+  a: SeasonConfig["board"] | null | undefined,
+  b: SeasonConfig["board"],
+): boolean {
+  if (!a) return true;
+  const x = boardShapeOf(a);
+  const y = boardShapeOf(b);
+  return (Object.keys(y) as Array<keyof typeof y>).some((k) => x[k] !== y[k]);
+}
+
+/** Tally of cell types, e.g. `{ start: 1, bonus: 4, normal: 32, finish: 1 }`. */
+export function cellTypeCounts(types: readonly CellType[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of types) out[t] = (out[t] ?? 0) + 1;
+  return out;
+}
+
+/**
+ * Whether the cells currently stored for a board are the ones this config
+ * describes. Compared against what the generator would actually produce, not
+ * against the raw counts — the generator caps specials to the inner positions,
+ * so a config asking for more specials than fit must still count as satisfied
+ * instead of regenerating on every save.
+ */
+export function boardMatchesConfig(config: SeasonConfig, actualTypes: readonly CellType[]): boolean {
+  const expected = cellTypeCounts(generateBoardCells(config).map((c) => c.cellType));
+  const actual = cellTypeCounts(actualTypes);
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  for (const k of keys) {
+    if ((expected[k] ?? 0) !== (actual[k] ?? 0)) return false;
+  }
+  return true;
+}

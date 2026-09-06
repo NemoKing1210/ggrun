@@ -1,12 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
   ArrowRightIcon,
   BoltIcon,
   CheckCircleIcon,
+  CheckIcon,
   ChevronDownIcon,
   CircleStackIcon,
   ExclamationTriangleIcon,
@@ -40,6 +43,19 @@ import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
 import type { SeasonConfig } from "@/lib/engine/types";
 import { GAME_POOL_TEMPLATES } from "@/lib/modules/catalog/pool/templates";
+import { DEFAULT_SEASON_CONFIG } from "@/lib/engine";
+import {
+  applyTemplate as applyTemplateToConfig,
+  captureTemplateSnapshot,
+  editedStages,
+  nextPendingStage,
+  resetStage as resetStageOfConfig,
+  revertTemplate as revertTemplateFromConfig,
+  SEASON_STAGES,
+  stageProgress,
+  type SeasonStage,
+  type TemplateSnapshot,
+} from "@/lib/modules/catalog/pool/season-setup";
 
 const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   EyeIcon,
@@ -73,7 +89,7 @@ type Props = {
   availableProviders?: Array<{ id: string; label: string }>;
 };
 
-export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, availableProviders = [] }: Props) {
+export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, seasonStatus, availableProviders = [] }: Props) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"templates" | "dice" | "board" | "pool" | "rules">("templates");
   const [cfg, setCfg] = useState<SeasonConfig>(initialConfig);
@@ -82,61 +98,158 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const [rulesMode, setRulesMode] = useState<SeasonConfig["rules"]["mode"]>(initialConfig.rules.mode);
   const templates = GAME_POOL_TEMPLATES;
   const [state, formAction, pending] = useActionState(updateSeasonSettingsAction, {});
+
+  // Setup wizard. A season that is already live counts as fully configured, so
+  // editing an existing season never starts from an empty progress bar.
+  const [confirmedStages, setConfirmedStages] = useState<SeasonStage[]>(() =>
+    seasonStatus && seasonStatus !== "draft" ? [...SEASON_STAGES] : [],
+  );
+  const [resetArmed, setResetArmed] = useState<SeasonStage | null>(null);
+  // Stages the admin actually edited on, so a template pick is credited to the
+  // templates tab rather than to every stage its filters happen to touch.
+  const [touchedStages, setTouchedStages] = useState<SeasonStage[]>([]);
+  // What the template-owned fields looked like before the first template was
+  // picked, so deselecting restores them instead of stranding the preset.
+  const [tplSnapshot, setTplSnapshot] = useState<TemplateSnapshot | null>(null);
+  const confirmRef = useRef<SeasonStage | null>(null);
+  // True while the submit in flight is the one that completes the wizard.
+  const finishRef = useRef(false);
+  const router = useRouter();
+  // What the season looked like when loaded, refreshed on every save. Stages
+  // are "changed" relative to this, so the bar goes quiet again once saved.
+  const [baseline, setBaseline] = useState<{ config: SeasonConfig; rulesMd: string }>({
+    config: initialConfig,
+    rulesMd: initialRulesMd ?? "",
+  });
+  const storageKey = `ggrun:season-setup:${seasonId}`;
+  // Initial setup has nothing to compare against — every stage would read as
+  // "changed" — so the edited state only exists when revisiting a saved season.
+  const isNewSeason = !seasonStatus || seasonStatus === "draft";
+
+  const markTouched = () =>
+    setTouchedStages((prev) => (prev.includes(activeTab) ? prev : [...prev, activeTab]));
+  const updateCfg: typeof setCfg = (updater) => {
+    markTouched();
+    setCfg(updater);
+  };
+  const updateRulesMd = (value: string) => {
+    markTouched();
+    setRulesMd(value);
+  };
+  const updateRulesMode = (mode: SeasonConfig["rules"]["mode"]) => {
+    markTouched();
+    setRulesMode(mode);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const valid = parsed.filter((s): s is SeasonStage => SEASON_STAGES.includes(s as SeasonStage));
+      if (valid.length > 0) setConfirmedStages(valid);
+    } catch {
+      /* private mode / disabled storage — the bar just starts from its seed */
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(confirmedStages));
+    } catch {
+      /* ignore */
+    }
+  }, [storageKey, confirmedStages]);
+
+  const dirtyStages = isNewSeason ? [] : editedStages(baseline, { config: cfg, rulesMd }, touchedStages);
+  useEffect(() => {
+    if (!finishRef.current) return;
+    if (state?.error) {
+      finishRef.current = false;
+      return;
+    }
+    if (state?.ok) {
+      finishRef.current = false;
+      router.push("/admin/seasons");
+    }
+  }, [state, router]);
+
+  const stageConfirmed = confirmedStages.includes(activeTab);
+  const progressPct = Math.round(stageProgress(confirmedStages) * 100);
+  const isLastPendingStage = nextPendingStage(activeTab, confirmedStages) === null;
   const boardTotalSpecials = cfg.board.bonusCount + cfg.board.penaltyCount + cfg.board.teleportCount + cfg.board.eventCount;
   const boardNormal = Math.max(0, cfg.board.size - boardTotalSpecials - (cfg.board.loop ? 1 : 2));
   const boardValid = boardTotalSpecials <= cfg.board.size - (cfg.board.loop ? 1 : 2);
 
   const setBoard = (patch: Partial<SeasonConfig["board"]>) =>
-    setCfg((c) => ({ ...c, board: { ...c.board, ...patch } }));
+    updateCfg((c) => ({ ...c, board: { ...c.board, ...patch } }));
   const setDice = (patch: Partial<SeasonConfig["dice"]>) =>
-    setCfg((c) => ({ ...c, dice: { ...c.dice, ...patch } }));
+    updateCfg((c) => ({ ...c, dice: { ...c.dice, ...patch } }));
   const setPoints = (patch: Partial<SeasonConfig["points"]>) =>
-    setCfg((c) => ({ ...c, points: { ...c.points, ...patch } }));
+    updateCfg((c) => ({ ...c, points: { ...c.points, ...patch } }));
   const setRerolls = (patch: Partial<SeasonConfig["rerolls"]>) =>
-    setCfg((c) => ({ ...c, rerolls: { ...c.rerolls, ...patch } }));
+    updateCfg((c) => ({ ...c, rerolls: { ...c.rerolls, ...patch } }));
   const setModeration = (patch: Partial<SeasonConfig["moderation"]>) =>
-    setCfg((c) => ({ ...c, moderation: { ...(c.moderation ?? { completionRequireApproval: false }), ...patch } }));
+    updateCfg((c) => ({ ...c, moderation: { ...(c.moderation ?? { completionRequireApproval: false }), ...patch } }));
   const setGamePool = (patch: Partial<SeasonConfig["gamePool"]>) =>
-    setCfg((c) => ({ ...c, gamePool: { ...c.gamePool, ...patch } }));
+    updateCfg((c) => ({ ...c, gamePool: { ...c.gamePool, ...patch } }));
   const setFilters = (patch: Partial<SeasonConfig["gamePool"]["filters"]>) =>
-    setCfg((c) => ({ ...c, gamePool: { ...c.gamePool, filters: { ...c.gamePool.filters, ...patch } } }));
+    updateCfg((c) => ({ ...c, gamePool: { ...c.gamePool, filters: { ...c.gamePool.filters, ...patch } } }));
   const setCatalog = (patch: Partial<SeasonConfig["gamePool"]["catalog"]>) =>
-    setCfg((c) => ({ ...c, gamePool: { ...c.gamePool, catalog: { ...c.gamePool.catalog, ...patch } } }));
+    updateCfg((c) => ({ ...c, gamePool: { ...c.gamePool, catalog: { ...c.gamePool.catalog, ...patch } } }));
 
-  const applyTemplate = (id: string) => {
+  /**
+   * Template cards toggle: picking one applies it, clicking the active one
+   * deselects it. Deselecting restores every field the template wrote — not
+   * just `templateId` — so no orphan genres, tags or board counts survive.
+   */
+  const onTemplateClick = (id: string) => {
     const tpl = templates.find((x) => x.id === id);
     if (!tpl) return;
-    setCfg((c) => ({
-      ...c,
-      gamePool: {
-        ...c.gamePool,
-        templateId: id,
-        filters: {
-          ...c.gamePool.filters,
-          genres: tpl.filters.genres ?? c.gamePool.filters.genres,
-          tags: tpl.filters.tags ?? c.gamePool.filters.tags,
-          platforms: tpl.filters.platforms ?? c.gamePool.filters.platforms,
-          esrb: tpl.filters.esrb ?? c.gamePool.filters.esrb,
-          yearMin: (tpl.filters.yearMin as number | null) ?? c.gamePool.filters.yearMin,
-          yearMax: (tpl.filters.yearMax as number | null) ?? c.gamePool.filters.yearMax,
-          ordering: tpl.filters.ordering ?? c.gamePool.filters.ordering,
-        },
-      },
-      board: tpl.boardHint
-        ? {
-            ...c.board,
-            bonusCount: tpl.boardHint.bonusCount,
-            penaltyCount: tpl.boardHint.penaltyCount,
-            eventCount: tpl.boardHint.eventCount,
-          }
-        : c.board,
-    }));
-    setActiveTab("pool");
+    if (cfg.gamePool.templateId === tpl.id) {
+      clearTemplate();
+      return;
+    }
+    if (!cfg.gamePool.templateId) setTplSnapshot(captureTemplateSnapshot(cfg));
+    updateCfg((c) => applyTemplateToConfig(c, tpl));
   };
 
-  const clearTemplate = () => setGamePool({ templateId: null });
+  const clearTemplate = () => {
+    updateCfg((c) => revertTemplateFromConfig(c, tplSnapshot));
+    setTplSnapshot(null);
+  };
+
+  /** Resets the current stage to defaults; first click arms, second confirms. */
+  const handleResetStage = () => {
+    if (resetArmed !== activeTab) {
+      setResetArmed(activeTab);
+      return;
+    }
+    updateCfg((c) => resetStageOfConfig(c, activeTab));
+    if (activeTab === "templates") setTplSnapshot(null);
+    if (activeTab === "rules") {
+      updateRulesMd("");
+      updateRulesMode(DEFAULT_SEASON_CONFIG.rules.mode);
+    }
+    setConfirmedStages((prev) => prev.filter((s) => s !== activeTab));
+    setResetArmed(null);
+  };
 
   const handleSubmit = (formData: FormData) => {
+    // Set by the stage-confirm button just before it submits the form.
+    const stage = confirmRef.current;
+    confirmRef.current = null;
+    if (stage) {
+      const next = nextPendingStage(stage, confirmedStages);
+      setConfirmedStages((prev) => (prev.includes(stage) ? prev : [...prev, stage]));
+      if (next) setActiveTab(next);
+      else finishRef.current = true;
+      setResetArmed(null);
+    }
+    // Saving makes the submitted config the new "unchanged" state.
+    setBaseline({ config: cfg, rulesMd });
+    setTouchedStages([]);
     formData.set("structured", "1");
     formData.set("seasonId", seasonId);
     formData.set("rulesMd", rulesMd);
@@ -190,7 +303,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const TabButton = ({ id, label }: { id: typeof activeTab; label: string }) => (
     <button
       type="button"
-      onClick={() => setActiveTab(id)}
+      onClick={() => {
+        setActiveTab(id);
+        setResetArmed(null);
+      }}
       className={`px-4 py-2 text-sm font-display uppercase tracking-wider border-b-2 transition ${
         activeTab === id ? "border-amber text-amber bg-amber/10" : "border-transparent text-zinc-400 hover:text-amber"
       }`}
@@ -210,6 +326,53 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
           <TabButton id="rules" label={t.admin.settings.tabs.rules} />
         </div>
 
+        <div className="border-b border-zinc-800 bg-[#0f0f0f] px-4 py-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="font-display text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+              {t.admin.settings.setupProgressLabel}
+            </span>
+            <span className="ammo-counter text-xs text-amber">
+              {confirmedStages.length}/{SEASON_STAGES.length} · {progressPct}%
+            </span>
+          </div>
+          <div className="flex gap-1" role="group" aria-label={t.admin.settings.setupProgressLabel}>
+            {SEASON_STAGES.map((s) => {
+              const done = confirmedStages.includes(s);
+              const current = activeTab === s;
+              const changed = dirtyStages.includes(s);
+              const stateLabel = changed
+                ? t.admin.settings.stageStateChanged
+                : current
+                  ? t.admin.settings.stageStateCurrent
+                  : done
+                    ? t.admin.settings.stageStateSaved
+                    : t.admin.settings.stageStatePending;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(s);
+                    setResetArmed(null);
+                  }}
+                  aria-label={t.admin.settings.tabs[s]}
+                  aria-current={current ? "step" : undefined}
+                  title={`${t.admin.settings.tabs[s]} — ${stateLabel}`}
+                  className={`h-2 flex-1 transition [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${
+                    changed
+                      ? "bg-amber brightness-125 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
+                      : current
+                        ? "bg-amber/40"
+                        : done
+                          ? "bg-amber shadow-[0_0_8px_rgba(251,191,36,0.35)]"
+                          : "bg-zinc-800 hover:bg-zinc-700"
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+
         <div className="p-5">
           {activeTab === "templates" && (
             <div className="flex flex-col gap-4">
@@ -223,6 +386,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                 )}
               </div>
               <p className="text-sm text-zinc-400">{t.admin.settings.templatesHint}</p>
+              <p className="text-xs text-zinc-500">{t.admin.settings.templatesToggleHint}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {templates.map((tpl) => {
                   const Icon = TEMPLATE_ICONS[tpl.heroIcon];
@@ -230,7 +394,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   <button
                     key={tpl.id}
                     type="button"
-                    onClick={() => applyTemplate(tpl.id)}
+                    onClick={() => onTemplateClick(tpl.id)}
                     className={`hud-lift text-left p-4 border-2 group [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${
                       cfg.gamePool.templateId === tpl.id
                         ? "border-amber bg-amber/10 shadow-[0_0_12px_rgba(251,191,36,0.25)]"
@@ -464,14 +628,14 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setRulesMode("auto")}
+              onClick={() => updateRulesMode("auto")}
               className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "auto" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
             >
               {t.admin.settings.rulesModeAuto}
             </button>
             <button
               type="button"
-              onClick={() => setRulesMode("manual")}
+              onClick={() => updateRulesMode("manual")}
               className={`border px-3 py-1.5 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${rulesMode === "manual" ? "border-amber bg-amber text-black" : "border-dim/20 bg-raised text-dim hover:border-amber/40"}`}
             >
               {t.admin.settings.rulesModeManual}
@@ -483,7 +647,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
         {rulesMode === "manual" ? (
           <div className="mt-4">
             <p className="mb-2 font-mono text-xs text-dim">{t.admin.settings.rulesManualHint}</p>
-            <Textarea value={rulesMd} onChange={(e) => setRulesMd(e.target.value)} rows={10} placeholder={t.admin.settings.rulesPlaceholder} />
+            <Textarea value={rulesMd} onChange={(e) => updateRulesMd(e.target.value)} rows={10} placeholder={t.admin.settings.rulesPlaceholder} />
           </div>
         ) : (
           <div className="mt-4">
@@ -802,6 +966,40 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
             </div>
             );
           })()}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-[#0f0f0f] px-5 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleResetStage}
+              className={`inline-flex items-center gap-1.5 font-display text-xs uppercase tracking-wider transition ${
+                resetArmed === activeTab ? "text-red-400" : "text-zinc-400 hover:text-amber"
+              }`}
+            >
+              <ArrowPathIcon className="h-4 w-4" aria-hidden />
+              {resetArmed === activeTab ? t.admin.settings.resetStageArmed : t.admin.settings.resetStage}
+            </button>
+            {stageConfirmed && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                <CheckIcon className="h-4 w-4" aria-hidden />
+                {t.admin.settings.stageConfirmedBadge}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-zinc-500 lg:block">{t.admin.settings.resetStageHint}</span>
+            <button
+              type="submit"
+              onClick={() => {
+                confirmRef.current = activeTab;
+              }}
+              disabled={pending || !boardValid}
+              className="hud-btn hud-btn-primary px-5 py-2 disabled:opacity-50"
+            >
+              {isLastPendingStage ? t.admin.settings.finishSetup : t.admin.settings.confirmStage}
+            </button>
+          </div>
         </div>
       </div>
 
