@@ -1,8 +1,9 @@
 /**
  * Demo data for local development / smoke testing.
  * Usage: pnpm exec tsx scripts/seed-demo.ts
- * Creates the run-1 season (active), a 40-cell board and a games catalog,
- * if they don't exist yet. Idempotent.
+ * Creates the run-1 season (active), a 40-cell board, a games catalog and the
+ * IEE tracer set (one item, one effect, one event), if they don't exist yet.
+ * Idempotent.
  */
 import { Pool } from "pg";
 
@@ -17,7 +18,9 @@ async function main() {
          'run-1',
          'Run #1',
          -- single-active invariant: never create a second live season
-         (select case when exists (select 1 from seasons where status = 'active' and slug <> 'run-1') then 'paused' else 'active' end),
+         -- the cast is required: inside a scalar subquery the CASE branches
+         -- resolve to text, and text -> season_status has no implicit cast
+         (select case when exists (select 1 from seasons where status = 'active' and slug <> 'run-1') then 'paused' else 'active' end)::season_status,
          '{}'::jsonb,
          now()
        )
@@ -28,19 +31,22 @@ async function main() {
       season.rows[0]?.id ??
       (await pool.query("select id from seasons where slug = 'run-1'")).rows[0]!.id;
 
-    const board = await pool.query(
-      `insert into boards (season_id) values ($1)
-       returning id`,
-      [seasonId],
-    );
-    let boardId = board.rows[0]?.id;
+    // Look before inserting: `boards` has no uniqueness on season_id, so an
+    // unconditional insert added a second board (and 40 more cells) on every
+    // run, which is what made this script non-idempotent.
+    let boardId: string | null =
+      (
+        await pool.query("select id from boards where season_id = $1 limit 1", [
+          seasonId,
+        ])
+      ).rows[0]?.id ?? null;
     if (!boardId) {
-      boardId =
-        (
-          await pool.query("select id from boards where season_id = $1 limit 1", [
-            seasonId,
-          ])
-        ).rows[0]?.id ?? null;
+      const board = await pool.query(
+        `insert into boards (season_id) values ($1)
+         returning id`,
+        [seasonId],
+      );
+      boardId = board.rows[0]?.id ?? null;
       if (!boardId) throw new Error("Board not found");
     }
 
@@ -101,6 +107,54 @@ async function main() {
       }
       console.log(`Games added: ${games.length}`);
     }
+
+    // --- IEE tracer set ----------------------------------------------------
+    // One event template, plus the season pool that enables the tracer item
+    // and effect. See ITEMS_EFFECTS_EVENTS.md §15.
+    await pool.query(
+      `insert into event_templates
+         (key, title, description_md, reward, requires_proof, default_deadline_hours)
+       values (
+         'screenshot_of_the_day',
+         'Screenshot of the day',
+         'Post a screenshot from your current game with one sentence about why that moment mattered. Attach the link as proof.',
+         '{"points": 2, "itemKey": "hex_scroll"}'::jsonb,
+         true,
+         48
+       )
+       on conflict (key) do nothing`,
+    );
+
+    // Only when the season has no IEE block yet — never clobber a tuned pool.
+    const ieeSeeded = await pool.query(
+      `update seasons
+          set config = config || $2::jsonb
+        where id = $1 and not (config ? 'iee')
+        returning id`,
+      [
+        seasonId,
+        JSON.stringify({
+          iee: {
+            enabled: true,
+            inventorySize: 6,
+            // On for the demo so the target picker is reachable; the shipped
+            // default is off (see DEFAULT_SEASON_CONFIG.iee).
+            allowTargetingOthers: true,
+            pvpProtectionMoves: 0,
+            revealDropsInFeed: true,
+            // 0 guarantees a drop, which makes the tracer testable by hand.
+            nothingWeight: 0,
+            catchUp: { enabled: false, maxMultiplier: 1.5 },
+            entries: {
+              hex_scroll: { enabled: true, weight: 100, maxPerPlayer: 2 },
+              slowed: { enabled: true, weight: 100 },
+            },
+            events: ["screenshot_of_the_day"],
+          },
+        }),
+      ],
+    );
+    if (ieeSeeded.rowCount) console.log("IEE tracer pool enabled on run-1");
 
     console.log(`Demo season ready: ${seasonId}`);
   } finally {

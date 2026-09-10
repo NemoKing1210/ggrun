@@ -4,6 +4,7 @@ import { db } from "@/lib/infrastructure/db";
 import { adminAuditLog, eventLog, users } from "@/db/schema";
 import type { AdminAuditLog } from "@/db/schema";
 import { log } from "@/lib/infrastructure/logger";
+import type { FiltrableEventType } from "@/lib/engine/feed/filters";
 
 export type EventType =
   | "game_rolled"
@@ -14,8 +15,44 @@ export type EventType =
   | "season_started"
   | "player_joined"
   | "player_left"
+  | "player_finished"
   | "admin_adjustment"
-  | "season_reset";
+  | "season_reset"
+  // --- items / effects / events ---
+  | "item_granted"
+  | "item_used"
+  | "item_expired"
+  | "item_revoked"
+  | "effect_applied"
+  | "effect_expired"
+  | "effect_cleansed"
+  | "effect_revoked"
+  | "event_assigned"
+  | "event_submitted"
+  | "event_approved"
+  | "event_rejected"
+  // --- moderation of a pass/drop request ---
+  // These three are written by direct `db.insert(eventLog)` calls in
+  // lib/modules/game, so the union never had to list them. It should: they
+  // are event types, they reach the public feed, and leaving them out let the
+  // check below pass while two of them had no filter tab.
+  | "completion_requested"
+  | "completion_approved"
+  | "completion_rejected";
+
+/**
+ * Every event type must belong to a feed filter tab.
+ *
+ * `AGENTS.md` §10 used to warn that new types "render under All until a filter
+ * is added" — an instruction nobody reads at the moment they add a type. This
+ * turns it into a compile error that names the offender: add the type to
+ * FEED_FILTER_TYPES and the error goes away.
+ */
+type UnfiltrableEventType = Exclude<EventType, FiltrableEventType>;
+const _everyEventTypeHasATab: UnfiltrableEventType extends never
+  ? true
+  : ["event types with no feed filter tab:", UnfiltrableEventType] = true;
+void _everyEventTypeHasATab;
 export async function logEvent(entry: {
   seasonId: string;
   seasonPlayerId?: string | null;

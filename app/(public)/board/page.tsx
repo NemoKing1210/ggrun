@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
+import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import {
   getActiveRolls,
   getLeaderboard,
@@ -59,6 +60,7 @@ export default async function BoardPage() {
   }
 
   const cells = await getBoardCells(board.id);
+  const effects = await getActiveEffectsBySeason(season.id);
   if (cells.length === 0) {
     return (
       <>
@@ -79,6 +81,7 @@ export default async function BoardPage() {
     streakPass: row.streakPass,
     streakDrop: row.streakDrop,
     rerollsUsed: row.rerollsUsed,
+    effects: effects.get(row.id) ?? [],
   }));
 
   const boardRolls: BoardRoll[] = rolls.map((r) => ({
@@ -106,6 +109,7 @@ export default async function BoardPage() {
         title={t.board.pageTitle}
         right={
           <StatusBadge
+            kind="season"
             status={season.status}
             label={t.core.seasonStatuses[season.status]}
           />

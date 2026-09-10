@@ -45,7 +45,9 @@
     "db:seed": "tsx scripts/seed-demo.ts",
     "db:admin": "tsx scripts/bootstrap-admin.ts",
     "db:reset": "tsx scripts/db-reset.ts",
-    "db:setup": "pnpm db:push && pnpm db:seed && pnpm db:admin"
+    "db:setup": "pnpm db:push && pnpm db:seed && pnpm db:admin",
+    "scenarios:doc": "tsx scripts/scenarios-doc.ts",
+    "iee:art": "tsx scripts/iee-art.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

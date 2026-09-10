@@ -8,10 +8,13 @@ import { AvatarWithPresence } from "@/components/ui/Presence";
 import {
   ArrowsRightLeftIcon,
   ArrowRightIcon,
+  BoltIcon,
   CheckCircleIcon,
   CubeIcon,
+  GiftIcon,
   FlagIcon,
   StarIcon,
+  TrophyIcon,
   UserMinusIcon,
   UserPlusIcon,
   WrenchScrewdriverIcon,
@@ -44,6 +47,14 @@ function diceStr(payload: Record<string, unknown>): string | null {
 
 type Variant = "amber" | "military" | "danger" | "sky" | "violet" | "dim" | "neutral";
 
+/** Catalog names live in the dictionaries; the log only stores keys. */
+function ieeName(t: Dictionary, kind: "items" | "effects", key: string | null): string {
+  if (!key) return "—";
+  const camel = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+  const node = (t.iee as unknown as Record<string, Record<string, { name?: string }>>)[kind]?.[camel];
+  return node?.name ?? key;
+}
+
 function eventMeta(type: string): { variant: Variant; Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; label: string } {
   switch (type) {
     case "game_rolled":
@@ -60,11 +71,34 @@ function eventMeta(type: string): { variant: Variant; Icon: React.ComponentType<
       return { variant: "violet", Icon: UserPlusIcon, label: type };
     case "player_left":
       return { variant: "danger", Icon: UserMinusIcon, label: type };
+    case "player_finished":
+      return { variant: "amber", Icon: TrophyIcon, label: type };
     case "season_started":
       return { variant: "amber", Icon: FlagIcon, label: type };
     case "admin_adjustment":
       return { variant: "dim", Icon: WrenchScrewdriverIcon, label: type };
     case "reroll_rejected":
+      return { variant: "danger", Icon: XCircleIcon, label: type };
+    case "item_granted":
+      return { variant: "military", Icon: GiftIcon, label: type };
+    case "item_used":
+      return { variant: "amber", Icon: BoltIcon, label: type };
+    case "item_expired":
+    case "item_revoked":
+      return { variant: "dim", Icon: XCircleIcon, label: type };
+    case "effect_applied":
+      return { variant: "violet", Icon: SparklesIcon, label: type };
+    case "effect_expired":
+    case "effect_cleansed":
+    case "effect_revoked":
+      return { variant: "dim", Icon: SparklesIcon, label: type };
+    case "event_assigned":
+      return { variant: "sky", Icon: FlagIcon, label: type };
+    case "event_submitted":
+      return { variant: "amber", Icon: FlagIcon, label: type };
+    case "event_approved":
+      return { variant: "military", Icon: CheckCircleIcon, label: type };
+    case "event_rejected":
       return { variant: "danger", Icon: XCircleIcon, label: type };
     default:
       return { variant: "neutral", Icon: SparklesIcon, label: type };
@@ -104,7 +138,7 @@ function PlayerLink({ entry, fallback }: { entry: FeedRow; fallback: string }) {
   return <span className="font-semibold text-amber">{name}</span>;
 }
 
-function EventLine({ entry, t }: { entry: FeedRow; t: Dictionary["feed"] }) {
+function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; dict: Dictionary }) {
   const p = payloadOf(entry);
   const dice = diceStr(p);
   const diceSuffix = dice ? ` ${format(t.diceSuffix, { dice })}` : null;
@@ -188,6 +222,99 @@ function EventLine({ entry, t }: { entry: FeedRow; t: Dictionary["feed"] }) {
           {t.actions.left}
         </>
       );
+    case "player_finished":
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <span className="font-bold text-amber-300">{t.actions.finished}</span>
+        </>
+      );
+    case "item_granted": {
+      const key = str(p.itemKey);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.itemGranted}
+          <span className="font-bold text-military">{ieeName(dict, "items", key)}</span>
+        </>
+      );
+    }
+    case "item_used": {
+      const key = str(p.itemKey);
+      const target = str(p.targetUsername);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.itemUsed}
+          <span className="font-bold text-amber">{ieeName(dict, "items", key)}</span>
+          {target ? (
+            <>
+              {t.actions.itemUsedOn}
+              <Link href={`/players/${target}`} className="font-bold text-amber hover:underline">
+                {target}
+              </Link>
+            </>
+          ) : null}
+        </>
+      );
+    }
+    case "item_expired":
+    case "item_revoked": {
+      const key = str(p.itemKey);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {t.actions.itemExpired}
+          <span className="text-dim">{ieeName(dict, "items", key)}</span>
+        </>
+      );
+    }
+    case "effect_applied": {
+      const key = str(p.effectKey);
+      const refreshed = p.refreshed === true;
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {refreshed ? t.actions.effectRefreshed : t.actions.effectApplied}
+          <span className="font-bold text-violet-400">{ieeName(dict, "effects", key)}</span>
+        </>
+      );
+    }
+    case "effect_expired":
+    case "effect_cleansed":
+    case "effect_revoked": {
+      const key = str(p.effectKey);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {entry.eventType === "effect_expired"
+            ? t.actions.effectExpired
+            : t.actions.effectCleansed}
+          <span className="text-dim">{ieeName(dict, "effects", key)}</span>
+        </>
+      );
+    }
+    case "event_assigned":
+    case "event_submitted":
+    case "event_approved":
+    case "event_rejected": {
+      const title = str(p.title) ?? str(p.eventKey) ?? t.unknownTitle;
+      const verb =
+        entry.eventType === "event_assigned"
+          ? t.actions.eventAssigned
+          : entry.eventType === "event_submitted"
+            ? t.actions.eventSubmitted
+            : entry.eventType === "event_approved"
+              ? t.actions.eventApproved
+              : t.actions.eventRejected;
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          {verb}
+          <span className="font-bold text-sky-400">{title}</span>
+        </>
+      );
+    }
     case "admin_adjustment": {
       const reason = str(p.reason);
       return (
@@ -314,7 +441,9 @@ export async function FeedTimeline({
           const dateShort = dateFmt.format(entry.createdAt);
 
           return (
-            <li key={entry.id}>
+            // The type is on the row so a filter can be checked against what
+            // actually rendered, rather than against the query that fed it.
+            <li key={entry.id} data-event-type={entry.eventType}>
               {showSeparator ? <DaySeparator date={entry.createdAt} t={t.feed} locale={locale} /> : null}
               <div className="relative flex gap-3 sm:gap-4">
                 {/* dot on rail */}
@@ -347,7 +476,7 @@ export async function FeedTimeline({
                     {/* main message */}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm leading-snug text-zinc-200">
-                        <EventLine entry={entry} t={t.feed} />
+                        <EventLine entry={entry} t={t.feed} dict={t} />
                       </p>
 
                       {/* payload chips */}

@@ -284,7 +284,7 @@ export function GlobalSettingsForm({
                       }`}
                     >
                       <span className="font-display text-xs uppercase tracking-widest">{label}</span>
-                      <span className={`mt-1 block text-[11px] leading-snug ${registrationMode === val ? "text-black/70" : "text-zinc-500"}`}>{desc}</span>
+                      <span className={`mt-1 block text-xs leading-relaxed ${registrationMode === val ? "text-black/70" : "text-zinc-400"}`}>{desc}</span>
                     </button>
                   ))}
                 </div>
@@ -355,7 +355,7 @@ export function GlobalSettingsForm({
                     }`}
                   >
                     <span className="font-display text-xs uppercase tracking-widest">{label}</span>
-                    <span className={`mt-1 block text-[11px] leading-snug ${registrationMode === val ? "text-black/70" : "text-zinc-500"}`}>{desc}</span>
+                    <span className={`mt-1 block text-xs leading-relaxed ${registrationMode === val ? "text-black/70" : "text-zinc-400"}`}>{desc}</span>
                   </button>
                 ))}
               </div>
@@ -627,7 +627,7 @@ export function GlobalSettingsForm({
                     ) : providerKeys.hasEnv.proxy ? (
                       <span className="inline-flex flex-wrap items-center gap-1.5 text-military">
                         <span>{s.envLabel} · {s.proxyEnvActive}</span>
-                        <span className="inline-flex items-center gap-1 border border-military/30 bg-military/10 px-1.5 py-0.5 text-[11px] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                        <span className="inline-flex items-center gap-1 border border-military/30 bg-military/10 px-1.5 py-0.5 font-mono text-[11px] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
                           <span className={showEnvProxy ? "" : "blur-[4px] select-none"} aria-hidden={!showEnvProxy}>{showEnvProxy ? (providerKeys.proxyUrlEnvRaw ?? "") : (providerKeys.proxyUrlEnvMasked ?? "••••")}</span>
                           <button type="button" onClick={() => setShowEnvProxy((v) => !v)} className="ml-1 p-0.5 text-military hover:text-amber" aria-label={showEnvProxy ? "Hide" : "Show"} title={showEnvProxy ? "Hide" : "Show"}>
                             {showEnvProxy ? <EyeSlashIcon className="size-3.5" aria-hidden /> : <EyeIcon className="size-3.5" aria-hidden />}

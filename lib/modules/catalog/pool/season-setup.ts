@@ -146,7 +146,7 @@ export function toggleTemplate(
 }
 
 /** Wizard stages, in the order they are presented. */
-export const SEASON_STAGES = ["templates", "dice", "board", "pool", "rules"] as const;
+export const SEASON_STAGES = ["templates", "dice", "board", "pool", "iee", "rules"] as const;
 
 export type SeasonStage = (typeof SEASON_STAGES)[number];
 
@@ -177,6 +177,18 @@ export function resetStage(cfg: SeasonConfig, stage: SeasonStage): SeasonConfig 
           ...d.gamePool,
           filters: { ...d.gamePool.filters },
           catalog: { ...d.gamePool.catalog },
+        },
+      };
+    case "iee":
+      // Clears the season's pool and its event list; the catalog itself is
+      // code and cannot be reset from here.
+      return {
+        ...cfg,
+        iee: {
+          ...d.iee,
+          catchUp: { ...d.iee.catchUp },
+          entries: {},
+          events: [],
         },
       };
     case "rules":
@@ -236,6 +248,8 @@ export function stageSlice(config: SeasonConfig, stage: SeasonStage, rulesMd = "
       return { board: config.board };
     case "pool":
       return { gamePool: config.gamePool };
+    case "iee":
+      return { iee: config.iee };
     case "rules":
       return { mode: config.rules.mode, rulesMd };
     default: {

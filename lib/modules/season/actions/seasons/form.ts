@@ -79,6 +79,21 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
         requireApproval: parseBool("rerolls_requireApproval", true),
       },
       rules: { mode: rulesMode },
+      // One JSON field rather than dozens of flattened inputs: `entries` is
+      // keyed by catalog key, so its shape is not known at compile time. The
+      // admin controls are still visual — this is only the wire format, and
+      // IeeConfigSchema validates it on the way in. Omitted entirely when the
+      // form did not carry it, so an older client cannot wipe a tuned pool
+      // (updateSeasonSettings carries the stored value over in that case).
+      ...(() => {
+        const raw = formData.get("iee");
+        if (raw === null) return {};
+        try {
+          return { iee: JSON.parse(String(raw)) as unknown };
+        } catch {
+          return {};
+        }
+      })(),
       gamePool: {
         source: (() => {
           const s = String(formData.get("gamePool_source") || "catalog").toLowerCase();

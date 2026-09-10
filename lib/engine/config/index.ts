@@ -5,6 +5,7 @@ export * from "./points";
 export * from "./rerolls";
 export * from "./moderation";
 export * from "./rules";
+export * from "./iee";
 export * from "./game-pool/index";
 export * from "./game-pool/filters";
 export * from "./game-pool/catalog";
@@ -18,6 +19,7 @@ import { BoardConfigSchema } from "./board";
 import { RerollsConfigSchema } from "./rerolls";
 import { ModerationConfigSchema } from "./moderation";
 import { RulesConfigSchema } from "./rules";
+import { IeeConfigSchema } from "./iee";
 import { GamePoolConfigSchema } from "./game-pool/index";
 
 export const SeasonConfigSchema = z
@@ -29,5 +31,6 @@ export const SeasonConfigSchema = z
     moderation: ModerationConfigSchema.default(DEFAULT_SEASON_CONFIG.moderation),
     rules: RulesConfigSchema.default(DEFAULT_SEASON_CONFIG.rules),
     gamePool: GamePoolConfigSchema.default(DEFAULT_SEASON_CONFIG.gamePool),
+    iee: IeeConfigSchema.default(DEFAULT_SEASON_CONFIG.iee),
   })
   .transform((parsed): SeasonConfig => parsed);

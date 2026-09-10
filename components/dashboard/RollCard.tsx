@@ -17,6 +17,8 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 
 import { DiceCube } from "@/components/dice/Dice3D";
 import { InlineGameCarousel, GameRollReveal } from "@/components/dashboard/GameRollCarousel";
+import type { WheelOutcome } from "@/lib/engine";
+import { WheelOverlay } from "@/components/game/WheelOverlay";
 import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsModal";
 import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { Modal } from "@/components/ui/Modal";
@@ -123,6 +125,10 @@ export default function RollCard({
   const [carouselGames, setCarouselGames] = useState<PreviewGame[]>(catalogGames);
   const prevOpenRollId = useRef<string | null>(openRoll?.id ?? null);
   const hasMounted = useRef(false);
+
+  // The wheel result the server already decided and persisted. Shown once per
+  // resolve; dismissing it clears the local copy so a re-render cannot replay it.
+  const [wheel, setWheel] = useState<WheelOutcome | null>(null);
 
   const [diceOverlayOpen, setDiceOverlayOpen] = useState(false);
   const [dicePhase, setDicePhase] = useState<"spinning" | "result">("spinning");
@@ -239,6 +245,14 @@ export default function RollCard({
     if (prevResolvePending.current && !resolvePending && !resolveState.error) setModal(null);
     prevResolvePending.current = resolvePending;
   }, [resolvePending, resolveState.error]);
+
+  // A landing cell that produced nothing at all (fallback: the subsystem is off
+  // or the pool was empty) has nothing to show, so the overlay stays closed.
+  useEffect(() => {
+    const spun = resolveState.wheel;
+    if (!spun || spun.kind === "fallback") return;
+    setWheel(spun);
+  }, [resolveState.wheel]);
 
   const busy = rollPending || resolvePending;
   const rerollLocked = rerollsUsed >= 1;
@@ -686,6 +700,8 @@ export default function RollCard({
           </div>
         </form>
       </Modal>
+
+      <WheelOverlay outcome={wheel} onClose={() => setWheel(null)} />
 
       <GameDetailsModal
         game={modal === "details" && openRoll && openRoll.game ? toGameDetails(openRoll.game as unknown as Record<string, unknown>) : null}

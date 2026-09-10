@@ -10,6 +10,7 @@ import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
+import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { getActiveRolls, getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { getBoardCells, getMainBoard, getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 
@@ -40,7 +41,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     return (
       <PageContainer>
         <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
-        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />} />
+        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />} />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoBoard}</EmptyState>
@@ -54,7 +55,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     return (
       <PageContainer>
         <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
-        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />} />
+        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />} />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoCells}</EmptyState>
@@ -63,6 +64,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     );
   }
 
+  const effects = await getActiveEffectsBySeason(season.id);
   const players: BoardPlayer[] = leaderboard.map((row) => ({
     username: row.username,
     displayName: row.displayName,
@@ -74,6 +76,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     streakPass: row.streakPass,
     streakDrop: row.streakDrop,
     rerollsUsed: row.rerollsUsed,
+    effects: effects.get(row.id) ?? [],
   }));
 
   const boardRolls: BoardRoll[] = rolls.map((r) => ({
@@ -100,7 +103,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
       <PageHeader
         kicker={kicker}
         title={t.board.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <SeasonTabs slug={season.slug} t={t} />
       <div className="mt-6">

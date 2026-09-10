@@ -34,12 +34,23 @@ feed, and an admin console.
   reason and are approved by a referee; advancing on the board applies the
   cell effects (bonus, penalty, teleport, event…) and updates your position,
   balance and streaks.
+- **Items, effects & challenges**: bonus and penalty cells spin a wheel that
+  can hand out an **item** for your inventory or put a **status** on you —
+  shorter moves, smaller dice, a shield that eats the next penalty. Items are
+  used from `/dashboard`, and (when the season allows it) on another player;
+  the feed always records who used what on whom. **Challenges** are meta-tasks
+  a cell can assign — do the thing, submit proof, a referee approves it and
+  the reward lands. Every entry is opt-in per season and every rule is
+  disclosed on the rules page.
 - **Board** (`/board`): the season map — grid and linear views, live
-  in-flight rolls, cell details. **Leaderboard** (`/leaderboard`): standings
-  by position and balance. **Feed** (`/feed`): the live event log with
-  filters (rolls, passes, drops, moves, joins).
-- **Rules** (`/rules`): the current season's rules, written in Markdown by
-  the organizers.
+  in-flight rolls, cell details, and the statuses each player is carrying.
+  **Leaderboard** (`/leaderboard`): standings by position and balance, with
+  the same status badges. **Feed** (`/feed`): the live event log with filters
+  (rolls, passes, drops, moves, items & effects, challenges, joins, system).
+- **Rules** (`/rules`): the current season's rules — either written in
+  Markdown by the organizers, or generated from the live season config
+  (dice, board, pool, and the full item/effect/challenge list with the
+  catch-up rule spelled out when it is on).
 - **Seasons** (`/seasons`): the archive of past and current runs with an
   active-season spotlight; a detailed page per season under
   `/seasons/[slug]`.
@@ -60,6 +71,11 @@ feed, and an admin console.
     reroll limits, game-pool source/provider, and the /rules Markdown.
   - **Board** (`/admin/seasons/[id]/board`): edit every cell — type
     (start/finish/penalty/bonus/event/teleport/custom), label and amount.
+  - **Items & effects** (in the Settings wizard): pick which catalog entries
+    can drop this season, tune each one (rarity, caps, cooldowns, unlock
+    thresholds), set the PvP and catch-up rules, and read the **live drop
+    table** — computed by the same picker the game runs, with a
+    simulate-1000-spins button next to it.
   - **Players** (`/admin/seasons/[id]/players`): add participants (with
     live user search), edit position/balance/status inline, and remove
     players — every change requires a reason and lands in the audit log.

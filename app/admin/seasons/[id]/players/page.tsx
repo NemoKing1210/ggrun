@@ -16,6 +16,7 @@ import { seasonPlayers, users } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
+import { getEffectRowsBySeason, getHeldItemsBySeason } from "@/lib/modules/iee/repository";
 import {
   adjustPlayerAction,
   removePlayerFromSeasonAction,
@@ -23,22 +24,17 @@ import {
 } from "@/lib/modules/season/actions/players";
 import { SeasonTabs } from "@/components/admin/SeasonTabs";
 import { AddSeasonPlayer } from "@/components/admin/AddSeasonPlayer";
+import { IeeIntervention, type CarryingPlayer } from "@/components/admin/IeeIntervention";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
+import { StatusBadge } from "@/components/ui/status";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 
 const playerStatuses = ["active", "finished", "eliminated", "withdrawn"] as const;
-
-const statusVariant: Record<(typeof playerStatuses)[number], "military" | "amber" | "danger" | "dim"> = {
-  active: "military",
-  finished: "amber",
-  eliminated: "danger",
-  withdrawn: "dim",
-};
 
 export async function generateMetadata({
   params,
@@ -80,6 +76,21 @@ export default async function SeasonPlayersPage({
     );
 
   const candidates = allUsers.filter((u) => u.inThisSeason === null);
+
+  // What each participant is carrying. Two season-wide queries rather than two
+  // per participant — the same reason `getActiveEffectsBySeason` exists.
+  const [heldItems, effectRows] = await Promise.all([
+    getHeldItemsBySeason(seasonId),
+    getEffectRowsBySeason(seasonId),
+  ]);
+  const carrying: CarryingPlayer[] = roster
+    .map((p) => ({
+      seasonPlayerId: p.id,
+      name: p.displayName ?? p.username,
+      items: heldItems.filter((i) => i.seasonPlayerId === p.id),
+      effects: effectRows.filter((e) => e.seasonPlayerId === p.id),
+    }))
+    .filter((p) => p.items.length > 0 || p.effects.length > 0);
   const statusCounts = roster.reduce(
     (acc, p) => {
       acc[p.status] = (acc[p.status] ?? 0) + 1;
@@ -331,9 +342,7 @@ export default async function SeasonPlayersPage({
                           <div className="mt-0.5 font-mono text-[11px] text-dim">@{p.username}</div>
                         </div>
                       </div>
-                      <Badge variant={statusVariant[p.status]} size="sm">
-                        {t.core.playerStatuses[p.status]}
-                      </Badge>
+                      <StatusBadge kind="player" status={p.status} label={t.core.playerStatuses[p.status]} />
                     </div>
 
                     <div className="flex flex-wrap gap-2 font-mono text-[11px] uppercase tracking-widest text-dim">
@@ -413,6 +422,7 @@ export default async function SeasonPlayersPage({
           </>
         )}
       </section>
+      <IeeIntervention seasonId={seasonId} carrying={carrying} t={t} />
     </div>
   );
 }

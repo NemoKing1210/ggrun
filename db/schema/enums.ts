@@ -51,3 +51,22 @@ export const registrationModeEnum = pgEnum("registration_mode", [
   "manual_approval",
   "email_link",
 ]);
+export const ieeItemStateEnum = pgEnum("iee_item_state", [
+  "held",
+  "used",
+  "expired",
+  "revoked",
+]);
+export const ieeEffectStateEnum = pgEnum("iee_effect_state", [
+  "active",
+  "expired",
+  "cleansed",
+  "revoked",
+]);
+export const ieeEventStatusEnum = pgEnum("iee_event_status", [
+  "assigned",
+  "submitted",
+  "approved",
+  "rejected",
+  "expired",
+]);

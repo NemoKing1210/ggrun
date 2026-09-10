@@ -16,6 +16,8 @@ import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/repository/players";
 import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
+import { EffectBadges } from "@/components/iee/EffectBadges";
+import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 
@@ -110,7 +112,7 @@ function ChampionCard({
             <span className="inline-flex items-center gap-1.5 border border-amber bg-amber px-2.5 py-1 font-display text-xs uppercase tracking-widest text-black shadow-[0_0_12px_rgba(242,169,0,0.45)]">
               <TrophyIcon className="h-4 w-4" aria-hidden /> #{rank} {label}
             </span>
-            <StatusBadge status={row.status} label={t.core.playerStatuses[row.status]} />
+            <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
             <span className="border border-white/15 bg-black/40 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur">
@@ -218,7 +220,7 @@ function ChampionCard({
           <span className="text-dim">{label}</span>
         </div>
         <div className="absolute right-3 top-3">
-          <StatusBadge status={row.status} label={t.core.playerStatuses[row.status]} />
+          <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
         </div>
       </div>
       <div className="flex flex-1 flex-col p-4">
@@ -266,7 +268,11 @@ export default async function LeaderboardPage() {
   if (!season) return <SeasonMissing />;
   const kicker = format(t.core.common.seasonKicker, { season: season.title });
 
-  const [rows, board] = await Promise.all([getLeaderboard(season.id), getMainBoard(season.id)]);
+  const [rows, board, effects] = await Promise.all([
+    getLeaderboard(season.id),
+    getMainBoard(season.id),
+    getActiveEffectsBySeason(season.id),
+  ]);
   const cells = board ? await getBoardCells(board.id) : [];
   const boardSize = cells.length || Math.max(40, ...rows.map((r) => r.position + 1), 1);
 
@@ -280,7 +286,7 @@ export default async function LeaderboardPage() {
       <PageHeader
         kicker={t.leaderboard.kicker}
         title={t.leaderboard.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <p className="mb-2 font-mono text-xs uppercase tracking-widest text-dim">
         {kicker} • {format(t.leaderboard.stats.total, { count: rows.length } as never) ?? `${rows.length} players`} •{" "}
@@ -386,6 +392,7 @@ export default async function LeaderboardPage() {
                                 <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
                               </div>
                             </Link>
+                            <EffectBadges badges={effects.get(row.id) ?? []} t={t} className="mt-1.5" />
                           </td>
                           <td className="px-4 py-3">
                             <div className="w-28">
@@ -414,7 +421,7 @@ export default async function LeaderboardPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <StatusBadge status={row.status} label={t.core.playerStatuses[row.status]} />
+                            <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link

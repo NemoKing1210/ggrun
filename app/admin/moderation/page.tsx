@@ -13,6 +13,9 @@ import {
 
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
+import { listPendingEventSubmissions } from "@/lib/modules/iee/repository";
+import { listEffects, listItems } from "@/lib/engine";
+import { EventModerationList, type EventSubmission } from "@/components/admin/EventModerationList";
 import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction } from "@/lib/modules/moderation/actions/moderation";
 import { FormShell } from "@/components/admin/FormShell";
 import { Badge } from "@/components/ui/Badge";
@@ -142,24 +145,57 @@ export default async function AdminRerollsPage({
   const isAdmin = user.role === "admin";
 
   const { tab } = await searchParams;
-  const activeTab = tab === "completions" ? "completions" : "rerolls";
-  const [pending, pendingCompletions] = await Promise.all([
+  const activeTab =
+    tab === "completions" ? "completions" : tab === "events" ? "events" : "rerolls";
+  const [pending, pendingCompletions, pendingEvents] = await Promise.all([
     listPendingRerollRequests(),
     listPendingCompletionRequests(),
+    listPendingEventSubmissions(),
   ]);
-  const totalPending = pending.length + pendingCompletions.length;
+  const totalPending = pending.length + pendingCompletions.length + pendingEvents.length;
+
+  // Catalog names come from the dictionaries; a reward only stores keys.
+  const catalogName = (path: string): string => {
+    const parts = path.split(".");
+    let node: unknown = t;
+    for (const part of parts) {
+      if (typeof node !== "object" || node === null) return path;
+      node = (node as Record<string, unknown>)[part];
+    }
+    return typeof node === "string" ? node : path;
+  };
+  const itemNames = Object.fromEntries(listItems().map((d) => [d.key, catalogName(d.i18n.name)]));
+  const effectNames = Object.fromEntries(listEffects().map((d) => [d.key, catalogName(d.i18n.name)]));
+  const eventSubmissions: EventSubmission[] = pendingEvents.map((row) => ({
+    id: row.id,
+    title: row.title,
+    descriptionMd: row.descriptionMd,
+    proof: row.proof,
+    requiresProof: row.requiresProof,
+    submittedAt: row.submittedAt ? row.submittedAt.toISOString() : null,
+    username: row.username,
+    reward: (row.reward ?? {}) as EventSubmission["reward"],
+  }));
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
 
-  const tabLink = (tabName: "rerolls" | "completions", count: number) => {
+  const tabLink = (tabName: "rerolls" | "completions" | "events", count: number) => {
     const active = activeTab === tabName;
     return (
       <a
-        href={tabName === "rerolls" ? "/admin/moderation" : "/admin/moderation?tab=completions"}
+        href={
+          tabName === "rerolls"
+            ? "/admin/moderation"
+            : `/admin/moderation?tab=${tabName}`
+        }
         className={`inline-flex items-center gap-2 border px-4 py-2 font-display text-xs uppercase tracking-widest transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${
           active ? "border-amber bg-amber text-black" : "border-[#3d3d34] bg-[#1a1a1a] text-dim hover:border-amber/40 hover:text-amber"
         }`}
       >
-        {tabName === "rerolls" ? t.admin.completions.tabs.rerolls : t.admin.completions.tabs.completions}
+        {tabName === "rerolls"
+          ? t.admin.completions.tabs.rerolls
+          : tabName === "completions"
+            ? t.admin.completions.tabs.completions
+            : t.iee.events.moderation.tab}
         <span
           className={`inline-flex min-w-4 items-center justify-center px-1 font-mono text-[10px] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${
             active ? "bg-black/15 text-black" : "bg-raised text-dim"
@@ -197,9 +233,16 @@ export default async function AdminRerollsPage({
       <div className="flex flex-wrap gap-2">
         {tabLink("rerolls", pending.length)}
         {tabLink("completions", pendingCompletions.length)}
+        {tabLink("events", pendingEvents.length)}
       </div>
 
-      {activeTab === "rerolls" ? (
+      {activeTab === "events" ? (
+        <EventModerationList
+          submissions={eventSubmissions}
+          itemNames={itemNames}
+          effectNames={effectNames}
+        />
+      ) : activeTab === "rerolls" ? (
         pending.length === 0 ? (
           <EmptyState icon={InboxIcon} title={t.admin.moderation.allClear} hint={t.admin.moderation.empty} />
         ) : (

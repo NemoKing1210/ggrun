@@ -211,7 +211,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="font-mono text-[11px] uppercase tracking-widest text-dim">rerolls {activeParticipation.rerollsUsed}</span>
-                    <StatusBadge status={activeParticipation.status} label={t.core.playerStatuses[activeParticipation.status]} />
+                    <StatusBadge kind="player" status={activeParticipation.status} label={t.core.playerStatuses[activeParticipation.status]} />
                   </div>
                 </div>
 
@@ -377,7 +377,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                             ) : null}
                           </p>
                         </div>
-                        <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+                        <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
                       </div>
 
                       <div className="mt-3 grid grid-cols-3 gap-1.5">
@@ -400,7 +400,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between border-t border-dim/10 pt-2.5">
-                        <StatusBadge status={sp.status} label={t.core.playerStatuses[sp.status]} />
+                        <StatusBadge kind="player" status={sp.status} label={t.core.playerStatuses[sp.status]} />
                         <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-dim">
                           rerolls {sp.rerollsUsed}
                           <ArrowRightIcon

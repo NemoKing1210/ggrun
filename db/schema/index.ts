@@ -11,6 +11,7 @@ export * from "./games";
 export * from "./moderation";
 export * from "./moves";
 export * from "./events";
+export * from "./iee";
 export * from "./settings";
 export * from "./chat";
 export * from "./relations";

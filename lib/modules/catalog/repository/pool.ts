@@ -2,7 +2,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
-import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
+import { DEFAULT_SEASON_CONFIG, POOL_EMPTY_ERROR, SeasonConfigSchema, type PoolEmptyReason } from "@/lib/engine";
 import type { SeasonConfig } from "@/lib/engine/types";
 
 function parseSeasonConfig(raw: unknown): SeasonConfig {
@@ -42,13 +42,57 @@ async function resolveEffectiveFilters(seasonPlayerId: string, config: SeasonCon
   return base;
 }
 
+export type PoolPick =
+  | { game: CatalogGame; reason: null }
+  | { game: null; reason: PoolEmptyReason };
+
+/**
+ * Runs only when the pick has already failed, so two extra counts cost nothing
+ * on the path that matters.
+ */
+async function explainEmptyPool(
+  playedIds: readonly string[],
+  pool: SeasonConfig["gamePool"],
+): Promise<PoolEmptyReason> {
+  const totalRows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(gamesCatalog)
+    .where(eq(gamesCatalog.isBlacklisted, false));
+  if ((totalRows[0]?.n ?? 0) === 0) return "catalog_empty";
+
+  if (playedIds.length > 0) {
+    const unplayedRows = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(gamesCatalog)
+      .where(
+        and(
+          eq(gamesCatalog.isBlacklisted, false),
+          notInArray(gamesCatalog.id, [...playedIds]),
+        ) as never,
+      );
+    if ((unplayedRows[0]?.n ?? 0) === 0) return "all_played";
+  }
+
+  return pool.source !== "catalog" && pool.provider !== "internal"
+    ? "provider_empty"
+    : "filters_exclude_all";
+}
+
 /**
  * Picks a random game for a roll: excludes blacklisted games and games
  * already rolled for this player in the current season.
  * Respects SeasonConfig.gamePool filters and optionally fetches from external provider.
  * When board.perCellGenre is enabled, overrides genres filter with the current cell's genres.
+ *
+ * Returns *why* it found nothing rather than a bare null. It also no longer
+ * quietly hands back a game the participant has already played: the catalog
+ * path used to fall through to "any non-blacklisted game at all" once the
+ * unplayed ones ran out, so depending on a setting nobody can see, exhausting
+ * the pool either repeated a game in silence or failed with a message naming
+ * the wrong cause. The README promises that already-played games never come up;
+ * that promise is now kept, and running out is reported instead.
  */
-export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGame | null> {
+export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick> {
   const played = await db.select({ gameId: gameRolls.gameId }).from(gameRolls).where(eq(gameRolls.seasonPlayerId, seasonPlayerId));
   const playedIds = played.map((r) => r.gameId).filter((id): id is string => id !== null);
 
@@ -136,7 +180,7 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
       if (pool.source === "hybrid" && pool.autoFetchOnRoll && pool.provider !== "internal" && Math.random() < 0.5) {
         // fall through to API fetch attempt
       } else {
-        return pick;
+        return { game: pick, reason: null };
       }
     }
   }
@@ -154,7 +198,12 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
               .from(gamesCatalog)
               .where(and(eq(gamesCatalog.externalRawId, ext.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
               .limit(1);
-            if (exists.length === 0 && !playedIds.includes(ext.externalId)) {
+            // `playedIds` holds catalog UUIDs and `ext.externalId` is the
+            // provider's own id, so the second half of this condition was
+            // always true. Dropped rather than "fixed": an external result the
+            // player has already had is filtered by the catalog query below,
+            // once the row exists.
+            if (exists.length === 0) {
               const titleDup = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(eq(gamesCatalog.title, ext.title)).limit(1);
               if (titleDup.length === 0) {
                 await db.insert(gamesCatalog).values({
@@ -180,11 +229,14 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
           }
           const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr as never).limit(pool.maxCandidates);
           if (refreshed.length > 0) {
-            return refreshed[Math.floor(Math.random() * refreshed.length)]!;
+            return { game: refreshed[Math.floor(Math.random() * refreshed.length)]!, reason: null };
           }
-          const unplayedExternal = external.filter(() => true);
-          if (unplayedExternal.length > 0) {
-            const chosen = unplayedExternal[Math.floor(Math.random() * unplayedExternal.length)]!;
+          // Was `external.filter(() => true)` under the name `unplayedExternal`
+          // — a filter that filtered nothing, which is worse than none because
+          // the name claims otherwise. Nothing here can be "unplayed" or not:
+          // these rows are not in the catalog yet.
+          if (external.length > 0) {
+            const chosen = external[Math.floor(Math.random() * external.length)]!;
             const [inserted] = await db
               .insert(gamesCatalog)
               .values({
@@ -206,13 +258,13 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
                 website: chosen.website ?? null,
               } as never)
               .returning();
-            return inserted as CatalogGame;
+            return { game: inserted as CatalogGame, reason: null };
           }
         }
       } catch (e) {
         console.warn("[rollRandomGame] provider fetch failed", e);
         if (pool.catalog.fallbackToCatalog && candidates.length > 0) {
-          return candidates[Math.floor(Math.random() * candidates.length)]!;
+          return { game: candidates[Math.floor(Math.random() * candidates.length)]!, reason: null };
         }
       }
     }
@@ -223,27 +275,47 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
         .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
         .orderBy(sql`random()`)
         .limit(1);
-      return fallback[0] ?? null;
+      if (fallback[0]) return { game: fallback[0], reason: null };
+      return { game: null, reason: await explainEmptyPool(playedIds, pool) };
     }
   }
 
   const allowCatalogFallback = pool.catalog.fallbackToCatalog || pool.source === "catalog" || pool.source === "hybrid";
-  if (pool.source === "api" && !pool.catalog.fallbackToCatalog) {
-    if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
-    return null;
+  if (candidates.length > 0) {
+    return { game: candidates[Math.floor(Math.random() * candidates.length)]!, reason: null };
   }
-  if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
-  if (!allowCatalogFallback) return null;
+  if (pool.source === "api" && !pool.catalog.fallbackToCatalog) {
+    return { game: null, reason: await explainEmptyPool(playedIds, pool) };
+  }
+  if (!allowCatalogFallback) {
+    return { game: null, reason: await explainEmptyPool(playedIds, pool) };
+  }
+
+  // Last resort: ignore the season's filters, but never the two rules that are
+  // not filters — a blacklisted game and a game this participant has already
+  // been given. There used to be one more step after this one, handing back any
+  // non-blacklisted game at all, played or not. That is what made "already
+  // played games never come up" untrue, and it was invisible: the player was
+  // simply handed something familiar and nobody was told the pool had run dry.
   const anyFallback = await db
     .select()
     .from(gamesCatalog)
     .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
     .orderBy(sql`random()`)
     .limit(1);
-  if (anyFallback[0]) return anyFallback[0];
-  if (playedIds.length > 0) {
-    const replayFallback = await db.select().from(gamesCatalog).where(eq(gamesCatalog.isBlacklisted, false) as never).orderBy(sql`random()`).limit(1);
-    return replayFallback[0] ?? null;
-  }
-  return null;
+  if (anyFallback[0]) return { game: anyFallback[0], reason: null };
+
+  return { game: null, reason: await explainEmptyPool(playedIds, pool) };
 }
+
+/**
+ * Back-compatible shape for callers that only need the game.
+ * Prefer `pickGameForRoll`, which says why when there is none.
+ */
+export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGame | null> {
+  return (await pickGameForRoll(seasonPlayerId)).game;
+}
+
+// Re-exported so a caller that already imports the picker gets the codes with
+// it; the definitions live in the engine, where the rules live.
+export { POOL_EMPTY_ERROR, type PoolEmptyReason };

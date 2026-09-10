@@ -54,4 +54,17 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     cacheTtlHours: 24,
     autoFetchOnRoll: false,
   },
+  iee: {
+    // Off by default: an existing season must opt in, and an empty entry map
+    // falls back to the cell's legacy numeric behaviour either way.
+    enabled: false,
+    inventorySize: 6,
+    allowTargetingOthers: false,
+    pvpProtectionMoves: 3,
+    revealDropsInFeed: true,
+    nothingWeight: 0,
+    catchUp: { enabled: false, maxMultiplier: 1.5 },
+    entries: {},
+    events: [],
+  },
 };

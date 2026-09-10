@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { RollOutcome } from "@/lib/engine";
+import type { RollOutcome, WheelOutcome } from "@/lib/engine";
 import {
   GameLoopError,
   resolveGameRoll,
@@ -17,7 +17,13 @@ import {
   type ActionState,
 } from "@/lib/use-cases/shared/action-error";
 
-export type PlayerActionState = ActionState;
+export type PlayerActionState = ActionState & {
+  /**
+   * What the landing cell's wheel produced, already decided and persisted by
+   * the server. The client animates onto this result — it never picks one.
+   */
+  wheel?: WheelOutcome;
+};
 
 const toError = makeToError(GameLoopError);
 
@@ -84,14 +90,16 @@ export async function resolveAction(
   const ratingRaw = optionalString(formData, "rating");
   const rating = ratingRaw !== undefined && ratingRaw !== "" ? Number(ratingRaw) : undefined;
 
+  let wheel: WheelOutcome | undefined;
   try {
-    await resolveGameRoll({
+    const resolved = await resolveGameRoll({
       rollId,
       outcome: outcome as RollOutcome,
       reason: reason ?? comment,
       comment,
       rating,
     });
+    wheel = resolved.wheel;
     log.info("game.resolve", {
       actorId: actor?.id ?? null,
       seasonPlayerId,
@@ -108,5 +116,5 @@ export async function resolveAction(
   }
   revalidatePath("/dashboard");
   revalidatePath("/board");
-  return {};
+  return wheel === undefined ? {} : { wheel };
 }

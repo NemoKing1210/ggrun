@@ -1,8 +1,12 @@
 import type { SeasonConfig } from "@/lib/engine/types";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { EntryDescription } from "@/components/iee/EntryDescription";
+import { IeeArtTile } from "@/components/iee/IeeArtTile";
 import type { Season } from "@/db/schema";
 import { Badge } from "@/components/ui/Badge";
 import { format } from "@/lib/i18n/format";
+import { getEffect, getItem, RARITY_WEIGHT, type Rarity } from "@/lib/engine";
+import { dictText } from "@/lib/i18n/dict-text";
 
 type Props = {
   season: Season;
@@ -25,6 +29,43 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
   if (config.gamePool.filters.platforms.length) filterChips.push(...config.gamePool.filters.platforms);
   if (config.gamePool.filters.esrb.length) filterChips.push(...config.gamePool.filters.esrb);
   if (config.gamePool.filters.searchQuery) filterChips.push(`“${config.gamePool.filters.searchQuery}”`);
+
+  // --- items, effects and challenges -------------------------------------
+  // The rules page is generated from the same config the engine runs on, so it
+  // cannot describe a season that is not the one being played.
+  const iee = config.iee;
+  const ieeRows = Object.entries(iee.entries)
+    .filter(([, entry]) => entry.enabled)
+    .map(([key, entry]) => {
+      const item = getItem(key);
+      const effect = item ? null : getEffect(key);
+      const def = item ?? effect;
+      // Rarity is a presentation shortcut over `weight` (§9.3): read it back
+      // from the tuned weight rather than the catalog's default, or a season
+      // that made a legendary common would advertise the wrong odds.
+      let rarity: Rarity = "common";
+      let best = Infinity;
+      for (const r of ["common", "rare", "epic", "legendary"] as Rarity[]) {
+        const delta = Math.abs(RARITY_WEIGHT[r] - entry.weight);
+        if (delta < best) [best, rarity] = [delta, r];
+      }
+      return {
+        key,
+        kind: item ? ("item" as const) : ("effect" as const),
+        name: def ? dictText(t, def.i18n.name) : key,
+        description: def ? dictText(t, def.i18n.description) : "",
+        heroIcon: def?.heroIcon ?? null,
+        polarity: entry.polarityOverride ?? def?.polarity ?? "positive",
+        rarity,
+      };
+    })
+    // A key left in the config after being removed from the catalog would
+    // otherwise be advertised as a drop that can never happen.
+    .filter((row) => getItem(row.key) !== null || getEffect(row.key) !== null);
+
+  const positives = ieeRows.filter((r) => r.polarity === "positive");
+  const negatives = ieeRows.filter((r) => r.polarity === "negative");
+  const showIee = iee.enabled && ieeRows.length > 0;
 
   return (
     <div className="space-y-6">
@@ -203,6 +244,96 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
           ))}
         </ol>
       </div>
+
+      {showIee ? (
+        <div className="hud-card p-5">
+          <h3 className="font-display text-sm uppercase tracking-widest text-amber">{rt.sections.iee}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-300">{rt.ieeText}</p>
+
+          <div className="mt-3 flex flex-wrap gap-2 font-mono text-[11px] uppercase tracking-widest">
+            <span className="border border-dim/20 bg-raised px-2 py-1 text-dim">
+              {format(rt.ieeInventory, {
+                count: iee.inventorySize === 0 ? rt.ieeUnlimited : String(iee.inventorySize),
+              })}
+            </span>
+            <span className="border border-dim/20 bg-raised px-2 py-1 text-dim">
+              {iee.nothingWeight === 0 ? rt.ieeAlwaysDrops : rt.ieeSometimesNothing}
+            </span>
+            <span
+              className={`border px-2 py-1 ${
+                iee.allowTargetingOthers
+                  ? "border-danger/40 bg-danger/10 text-danger"
+                  : "border-dim/20 bg-raised text-dim"
+              }`}
+            >
+              {iee.allowTargetingOthers ? rt.ieePvpOn : rt.ieePvpOff}
+            </span>
+            {iee.allowTargetingOthers && iee.pvpProtectionMoves > 0 ? (
+              <span className="border border-dim/20 bg-raised px-2 py-1 text-dim">
+                {format(rt.ieeProtection, { moves: String(iee.pvpProtectionMoves) })}
+              </span>
+            ) : null}
+            {iee.events.length > 0 ? (
+              <span className="border border-dim/20 bg-raised px-2 py-1 text-dim">
+                {format(rt.ieeChallenges, { count: String(iee.events.length) })}
+              </span>
+            ) : null}
+          </div>
+
+          {/* §9.5: catch-up weighting is disclosed or it is not used. Hidden
+              rubber-banding is worse than none. */}
+          {iee.catchUp.enabled ? (
+            <p className="mt-3 border border-amber/40 bg-amber/10 p-3 text-sm leading-relaxed text-amber">
+              {format(rt.ieeCatchUp, { max: iee.catchUp.maxMultiplier.toFixed(1) })}
+            </p>
+          ) : null}
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {([
+              ["positive", positives, rt.ieePositive, "military"],
+              ["negative", negatives, rt.ieeNegative, "danger"],
+            ] as const).map(([polarity, list, heading, variant]) => (
+              <div key={polarity}>
+                <p className="font-display text-xs uppercase tracking-widest text-dim">
+                  {heading} <span className="ammo-counter ml-1">{list.length}</span>
+                </p>
+                {list.length === 0 ? (
+                  <p className="mt-2 text-xs text-dim">{rt.ieeNoneInPool}</p>
+                ) : (
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {list.map((row) => (
+                      <li
+                        key={row.key}
+                        className="border border-dim/15 bg-raised p-2 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <IeeArtTile
+                            entryKey={row.key}
+                            kind={row.kind}
+                            heroIcon={row.heroIcon}
+                            polarity={polarity}
+                            size="sm"
+                          />
+                          <span className="font-display text-sm uppercase tracking-wider text-zinc-100">
+                            {row.name}
+                          </span>
+                          <Badge variant={variant} size="sm">
+                            {rt.ieeRarity[row.rarity]}
+                          </Badge>
+                          <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-dim">
+                            {row.kind === "item" ? rt.ieeKindItem : rt.ieeKindEffect}
+                          </span>
+                        </div>
+                        <EntryDescription>{row.description}</EntryDescription>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="hud-card p-5">
         <h3 className="font-display text-sm uppercase tracking-widest text-amber">{rt.sections.cells}</h3>

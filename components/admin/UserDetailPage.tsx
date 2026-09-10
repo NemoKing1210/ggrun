@@ -806,7 +806,7 @@ function GameplayPanel({
                   >
                     {season.seasonTitle}
                   </Link>
-                  <StatusBadge status={season.seasonStatus} label={t.core.seasonStatuses[season.seasonStatus]} />
+                  <StatusBadge kind="season" status={season.seasonStatus} label={t.core.seasonStatuses[season.seasonStatus]} />
                 </div>
                 <p className="mt-1 truncate font-mono text-[11px] text-dim">/{season.seasonSlug}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -821,7 +821,7 @@ function GameplayPanel({
                   <div className="border border-[#2a2a22] bg-background/40 px-2 py-1.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                     <div className="font-mono text-xs text-dim uppercase">{g.colStatus}</div>
                     <div className="mt-1">
-                      <StatusBadge status={season.status} label={t.core.playerStatuses[season.status]} />
+                      <StatusBadge kind="player" status={season.status} label={t.core.playerStatuses[season.status]} />
                     </div>
                   </div>
                   <div className="border border-[#2a2a22] bg-background/40 px-2 py-1.5 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">

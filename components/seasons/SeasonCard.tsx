@@ -132,7 +132,7 @@ export function SeasonCard({
                 {season.title}
               </h3>
             </div>
-            <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+            <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
           </div>
 
           {/* Top player + board bar */}

@@ -17,6 +17,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import RollCard, { type GameSummary } from "@/components/dashboard/RollCard";
+import { InventoryPanel } from "@/components/dashboard/InventoryPanel";
+import { ChallengesPanel, type ChallengeRow } from "@/components/dashboard/ChallengesPanel";
 import { GamesHistory } from "@/components/dashboard/GamesHistory";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
@@ -31,6 +33,13 @@ import {
   getPendingCompletionForPlayer,
   getRecentRolls,
 } from "@/lib/modules/catalog/repository";
+import { listEffects, listItems, SeasonConfigSchema } from "@/lib/engine";
+import {
+  getActiveEffectsWithCaster,
+  getHeldItems,
+  getPlayerEvents,
+  listTargetOptions,
+} from "@/lib/modules/iee/repository";
 import {
   getPlayerMoves,
   getSeasonPlayerForUser,
@@ -125,7 +134,7 @@ export default async function DashboardPage() {
         <PageHeader
           kicker={format(t.core.common.seasonKicker, { season: season.title })}
           title={t.core.dashboard.heading}
-          right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+          right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
         />
         <EmptyState>{t.core.dashboard.notInSeason}</EmptyState>
       </PageContainer>
@@ -141,6 +150,72 @@ export default async function DashboardPage() {
     getMainBoard(season.id),
     getCatalogPreview(20),
   ]);
+
+  // --- items, statuses and who they may be aimed at -------------------------
+  const seasonConfig = SeasonConfigSchema.safeParse(season.config);
+  const iee = seasonConfig.success ? seasonConfig.data.iee : null;
+  const [heldItems, activeEffects, targetOptions, playerEvents] = iee?.enabled
+    ? await Promise.all([
+        getHeldItems(seasonPlayer.id),
+        getActiveEffectsWithCaster(seasonPlayer.id),
+        iee.allowTargetingOthers
+          ? listTargetOptions(season.id, seasonPlayer.id, iee.pvpProtectionMoves)
+          : Promise.resolve([]),
+        getPlayerEvents(seasonPlayer.id),
+      ])
+    : [[], [], [], []];
+
+  // Catalog names live in the dictionaries; a reward only stores keys.
+  const catalogName = (path: string): string => {
+    const parts = path.split(".");
+    let node: unknown = t;
+    for (const part of parts) {
+      if (typeof node !== "object" || node === null) return path;
+      node = (node as Record<string, unknown>)[part];
+    }
+    return typeof node === "string" ? node : path;
+  };
+  const itemNames = Object.fromEntries(
+    listItems().map((d) => [d.key, catalogName(d.i18n.name)]),
+  );
+  const effectNames = Object.fromEntries(
+    listEffects().map((d) => [d.key, catalogName(d.i18n.name)]),
+  );
+  const challenges: ChallengeRow[] = playerEvents.map((e) => ({
+    id: e.id,
+    title: e.title,
+    descriptionMd: e.descriptionMd,
+    status: e.status,
+    requiresProof: e.requiresProof,
+    proof: e.proof,
+    adminNote: e.adminNote,
+    dueAt: e.dueAt ? e.dueAt.toISOString() : null,
+    reward: (e.reward ?? {}) as ChallengeRow["reward"],
+  }));
+
+  // What the *next* roll will actually experience.
+  //
+  // Expiry is lazy — a spent status keeps `state = 'active'` until the player's
+  // next resolve sweeps it — so "still in force" is a real question, and it now
+  // has exactly one answer: `getActiveEffectsWithCaster` applies the rule in
+  // SQL, the same way the board and the leaderboard do. This page used to carry
+  // its own copy, reading the roll that had already happened, so a status spent
+  // a moment earlier lingered here showing "0 rolls left" — present to the
+  // player, inert to the game.
+  const statuses = activeEffects
+    .map((e) => ({
+      id: e.id,
+      effectKey: e.effectKey,
+      polarity: e.polarity,
+      chargesLeft: e.chargesLeft,
+      // Rolls this will still affect, counting the next one — so it never
+      // reads zero while the status is on screen.
+      rollsLeft:
+        e.expiresAfterRollSeq === null
+          ? null
+          : Math.max(0, e.expiresAfterRollSeq - seasonPlayer.rollSeq),
+      castByUsername: e.castByUsername,
+    }));
 
   const cells = board ? await getBoardCells(board.id) : [];
   const totalCells = cells.length || 1;
@@ -217,7 +292,7 @@ export default async function DashboardPage() {
             </span>
             <span className="hidden h-3 w-px bg-dim/20 sm:inline-block" aria-hidden />
             <span className="hidden truncate sm:inline">{kicker}</span>
-            <StatusBadge status={seasonPlayer.status} label={t.core.playerStatuses[seasonPlayer.status]} />
+            <StatusBadge kind="player" status={seasonPlayer.status} label={t.core.playerStatuses[seasonPlayer.status]} />
           </div>
         </div>
         <Link
@@ -231,7 +306,7 @@ export default async function DashboardPage() {
       <PageHeader
         kicker={kicker}
         title={t.core.dashboard.heading}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
 
       {/* Stats */}
@@ -353,6 +428,57 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* Current game */}
+      {iee?.enabled && challenges.length > 0 ? (
+        <ChallengesPanel
+          challenges={challenges}
+          itemNames={itemNames}
+          effectNames={effectNames}
+        />
+      ) : null}
+
+      {iee?.enabled && (heldItems.length > 0 || statuses.length > 0) ? (
+        <InventoryPanel
+          items={heldItems.map((i) => ({
+            id: i.id,
+            itemKey: i.itemKey,
+            chargesLeft: i.chargesLeft,
+            source: i.source,
+          }))}
+          statuses={statuses}
+          targets={targetOptions}
+          allowTargeting={iee.allowTargetingOthers}
+        />
+      ) : null}
+
+      {/*
+        A finished run offers no roll.
+
+        `player_status` used to be display-only: the button stayed live for a
+        participant who had finished, withdrawn or been eliminated, and the
+        server took the roll. The server refuses it now, and a button that only
+        produces an error is worse than no button.
+      */}
+      {seasonPlayer.status !== "active" ? (
+        <section className="hud-card flex flex-col items-center gap-2 p-8 text-center">
+          <TrophyIcon className="size-10 text-amber" aria-hidden />
+          <h2 className="font-display text-lg uppercase tracking-widest">
+            {t.core.dashboard.runOver}
+          </h2>
+          <StatusBadge
+            kind="player"
+            status={seasonPlayer.status}
+            label={t.core.playerStatuses[seasonPlayer.status]}
+          />
+          {seasonPlayer.finishedAt ? (
+            <p className="text-base text-zinc-300">
+              {format(t.core.dashboard.finishedOn, {
+                date: dateFormatter.format(seasonPlayer.finishedAt),
+              })}
+            </p>
+          ) : null}
+          <p className="text-sm text-dim">{t.core.dashboard.runOverHint}</p>
+        </section>
+      ) : (
       <RollCard
         seasonPlayerId={seasonPlayer.id}
         openRoll={
@@ -378,6 +504,7 @@ export default async function DashboardPage() {
         lastDice={lastMoves[0]?.diceResults ?? null}
         catalogGames={catalogPreview.map((g) => ({ title: g.title, coverUrl: g.coverUrl, platform: g.platform }))}
       />
+      )}
 
       {/* Game history */}
       <section aria-label={t.core.dashboard.history} className="grid gap-6 lg:grid-cols-2">

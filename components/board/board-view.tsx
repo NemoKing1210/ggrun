@@ -32,6 +32,8 @@ import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { EffectBadges } from "@/components/iee/EffectBadges";
+import type { EffectBadge } from "@/lib/engine";
 
 export type BoardPlayer = {
   username: string;
@@ -44,6 +46,8 @@ export type BoardPlayer = {
   streakPass: number;
   streakDrop: number;
   rerollsUsed: number;
+  /** Active statuses, for the roster badges. Empty for a clean player. */
+  effects: EffectBadge[];
 };
 
 export type BoardRoll = {
@@ -391,6 +395,7 @@ export function BoardView({
                             {p.displayName ?? p.username}
                           </Link>
                           <span className="truncate font-mono text-[10px] tracking-wide text-dim">@{p.username}</span>
+                          <EffectBadges badges={p.effects} t={t} className="mt-1" />
                         </div>
                       </div>
                       <div className="flex items-center gap-2 sm:block">

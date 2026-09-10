@@ -44,6 +44,7 @@ import { DebugError } from "@/components/ui/DebugError";
 import type { SeasonConfig } from "@/lib/engine/types";
 import { GAME_POOL_TEMPLATES } from "@/lib/modules/catalog/pool/templates";
 import { DEFAULT_SEASON_CONFIG } from "@/lib/engine";
+import { IeeStage, type EventOption } from "@/components/admin/IeeStage";
 import {
   applyTemplate as applyTemplateToConfig,
   captureTemplateSnapshot,
@@ -87,11 +88,13 @@ type Props = {
   seasonTitle?: string;
   seasonStatus?: string;
   availableProviders?: Array<{ id: string; label: string }>;
+  /** Active event templates, offered as the season's event pool. */
+  eventOptions?: EventOption[];
 };
 
-export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, seasonStatus, availableProviders = [] }: Props) {
+export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, seasonStatus, availableProviders = [], eventOptions = [] }: Props) {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<"templates" | "dice" | "board" | "pool" | "rules">("templates");
+  const [activeTab, setActiveTab] = useState<SeasonStage>("templates");
   const [cfg, setCfg] = useState<SeasonConfig>(initialConfig);
   const [poolAdvancedOpen, setPoolAdvancedOpen] = useState(false);
   const [rulesMd, setRulesMd] = useState(initialRulesMd ?? "");
@@ -297,6 +300,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     formData.set("filters_ordering", cfg.gamePool.filters.ordering);
     formData.set("filters_searchQuery", cfg.gamePool.filters.searchQuery ?? "");
     formData.set("filters_ordering", cfg.gamePool.filters.ordering);
+    // `entries` is keyed by catalog key, so it cannot be flattened into named
+    // inputs at compile time. The controls above are all visual; this is only
+    // the wire format.
+    formData.set("iee", JSON.stringify(cfg.iee));
     return formAction(formData);
   };
 
@@ -323,6 +330,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
           <TabButton id="dice" label={t.admin.settings.tabs.dice} />
           <TabButton id="board" label={t.admin.settings.tabs.board} />
           <TabButton id="pool" label={t.admin.settings.tabs.pool} />
+          <TabButton id="iee" label={t.admin.settings.tabs.iee} />
           <TabButton id="rules" label={t.admin.settings.tabs.rules} />
         </div>
 
@@ -424,10 +432,11 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
 
           {activeTab === "dice" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <p className="font-mono text-xs text-dim lg:col-span-2">{t.admin.settings.diceHint}</p>
               <section className="hud-card p-4 bg-[#0f0f0f] border-zinc-800">
                 <h4 className="font-display uppercase tracking-wider text-amber mb-3">{t.admin.settings.diceHeading}</h4>
                 <div className="flex flex-col gap-4">
-                  <Field label={t.admin.settings.sidesPerDieLabel}>
+                  <Field label={t.admin.settings.sidesPerDieLabel} hint={t.admin.settings.sidesPerDieHint}>
                     <Range min={2} max={20} value={cfg.dice.sides} onChange={(e) => setDice({ sides: Number(e.target.value) })} />
                     <div className="flex justify-between text-xs text-zinc-500">
                       <span>2</span>
@@ -436,10 +445,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     </div>
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label={t.admin.settings.diceOnPassLabel}>
+                    <Field label={t.admin.settings.diceOnPassLabel} hint={t.admin.settings.diceOnPassHint}>
                       <Input type="number" min={0} max={5} value={cfg.dice.passDiceCount} onChange={(e) => setDice({ passDiceCount: Number(e.target.value) })} />
                     </Field>
-                    <Field label={t.admin.settings.diceOnDropLabel}>
+                    <Field label={t.admin.settings.diceOnDropLabel} hint={t.admin.settings.diceOnDropHint}>
                       <Input type="number" min={0} max={5} value={cfg.dice.dropDiceCount} onChange={(e) => setDice({ dropDiceCount: Number(e.target.value) })} />
                     </Field>
                   </div>
@@ -461,7 +470,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               <section className="hud-card p-4 bg-[#0f0f0f] border-zinc-800">
                 <h4 className="font-display uppercase tracking-wider text-amber mb-3">{t.admin.settings.pointsHeading}</h4>
                 <div className="flex flex-col gap-4">
-                  <Field label={t.admin.settings.startingBalanceLabel}>
+                  <Field label={t.admin.settings.startingBalanceLabel} hint={t.admin.settings.startingBalanceHint}>
                     <Input type="number" min={0} value={cfg.points.startingBalance} onChange={(e) => setPoints({ startingBalance: Number(e.target.value) })} />
                   </Field>
                   <Switch
@@ -483,7 +492,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     label={t.admin.settings.allowRerollsLabel}
                     description={t.admin.settings.allowRerollsDescription}
                   />
-                  <Field label={t.admin.settings.rerollsLimitLabel}>
+                  <Field label={t.admin.settings.rerollsLimitLabel} hint={t.admin.settings.rerollsLimitHint}>
                     <Input type="number" min={0} max={5} value={cfg.rerolls.limitPerGame} onChange={(e) => setRerolls({ limitPerGame: Number(e.target.value) })} disabled={!cfg.rerolls.allowed} />
                   </Field>
                   <Switch
@@ -505,12 +514,13 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
 
           {activeTab === "board" && (
             <div className="flex flex-col gap-5">
+              <p className="font-mono text-xs text-dim">{t.admin.settings.boardHint}</p>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Field label={t.admin.settings.boardSizeLabel}>
+                <Field label={t.admin.settings.boardSizeLabel} hint={t.admin.settings.boardSizeHint}>
                   <Range min={10} max={100} value={cfg.board.size} onChange={(e) => setBoard({ size: Number(e.target.value) })} />
                   <span className="text-amber font-mono text-center text-lg block">{cfg.board.size}</span>
                 </Field>
-                <Field label={t.admin.settings.distributionLabel}>
+                <Field label={t.admin.settings.distributionLabel} hint={t.admin.settings.distributionHint}>
                   <Select value={cfg.board.distribution} onChange={(e) => setBoard({ distribution: e.target.value as SeasonConfig["board"]["distribution"] })}>
                     {BOARD_DISTRIBUTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -616,6 +626,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               </div>
             </div>
           )}
+          {activeTab === "iee" && (
+            <IeeStage cfg={cfg} onChange={updateCfg} events={eventOptions} />
+          )}
+
           {activeTab === "rules" && (
             <div className="hud-card p-4 bg-[#0f0f0f] border-zinc-800 flex flex-col gap-4">
 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -748,7 +762,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               {/* Provider row — only when API is involved */}
               <div className={`hud-card p-4 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${needsProvider ? "bg-[#0f0f0f] border-zinc-800" : "bg-[#0f0f0f]/60 border-zinc-800 opacity-80"}`}>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
-                  <Field label={t.admin.settings.providerLabel}>
+                  <Field label={t.admin.settings.providerLabel} hint={t.admin.settings.providerHint}>
                     <Select value={cfg.gamePool.provider} onChange={(e) => setGamePool({ provider: e.target.value as SeasonConfig["gamePool"]["provider"] })} disabled={!needsProvider}>
                       {GAME_PROVIDERS.map((o) => {
                         const configured = o.value === "internal" || providerConfiguredIds.has(o.value);
@@ -772,7 +786,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                       })}
                     </div>
                   </Field>
-                  <Field label={t.admin.settings.orderingLabel}>
+                  <Field label={t.admin.settings.orderingLabel} hint={t.admin.settings.orderingHint}>
                     <Select value={cfg.gamePool.filters.ordering} onChange={(e) => setFilters({ ordering: e.target.value })}>
                       {ORDERINGS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -896,13 +910,13 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Field label={t.admin.settings.metaMinLabel}>
+                <Field label={t.admin.settings.metaMinLabel} hint={t.admin.settings.metacriticHint}>
                   <Input type="number" placeholder="—" min={0} max={100} value={cfg.gamePool.filters.metacriticMin ?? ""} onChange={(e) => setFilters({ metacriticMin: e.target.value === "" ? null : Number(e.target.value) })} />
                 </Field>
                 <Field label={t.admin.settings.metaMaxLabel}>
                   <Input type="number" placeholder="—" min={0} max={100} value={cfg.gamePool.filters.metacriticMax ?? ""} onChange={(e) => setFilters({ metacriticMax: e.target.value === "" ? null : Number(e.target.value) })} />
                 </Field>
-                <Field label={t.admin.settings.ratingMinLabel}>
+                <Field label={t.admin.settings.ratingMinLabel} hint={t.admin.settings.ratingHint}>
                   <Input type="number" step={0.1} placeholder="—" min={0} max={5} value={cfg.gamePool.filters.ratingMin ?? ""} onChange={(e) => setFilters({ ratingMin: e.target.value === "" ? null : Number(e.target.value) })} />
                 </Field>
                 <Field label={t.admin.settings.ratingMaxLabel}>
@@ -911,13 +925,13 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Field label={t.admin.settings.yearMinLabel}>
+                <Field label={t.admin.settings.yearMinLabel} hint={t.admin.settings.yearHint}>
                   <Input type="number" placeholder="—" value={cfg.gamePool.filters.yearMin ?? ""} onChange={(e) => setFilters({ yearMin: e.target.value === "" ? null : Number(e.target.value) })} />
                 </Field>
                 <Field label={t.admin.settings.yearMaxLabel}>
                   <Input type="number" placeholder="—" value={cfg.gamePool.filters.yearMax ?? ""} onChange={(e) => setFilters({ yearMax: e.target.value === "" ? null : Number(e.target.value) })} />
                 </Field>
-                <Field label={t.admin.settings.playersLabel}>
+                <Field label={t.admin.settings.playersLabel} hint={t.admin.settings.playersHint}>
                   <Select value={cfg.gamePool.filters.players} onChange={(e) => setFilters({ players: e.target.value as SeasonConfig["gamePool"]["filters"]["players"] })}>
                     <option value="any">{t.admin.settings.playersAny}</option>
                     <option value="single">{t.admin.settings.playersSingle}</option>
@@ -925,7 +939,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     <option value="coop">{t.admin.settings.playersCoop}</option>
                   </Select>
                 </Field>
-                <Field label={t.admin.settings.searchQueryLabel}>
+                <Field label={t.admin.settings.searchQueryLabel} hint={t.admin.settings.searchQueryHint}>
                   <Input type="text" placeholder="e.g. elden ring" value={cfg.gamePool.filters.searchQuery ?? ""} onChange={(e) => setFilters({ searchQuery: e.target.value || null })} />
                 </Field>
               </div>
@@ -949,10 +963,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label={t.admin.settings.maxCandidatesLabel}>
+                <Field label={t.admin.settings.maxCandidatesLabel} hint={t.admin.settings.maxCandidatesHint}>
                   <Input type="number" min={1} max={100} value={cfg.gamePool.maxCandidates} onChange={(e) => setGamePool({ maxCandidates: Number(e.target.value) })} />
                 </Field>
-                <Field label={t.admin.settings.cacheTtlLabel}>
+                <Field label={t.admin.settings.cacheTtlLabel} hint={t.admin.settings.cacheTtlHint}>
                   <Input type="number" min={0} max={720} value={cfg.gamePool.cacheTtlHours} onChange={(e) => setGamePool({ cacheTtlHours: Number(e.target.value) })} />
                 </Field>
               </div>

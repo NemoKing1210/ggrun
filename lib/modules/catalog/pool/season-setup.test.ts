@@ -219,7 +219,8 @@ describe("stageProgress", () => {
   });
 
   it("ignores duplicates", () => {
-    expect(stageProgress(["dice", "dice", "dice"])).toBeCloseTo(1 / 5);
+    // Derived from SEASON_STAGES so adding a stage does not break this test.
+    expect(stageProgress(["dice", "dice", "dice"])).toBeCloseTo(1 / SEASON_STAGES.length);
   });
 });
 
@@ -232,12 +233,17 @@ describe("nextPendingStage", () => {
     expect(nextPendingStage("templates", ["dice", "board"])).toBe("pool");
   });
 
+  it("reaches the iee stage after the pool is confirmed", () => {
+    expect(nextPendingStage("pool", ["templates", "dice", "board"])).toBe("iee");
+  });
+
   it("wraps around to an earlier unconfirmed stage", () => {
     expect(nextPendingStage("rules", ["dice", "board", "pool"])).toBe("templates");
   });
 
   it("returns null once confirming the current stage completes the set", () => {
-    expect(nextPendingStage("rules", ["templates", "dice", "board", "pool"])).toBeNull();
+    const allButLast = SEASON_STAGES.filter((s) => s !== "rules");
+    expect(nextPendingStage("rules", allButLast)).toBeNull();
   });
 });
 
@@ -325,5 +331,76 @@ describe("editedStages", () => {
     next.config.dice.sides = 20;
     next.config.board.size = 55;
     expect(editedStages(base(), next, ["board", "dice"])).toEqual(["dice", "board"]);
+  });
+});
+
+const ENTRY = {
+  enabled: true,
+  weight: 100,
+  polarityOverride: null,
+  maxPerSeason: null,
+  maxPerPlayer: null,
+  cooldownRolls: 0,
+  minPosition: 0,
+  unlockAfterMove: 0,
+  paramOverrides: {},
+  durationOverride: null,
+  targetOverride: null,
+};
+
+describe("resetStage — iee", () => {
+  it("clears the season pool and event list but keeps the other stages", () => {
+    const cfg: SeasonConfig = {
+      ...freshConfig(),
+      iee: {
+        enabled: true,
+        inventorySize: 3,
+        allowTargetingOthers: true,
+        pvpProtectionMoves: 0,
+        revealDropsInFeed: false,
+        nothingWeight: 40,
+        catchUp: { enabled: true, maxMultiplier: 2 },
+        entries: { hex_scroll: { ...ENTRY, weight: 250 } },
+        events: ["screenshot_of_the_day"],
+      },
+    };
+    const out = resetStage(cfg, "iee");
+    expect(out.iee.entries).toEqual({});
+    expect(out.iee.events).toEqual([]);
+    expect(out.iee.enabled).toBe(DEFAULT_SEASON_CONFIG.iee.enabled);
+    expect(out.iee.catchUp).toEqual(DEFAULT_SEASON_CONFIG.iee.catchUp);
+    // untouched neighbours
+    expect(out.board).toEqual(cfg.board);
+    expect(out.gamePool).toEqual(cfg.gamePool);
+  });
+
+  it("does not hand back references into DEFAULT_SEASON_CONFIG", () => {
+    const out = resetStage(freshConfig(), "iee");
+    out.iee.entries.x = { ...ENTRY };
+    out.iee.catchUp.maxMultiplier = 4;
+    out.iee.events.push("boom");
+    expect(DEFAULT_SEASON_CONFIG.iee.entries).toEqual({});
+    expect(DEFAULT_SEASON_CONFIG.iee.catchUp.maxMultiplier).not.toBe(4);
+    expect(DEFAULT_SEASON_CONFIG.iee.events).toEqual([]);
+  });
+
+  it("iee sits between pool and rules in the wizard", () => {
+    expect([...SEASON_STAGES]).toEqual([
+      "templates",
+      "dice",
+      "board",
+      "pool",
+      "iee",
+      "rules",
+    ]);
+  });
+
+  it("resetting another stage leaves the iee pool alone", () => {
+    const cfg: SeasonConfig = {
+      ...freshConfig(),
+      iee: { ...DEFAULT_SEASON_CONFIG.iee, enabled: true, entries: { slowed: { ...ENTRY } } },
+    };
+    expect(resetStage(cfg, "board").iee.entries).toEqual({ slowed: { ...ENTRY } });
+    expect(resetStage(cfg, "pool").iee.enabled).toBe(true);
   });
 });

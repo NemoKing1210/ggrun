@@ -1,4 +1,5 @@
 import type { GamePoolConfig } from "./game-pool";
+import type { IeeConfig } from "./iee";
 
 /** Season configuration, stored as JSONB `seasons.config`. */
 export interface SeasonConfig {
@@ -28,6 +29,8 @@ export interface SeasonConfig {
   moderation: { completionRequireApproval: boolean };
   gamePool: GamePoolConfig;
   rules: { mode: "auto" | "manual" };
+  /** Items / Effects / Events pool and tuning — see types/iee.ts. */
+  iee: IeeConfig;
 }
 
 export type RollOutcome = "passed" | "dropped" | "rerolled";

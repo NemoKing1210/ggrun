@@ -59,7 +59,7 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
       <PageHeader
         kicker={kicker}
         title={season.title}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
 
       <SeasonTabs slug={season.slug} t={t} />

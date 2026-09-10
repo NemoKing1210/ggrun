@@ -33,7 +33,7 @@ export default async function SeasonFeedPage({ params }: { params: Promise<{ slu
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.feed.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <SeasonTabs slug={season.slug} t={t} />
       <div className="mt-6 hud-card p-6">

@@ -9,6 +9,8 @@ import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
+import { EffectBadges } from "@/components/iee/EffectBadges";
+import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 
@@ -50,6 +52,8 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
 
   const kicker = format(t.core.common.seasonKicker, { season: season.title });
   const rows = await getLeaderboard(season.id);
+  // One query for the whole table — see getActiveEffectsBySeason.
+  const effects = await getActiveEffectsBySeason(season.id);
 
   return (
     <PageContainer>
@@ -57,7 +61,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
       <PageHeader
         kicker={kicker}
         title={t.leaderboard.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <SeasonTabs slug={season.slug} t={t} />
 
@@ -83,12 +87,15 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                     <tr key={row.id} className="hover:bg-raised/60">
                       <td className="px-3 py-2 font-mono text-xs text-dim">#{idx + 1}</td>
                       <td className="px-3 py-2">
-                        <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
-                          <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
-                          </AvatarWithPresence>
-                          <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
+                            <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
+                              <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
+                            </AvatarWithPresence>
+                            <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
+                          </Link>
+                          <EffectBadges badges={effects.get(row.id) ?? []} t={t} />
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-sm">
                         <span className="ammo-counter text-amber">{row.position}</span>
@@ -100,7 +107,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                         <span className="text-danger">-{row.streakDrop}</span>
                       </td>
                       <td className="px-3 py-2">
-                        <StatusBadge status={row.status} label={t.core.playerStatuses[row.status]} />
+                        <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
                       </td>
                     </tr>
                   ))}

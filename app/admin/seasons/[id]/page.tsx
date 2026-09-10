@@ -6,6 +6,7 @@ import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getActiveSeason, getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { listAvailableProviders } from "@/lib/modules/catalog/providers/keys";
+import { listEventTemplates } from "@/lib/modules/iee/repository";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
@@ -43,6 +44,11 @@ export default async function SeasonSettingsPage({
   const parsed = SeasonConfigSchema.safeParse(season.config);
   const config = parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
   const availableProviders = await listAvailableProviders();
+  // Only active templates are offered as a season's event pool.
+  const eventOptions = (await listEventTemplates(true)).map((tpl) => ({
+    key: tpl.key,
+    title: tpl.title,
+  }));
   const activeSeason = await getActiveSeason();
   const roster = await getLeaderboard(season.id);
   const resetBlocked = activeSeason !== null && activeSeason.id !== season.id && season.status !== "active";
@@ -58,7 +64,7 @@ export default async function SeasonSettingsPage({
             <h1 className="font-display text-3xl uppercase tracking-widest text-amber">
               {format(t.admin.settings.heading, { season: season.title })}
             </h1>
-            <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+            <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
             {t.admin.settings.configHeading} · {t.admin.settings.rulesPlaceholder.slice(0, 48)}
@@ -136,6 +142,7 @@ export default async function SeasonSettingsPage({
         seasonTitle={season.title}
         seasonStatus={season.status}
         availableProviders={availableProviders}
+        eventOptions={eventOptions}
       />
     </div>
   );

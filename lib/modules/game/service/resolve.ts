@@ -1,29 +1,23 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { eventLog, gameRolls, gamesCatalog, ledgerEntries, moves, seasonPlayers } from "@/db/schema";
+import { eventLog, gameRolls, seasonPlayers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
-import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import {
   countRerollsForGame,
   createCompletionRequest,
   createRerollRequest,
   getPendingCompletionForRoll,
   getPendingRerollForRoll,
-  rollRandomGame,
+  pickGameForRoll,
+  POOL_EMPTY_ERROR,
 } from "@/lib/modules/catalog/repository";
-import { log } from "@/lib/infrastructure/logger";
-import {
-  applyCellEffect,
-  canReroll,
-  normalizePosition,
-  nextRollStatus,
-  resolveMovement,
-  type RollOutcome,
-} from "@/lib/engine";
+import { canReroll, type RollOutcome } from "@/lib/engine";
 
 import { GameLoopError } from "./errors";
 import { assertActorAllowed, parseSeasonConfig } from "./helpers";
+import { applyResolvedTurn } from "./turn";
 
 export async function resolveGameRoll(params: {
   rollId: string;
@@ -39,6 +33,11 @@ export async function resolveGameRoll(params: {
   fromPosition: number;
   toPosition: number;
   newBalancePoints: number;
+  /**
+   * What the landing cell's wheel produced, already persisted. The client
+   * animates a decision that is finished — a refresh cannot re-spin it.
+   */
+  wheel?: import("@/lib/engine").WheelOutcome;
 }> {
   const actor = await getCurrentUser();
   if (!actor) throw new GameLoopError("gameLoginRequired");
@@ -70,6 +69,14 @@ export async function resolveGameRoll(params: {
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");
   if (season.status !== "active") throw new GameLoopError("gameSeasonNotActive");
+  // A run that has ended has ended.
+  //
+  // `player_status` was display-only on the write path: a participant marked
+  // `finished`, `eliminated` or `withdrawn` kept rolling, moving, drawing from
+  // the wheel and being targeted, and the dashboard kept offering the button.
+  // Now that the board's finish cell actually finishes people, that had to
+  // stop meaning nothing.
+  if (sp.status !== "active") throw new GameLoopError("gamePlayerNotActive");
 
   const config = parseSeasonConfig(season.config);
 
@@ -95,16 +102,22 @@ export async function resolveGameRoll(params: {
     }
     // Instant reroll when season allows without approval
     if (!rerollRequireApproval) {
-      const game = await rollRandomGame(sp.id);
+      // A reroll with nothing to reroll into used to insert a roll row with a
+      // null game: the player was left holding an open roll that named no game
+      // and could not be resolved, and their reroll count had been spent on it.
+      // Refusing costs them nothing and says why.
+      const picked = await pickGameForRoll(sp.id);
+      if (!picked.game) throw new GameLoopError(POOL_EMPTY_ERROR[picked.reason]);
+      const game = picked.game;
       await db.transaction(async (tx) => {
         await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
-        await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game?.id ?? null, status: "rolled" });
+        await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game.id, status: "rolled" });
         await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
         await tx.insert(eventLog).values({
           seasonId: sp.seasonId,
           seasonPlayerId: sp.id,
           eventType: "game_rerolled",
-          payload: { oldGameId: roll.gameId, newGameId: game?.id ?? null, title: game?.title ?? null, instant: true },
+          payload: { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
         });
       });
       return {
@@ -175,130 +188,20 @@ export async function resolveGameRoll(params: {
     }
   }
 
-  // The engine FSM requires rolled → in_progress before the outcome: a player
-  // marking the result effectively moves the roll to in_progress at that moment.
-  const effectiveStatus =
-    roll.status === "rolled" ? "in_progress" : roll.status;
-
-  // --- passed / dropped: movement via the pure domain engine ------------------
-  const result = resolveMovement({
-    currentPosition: sp.position,
-    balancePoints: sp.balancePoints,
+  // One turn, one implementation.
+  //
+  // The judge's approval path (`approveCompletionRequest`) used to carry its own
+  // copy of what this call does, written before items and effects existed and
+  // never updated: with `moderation.completionRequireApproval` on, no wheel
+  // spun, no status fired and `roll_seq` never advanced, which made every
+  // item-granted status permanent. A moderation checkbox may change *when* a
+  // turn happens; it may not change what a turn is.
+  return applyResolvedTurn({
+    sp,
+    roll,
     outcome: params.outcome,
-    streakPass: sp.streakPass,
-    streakDrop: sp.streakDrop,
+    notes: notesToSave,
+    rating: ratingToSave,
     config,
-    rng: Math.random,
   });
-
-  // Landing cell effect (plugin registry in the engine)
-  let landedType: string | null = null;
-  let finalPosition = result.newPosition;
-  let finalBalance = result.newBalancePoints;
-  let ledgerDelta = 0;
-  let ledgerReason: string | undefined;
-
-  const board = await getMainBoard(sp.seasonId);
-  if (board) {
-    const cells = await getBoardCells(board.id);
-    const landed = cells.find((c) => c.position === finalPosition);
-    if (landed) {
-      landedType = landed.cellType;
-      const effect = applyCellEffect(
-        { ...landed, config: (landed.config ?? {}) as Record<string, unknown> },
-        finalPosition,
-        finalBalance,
-      );
-      finalPosition = normalizePosition(effect.position, config.board);
-      finalBalance = effect.balancePoints;
-      ledgerDelta += effect.ledgerDelta;
-      if (effect.reason) ledgerReason = effect.reason;
-    }
-  }
-
-  const newStatus = nextRollStatus(effectiveStatus, params.outcome);
-
-  // fetch game title for feed payload
-  let gameTitle: string | null = null;
-  if (roll.gameId) {
-    const g = await db.select({ title: gamesCatalog.title }).from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1);
-    gameTitle = g[0]?.title ?? null;
-  }
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(gameRolls)
-      .set({
-        status: newStatus,
-        resolvedAt: new Date(),
-        notes: notesToSave,
-        rating: ratingToSave,
-      })
-      .where(eq(gameRolls.id, roll.id));
-    const [move] = await tx
-      .insert(moves)
-      .values({
-        seasonPlayerId: sp.id,
-        gameRollId: roll.id,
-        fromPosition: sp.position,
-        toPosition: finalPosition,
-        diceResults: result.diceResults,
-        cellLandedType: landedType as never,
-      })
-      .returning({ id: moves.id });
-    if (ledgerDelta !== 0 && ledgerReason) {
-      await tx.insert(ledgerEntries).values({
-        seasonPlayerId: sp.id,
-        delta: ledgerDelta,
-        reason: ledgerReason,
-        relatedMoveId: move!.id,
-      });
-    }
-    await tx
-      .update(seasonPlayers)
-      .set({
-        position: finalPosition,
-        balancePoints: finalBalance,
-        streakPass: result.newStreakPass,
-        streakDrop: result.newStreakDrop,
-      })
-      .where(eq(seasonPlayers.id, sp.id));
-    await tx.insert(eventLog).values([
-      {
-        seasonId: sp.seasonId,
-        seasonPlayerId: sp.id,
-        eventType: params.outcome === "passed" ? "game_passed" : "game_dropped",
-        payload: {
-          gameId: roll.gameId,
-          title: gameTitle,
-          dice: result.diceResults,
-          notes: notesToSave,
-          rating: ratingToSave,
-        },
-      },
-      {
-        seasonId: sp.seasonId,
-        seasonPlayerId: sp.id,
-        eventType: "moved",
-        payload: {
-          from: sp.position,
-          to: finalPosition,
-          dice: result.diceResults,
-          cellType: landedType,
-        },
-      },
-    ]);
-  });
-  log.debug("game.resolve.completed", {
-    rollId: roll.id,
-    outcome: params.outcome,
-    to: finalPosition,
-    balanceDelta: finalBalance - sp.balancePoints,
-  });
-  return {
-    diceResults: result.diceResults,
-    fromPosition: sp.position,
-    toPosition: finalPosition,
-    newBalancePoints: finalBalance,
-  };
 }

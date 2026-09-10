@@ -8,6 +8,9 @@ import {
   eventLog,
   gameRolls,
   ledgerEntries,
+  playerEffects,
+  playerEvents,
+  playerInventory,
   moves,
   rerollRequests,
   seasons,
@@ -211,10 +214,15 @@ export async function resetSeason(seasonId: string): Promise<void> {
     if (ids.length > 0) {
       await tx.delete(rerollRequests).where(inArray(rerollRequests.seasonPlayerId, ids));
       await tx.delete(ledgerEntries).where(inArray(ledgerEntries.seasonPlayerId, ids));
+      // IEE runtime state: participants are UPDATEd rather than deleted below,
+      // so ON DELETE CASCADE never fires here — clear it explicitly.
+      await tx.delete(playerInventory).where(inArray(playerInventory.seasonPlayerId, ids));
+      await tx.delete(playerEffects).where(inArray(playerEffects.seasonPlayerId, ids));
+      await tx.delete(playerEvents).where(inArray(playerEvents.seasonPlayerId, ids));
       await tx.delete(moves).where(inArray(moves.seasonPlayerId, ids));
       await tx.delete(gameRolls).where(inArray(gameRolls.seasonPlayerId, ids));
       await tx.delete(eventLog).where(eq(eventLog.seasonId, seasonId));
-      await tx.update(seasonPlayers).set({ position: 0, balancePoints: startingBalance, streakPass: 0, streakDrop: 0, rerollsUsed: 0, status: "active" }).where(eq(seasonPlayers.seasonId, seasonId));
+      await tx.update(seasonPlayers).set({ position: 0, balancePoints: startingBalance, streakPass: 0, streakDrop: 0, rerollsUsed: 0, rollSeq: 0, status: "active" }).where(eq(seasonPlayers.seasonId, seasonId));
     } else {
       await tx.delete(eventLog).where(eq(eventLog.seasonId, seasonId));
     }
@@ -228,13 +236,24 @@ export async function resetSeason(seasonId: string): Promise<void> {
 
 export async function updateSeasonSettings(input: { seasonId: string; config: unknown; rulesMd?: string | null }): Promise<void> {
   const actor = await requireStaff();
-  const config = SeasonConfigSchema.parse(input.config);
+  let config = SeasonConfigSchema.parse(input.config);
+  // A payload that never mentions `iee` must not wipe the season's pool:
+  // SeasonConfigSchema would fill in the empty default and the whole config is
+  // replaced below. Absent means "leave it alone", not "clear it".
+  const rawInput = input.config as Record<string, unknown> | null;
+  const ieeOmitted =
+    typeof rawInput !== "object" || rawInput === null || !("iee" in rawInput);
   await db.transaction(async (tx) => {
     const [before] = await tx
       .select({ status: seasons.status, config: seasons.config })
       .from(seasons)
       .where(eq(seasons.id, input.seasonId))
       .limit(1);
+
+    if (ieeOmitted && before) {
+      const prev = SeasonConfigSchema.safeParse(before.config);
+      if (prev.success) config = { ...config, iee: prev.data.iee };
+    }
 
     await tx.update(seasons).set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) }).where(eq(seasons.id, input.seasonId));
 

@@ -53,10 +53,26 @@ describe("applyCellEffect — penalty/bonus", () => {
     });
   });
 
-  it("clamps balance at zero on harsh penalties", () => {
+  // The ledger is what explains a balance back to a player, so it records what
+  // was actually taken. This used to assert -9 against a balance of 5: four
+  // points that never moved, written into the history as if they had.
+  it("clamps balance at zero on harsh penalties, and says so in the ledger", () => {
     const result = applyCellEffect(cell("penalty", { amount: 9 }), 12, 5);
     expect(result.balancePoints).toBe(0);
-    expect(result.ledgerDelta).toBe(-9);
+    expect(result.ledgerDelta).toBe(-5);
+  });
+
+  it("records nothing at all when there is nothing left to take", () => {
+    const result = applyCellEffect(cell("penalty", { amount: 3 }), 12, 0);
+    expect(result.balancePoints).toBe(0);
+    expect(result.ledgerDelta).toBe(0);
+  });
+
+  it("the ledger delta always equals the change in balance", () => {
+    for (const [balance, amount] of [[5, 3], [5, 9], [0, 1], [2, 2], [7, 0]]) {
+      const result = applyCellEffect(cell("penalty", { amount: amount! }), 12, balance!);
+      expect(result.ledgerDelta).toBe(result.balancePoints - balance!);
+    }
   });
 
   it("adds cell.config.amount for bonus", () => {

@@ -7,6 +7,12 @@ import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { FeedTimeline } from "@/components/feed/feed-list";
+import {
+  FEED_FILTERS,
+  isFeedFilterKey,
+  matchesFeedFilter,
+  type FeedFilterKey,
+} from "@/lib/engine/feed/filters";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -15,30 +21,16 @@ export async function generateMetadata() {
 
 type SearchParams = Promise<{ filter?: string }>;
 
-const FILTERS = ["all", "rolled", "passed", "dropped", "moved", "joined", "system"] as const;
-type FilterKey = (typeof FILTERS)[number];
-
-function filterMatch(type: string, f: FilterKey): boolean {
-  if (f === "all") return true;
-  if (f === "rolled") return ["game_rolled", "game_rerolled", "reroll_requested", "reroll_rejected"].includes(type);
-  if (f === "passed") return type === "game_passed";
-  if (f === "dropped") return type === "game_dropped";
-  if (f === "moved") return type === "moved";
-  if (f === "joined") return type === "player_joined";
-  if (f === "system") return ["season_started", "admin_adjustment"].includes(type);
-  return true;
-}
-
 export default async function FeedPage({ searchParams }: { searchParams: SearchParams }) {
   const { t } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
 
   const { filter } = await searchParams;
-  const active: FilterKey = (FILTERS as readonly string[]).includes(filter ?? "") ? (filter as FilterKey) : "all";
+  const active: FeedFilterKey = isFeedFilterKey(filter) ? filter : "all";
 
   const rows = await getEventFeed(season.id, 80);
-  const filtered = active === "all" ? rows : rows.filter((r) => filterMatch(r.eventType, active));
+  const filtered = active === "all" ? rows : rows.filter((r) => matchesFeedFilter(r.eventType, active));
 
   const kicker = `${t.feed.kicker} • ${format(t.core.common.seasonKicker, { season: season.title })}`;
   const uniquePlayers = new Set(rows.map((r) => r.username).filter(Boolean)).size;
@@ -48,7 +40,7 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
       <PageHeader
         kicker={kicker}
         title={t.feed.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
 
       {/* stats bar + hazard */}
@@ -68,9 +60,12 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
       {/* filters */}
       <div className="hud-card mb-6 flex flex-wrap gap-2 p-3">
-        {FILTERS.map((key) => {
+        {FEED_FILTERS.map((key) => {
           const isActive = active === key;
-          const label = t.feed.filters[key as keyof typeof t.feed.filters] ?? key;
+          // No `?? key` fallback: the dictionary is indexed by FeedFilterKey,
+          // so a tab without a translation is a type error, not a raw slug on
+          // the page.
+          const label = t.feed.filters[key];
           const href = key === "all" ? "/feed" : `/feed?filter=${key}`;
           return (
             <a

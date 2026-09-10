@@ -62,7 +62,10 @@ pnpm build          # next build --turbopack
 pnpm start          # production server
 pnpm lint           # eslint (flat config)
 pnpm exec tsc --noEmit
-pnpm test           # vitest (engine only)
+pnpm test           # vitest — the engine suite, plus component tests that
+                    # render to static markup (vitest.config.mts adds the
+                    # `@/` alias and the JSX transform; the engine suite
+                    # itself stays alias-free)
 
 pnpm db:status      # connectivity + row counts
 pnpm db:generate    # SQL migration into drizzle/
@@ -150,6 +153,71 @@ Register in the `CELL_EFFECTS` plugin registry
 `config.effectKey`; penaltys/bonus read `config.amount`, teleport reads
 `config.target`; unknown keys are no-ops. Add engine unit tests next to the
 file.
+
+### Add artwork for an item or effect
+
+Artwork is **code, not content** — it ships in the repo and is changed only by
+editing the repo. There is no upload in the admin console, on purpose: the app
+container has no persistent volume (`compose.yaml` mounts only `pgdata`), so
+anything written to `public/` at runtime dies on the next deploy.
+
+**The naming rule — the file name *is* the catalog key.**
+
+```
+public/iee/items/<item_key>.webp        e.g. public/iee/items/spare_die.webp
+public/iee/effects/<effect_key>.webp    e.g. public/iee/effects/shield.webp
+```
+
+Character for character, no transformation. Catalog keys are already
+`[a-z0-9_]`, which is a legal file name everywhere, so there is no second name
+to keep in sync and nothing to spell wrong. Items and effects live in separate
+folders because their key spaces are separate — `lucky` may exist in both.
+
+**Steps — there are two.**
+
+```bash
+# 1. save the file, named exactly after the catalog key
+#    public/iee/effects/heavy_boots.webp
+# 2. regenerate the manifest
+pnpm iee:art
+```
+
+That is all. `pnpm iee:art` scans `public/iee/` and rewrites
+`components/iee/art-manifest.ts`; **no list is edited by hand**. Removing
+artwork is the same: delete the file, run it again.
+
+**The image.** Square `.webp`, **256×256** (512 px is the hard ceiling — these
+are drawn at 16–24 CSS px, so 256 already covers a high-DPI screen several
+times over), **≤ 24 KB**. A transparent background sits best against the HUD
+panels, but a full-bleed illustration with its own background is a legitimate
+choice — look at it in place before deciding.
+
+**Why a generated manifest and not a runtime folder scan.** A browser cannot
+ask whether a file exists, so a component that guessed a path would render a
+broken image and a 404 for every entry without art. The file list is therefore
+baked in at build time. It is *generated* rather than hand-written because the
+first version was hand-written and the first person to add artwork could not
+find the list to edit — a design defect, so the list moved out of the way. The
+path itself is always derived from the key, never typed.
+
+**What the tests enforce** (`components/iee/IeeArt.test.tsx`, both directions):
+
+| Mistake | Failure |
+| --- | --- |
+| Added the file, forgot `pnpm iee:art` | `every file in the <kind> folder is reachable by the app` |
+| Deleted the file, forgot `pnpm iee:art` | `every registered <kind> key has its file` |
+| Hand-edited the manifest | `has a manifest that is not stale` |
+| Key is not a real catalog entry | `every registered <kind> key is a real catalog entry` |
+| `HexScroll.webp`, `lodestone.png` | `<kind> files are lowercase .webp named after their key` |
+| Not square, > 512 px, > 24 KB, or a renamed PNG | `<kind> files are square webp within the size budget` |
+
+Every one of those failure messages names the fix, usually "run `pnpm iee:art`".
+
+**Why not a field on the catalog entry.** `ItemDef` used to carry
+`icon: "/iee/xxx.webp"`; it was removed because a path to a file nobody had
+drawn is worse than no field at all. A path a test proves points at a real file
+does not have that problem — which is the whole reason the registry is checked
+against the folder rather than trusted.
 
 ### Add i18n keys or a language
 
@@ -245,8 +313,13 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
   `PROXY_URL`).
 - Auth: cookie sessions, scrypt password hashes, `sessions` table; blocked
   users are filtered out by `getCurrentUser()`.
-- The public feed filter tabs are fixed (rolls/passes/drops/moves/joins) —
-  new event types render under “All” until a filter is added.
+- The public feed filter tabs come from one table,
+  `lib/engine/feed/filters.ts` (`FEED_FILTER_TYPES`), which supplies both the
+  tab list and the matcher. **Every `EventType` must be filed under a tab** —
+  an unfiled one is a compile error in `lib/infrastructure/events` that names
+  the offending type. Adding a tab also needs a label in
+  `dictionaries/{en,ru,uk}/feed.ts`; the page has no slug fallback, so a
+  missing label is a type error too.
 
 ## 11. Docs map
 
@@ -259,3 +332,6 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 | `DESIGN.md` | HUD design system (read before any UI) |
 | `RUNBOOK.md` | Host guide for event day |
 | `CHANGELOG.md` | Release history + versioning rules |
+| `ITEMS_EFFECTS_EVENTS.md` | Items / effects / events: concept, contracts, decisions, phase plan |
+| `ITEMS_EFFECTS_SCENARIOS.md` | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
+| `WORKLOG.md` | Work journal — what each session did and what to pick up next |
