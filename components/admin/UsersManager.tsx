@@ -18,6 +18,7 @@ import { AddUserModal } from "@/components/admin/AddUserModal";
 import { useI18n } from "@/lib/i18n/client";
 import type { AdminUserRow } from "@/lib/modules/player/service/admin";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 type Actor = { id: string; username: string };
 
@@ -104,7 +105,7 @@ export default function UsersManager({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={usr.avatarUrl} alt={name} className="size-9 object-cover" />
                   ) : (
-                    <span className="grid h-9 w-9 place-items-center bg-raised font-display text-xs tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                    <AvatarFallback seed={usr.id} name={name} className="h-9 w-9" emojiClassName="text-lg" />
                   )}
                 </AvatarWithPresence>
                 <span className="min-w-0 flex-1">

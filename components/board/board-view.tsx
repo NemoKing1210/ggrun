@@ -31,6 +31,7 @@ import { CELL_THEME } from "./cell-theme";
 import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { isBotUsername } from "@/lib/shared/utils/bots";
@@ -113,12 +114,12 @@ function Avatar({
     );
   }
   return (
-    <span
-      title={displayName ?? username}
-      className={`${className ?? "size-7"} inline-flex items-center justify-center border border-dim/50 bg-[#1e1e1c] font-mono text-[10px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]`}
-    >
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={username}
+      name={displayName ?? username}
+      className={`${className ?? "size-7"} border border-dim/50 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]`}
+      emojiClassName={className?.includes("size-6") ? "text-[13px]" : "text-sm"}
+    />
   );
 }
 

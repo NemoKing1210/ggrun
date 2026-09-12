@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { actionMeta, isPlainObject, payloadSummary } from "@/components/admin/audit-meta";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
@@ -408,7 +409,7 @@ export function AuditLogViewer({
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={avatarUrl} alt={username} className="size-5 object-cover" />
                             ) : (
-                              <span className="grid size-5 place-items-center bg-amber/10 font-display text-[9px] tracking-wider text-amber">{username.slice(0, 2).toUpperCase()}</span>
+                              <AvatarFallback seed={entry.actorId ?? username} name={username} className="size-5" emojiClassName="text-[11px]" />
                             )}
                           </AvatarWithPresence>
                           <span className="text-zinc-300">
@@ -584,7 +585,7 @@ function EntryModal({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt={username} className="size-5 object-cover" />
               ) : (
-                <span className="grid size-5 place-items-center bg-amber/10 font-display text-[9px] tracking-wider text-amber">{username.slice(0, 2).toUpperCase()}</span>
+                <AvatarFallback seed={entry.actorId ?? username} name={username} className="size-5" emojiClassName="text-[11px]" />
               )}
             </AvatarWithPresence>
             <span className="text-zinc-200">

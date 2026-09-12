@@ -6,6 +6,7 @@ import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicon
 
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 type ChatMsg = {
   id: string;
@@ -465,7 +466,6 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
                 }
                 return groups.map((g) => {
                   const label = g.displayName ?? g.username;
-                  const initials = label.slice(0, 2).toUpperCase();
                   const roleColor = g.role === "admin" ? "text-red-400" : g.role === "judge" ? "text-violet-400" : "text-amber";
                   const isNewDay = g.isNewDay;
                   return (
@@ -485,9 +485,12 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={g.avatarUrl} alt={label} className="size-8 object-cover ring-1 ring-white/5 group-hover/msg:ring-amber/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" />
                           ) : (
-                            <span className="inline-flex size-8 items-center justify-center bg-[#1e1e18] font-display text-[11px] tracking-widest text-dim ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                              {initials}
-                            </span>
+                            <AvatarFallback
+                              seed={g.userId ?? g.username}
+                              name={label}
+                              className="size-8 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                              emojiClassName="text-base"
+                            />
                           )}
                         </Link>
                         <div className="min-w-0 flex-1">

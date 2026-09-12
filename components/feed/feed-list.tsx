@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { isBotUsername } from "@/lib/shared/utils/bots";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import {
   ArrowsRightLeftIcon,
   ArrowRightIcon,
@@ -349,7 +350,7 @@ function Avatar({ entry, fallback }: { entry: FeedRow; fallback: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={entry.avatarUrl} alt="" loading="lazy" decoding="async" className="size-8 object-cover" />
   ) : (
-    <span className="inline-flex size-8 items-center justify-center bg-raised font-display text-xs text-dim">{name.slice(0, 2).toUpperCase()}</span>
+    <AvatarFallback seed={entry.username} name={name} className="size-8" emojiClassName="text-base" />
   );
   const href = entry.username ? `/players/${entry.username}` : null;
   return (

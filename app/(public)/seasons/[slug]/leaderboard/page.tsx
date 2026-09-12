@@ -15,6 +15,7 @@ import { EffectBadges } from "@/components/iee/EffectBadges";
 import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -28,10 +29,12 @@ function PlayerAvatar({
   username,
   displayName,
   avatarUrl,
+  userId,
 }: {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  userId?: string | null;
 }) {
   if (avatarUrl) {
     return (
@@ -40,9 +43,12 @@ function PlayerAvatar({
     );
   }
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center border border-dim/40 bg-raised font-mono text-xs text-dim">
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={userId ?? username}
+      name={displayName ?? username}
+      className="size-8 shrink-0 border border-dim/40"
+      emojiClassName="text-base"
+    />
   );
 }
 
@@ -92,7 +98,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                         <div className="flex flex-wrap items-center gap-2">
                           <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
                             <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                              <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} />
+                              <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} />
                             </AvatarWithPresence>
                             <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
                           </Link>

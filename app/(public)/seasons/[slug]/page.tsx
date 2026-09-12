@@ -14,6 +14,7 @@ import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/modules/seas
 import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { getEventFeed } from "@/lib/modules/season/repository/players";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -143,7 +144,7 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.avatarUrl} alt={p.displayName ?? p.username} loading="lazy" decoding="async" className="size-7 object-cover" />
                     ) : (
-                      <span className="inline-flex size-7 items-center justify-center bg-raised font-mono text-xs text-dim">{(p.displayName ?? p.username).slice(0, 2).toUpperCase()}</span>
+                      <AvatarFallback seed={p.username} name={p.displayName ?? p.username} className="size-7" emojiClassName="text-sm" />
                     )}
                   </AvatarWithPresence>
                   <Link href={`/players/${p.username}`} className="flex-1 truncate font-mono text-sm hover:text-amber">

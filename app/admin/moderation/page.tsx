@@ -23,6 +23,7 @@ import { BotBadge } from "@/components/ui/BotBadge";
 import { isBotUsername } from "@/lib/shared/utils/bots";
 import { RejectWithNoteButton } from "@/components/admin/RejectWithNoteButton";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 
@@ -82,7 +83,7 @@ function RequestCard({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt={name} className="size-8 object-cover" />
               ) : (
-                <span className="grid h-8 w-8 place-items-center bg-raised font-display text-[11px] tracking-widest text-amber">{name.slice(0, 2).toUpperCase()}</span>
+                <AvatarFallback seed={userId} name={name} className="h-8 w-8" emojiClassName="text-base" />
               )}
             </AvatarWithPresence>
             <div className="min-w-0">

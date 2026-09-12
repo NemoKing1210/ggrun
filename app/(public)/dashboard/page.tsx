@@ -21,6 +21,7 @@ import { InventoryPanel } from "@/components/dashboard/InventoryPanel";
 import { ChallengesPanel, type ChallengeRow } from "@/components/dashboard/ChallengesPanel";
 import { GamesHistory } from "@/components/dashboard/GamesHistory";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -280,7 +281,7 @@ export default async function DashboardPage() {
       {/* Operator ID card */}
       <div className="hud-card flex items-center gap-4 p-4">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" aria-hidden />
-        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} size="lg" />
+        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} seed={user.id} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
             {"// OPERATOR"} <span className="text-amber">· {season.title}</span>
@@ -383,9 +384,12 @@ export default async function DashboardPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={user.avatarUrl} alt="" className="size-full object-cover" />
                         ) : (
-                          <span className="font-display text-[10px] font-bold leading-none tracking-wider text-amber">
-                            {(user.displayName ?? user.username).slice(0, 2).toUpperCase()}
-                          </span>
+                          <AvatarFallback
+                            seed={user.id}
+                            name={user.displayName ?? user.username}
+                            className="size-full"
+                            emojiClassName="text-sm"
+                          />
                         )}
                       </span>
                       <span className="ammo-counter mt-0.5 text-[9px] font-bold leading-none text-amber">{String(cell.position).padStart(2, "0")}</span>

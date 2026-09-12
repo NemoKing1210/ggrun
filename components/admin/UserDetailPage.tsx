@@ -31,6 +31,7 @@ import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/ui/status";
 import { Textarea } from "@/components/ui/Textarea";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
@@ -222,12 +223,7 @@ export function UserDetailPage({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatarUrl} alt={name} className="h-14 w-14 shrink-0 object-cover" />
                 ) : (
-                  <span
-                    className="grid h-14 w-14 shrink-0 place-items-center font-display text-lg tracking-widest"
-                    style={{ color: accent.primary, background: `${accent.primary}14` }}
-                  >
-                    {name.slice(0, 2).toUpperCase()}
-                  </span>
+                  <AvatarFallback seed={user.id} name={name} className="h-14 w-14 shrink-0" emojiClassName="text-3xl" />
                 )}
               </AvatarWithPresence>
               <div className="min-w-0">

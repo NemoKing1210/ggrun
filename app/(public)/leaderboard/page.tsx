@@ -22,6 +22,7 @@ import { EffectBadges } from "@/components/iee/EffectBadges";
 import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -32,15 +33,18 @@ function PlayerAvatar({
   username,
   displayName,
   avatarUrl,
+  userId,
   size = "sm",
 }: {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  userId?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
   const dim = size === "lg" ? "size-20" : size === "md" ? "size-12" : "size-8";
-  const font = size === "lg" ? "text-lg" : size === "md" ? "text-sm" : "text-xs";
+  const emoji = size === "lg" ? "text-4xl" : size === "md" ? "text-2xl" : "text-base";
+  const border = size === "lg" ? "border-amber/40" : "border-dim/30";
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -54,11 +58,12 @@ function PlayerAvatar({
     );
   }
   return (
-    <span
-      className={`inline-flex ${dim} shrink-0 items-center justify-center border bg-raised font-display text-dim ${size === "lg" ? "border-amber/40" : "border-dim/30"} ${font}`}
-    >
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={userId ?? username}
+      name={displayName ?? username}
+      className={`${dim} shrink-0 border ${border}`}
+      emojiClassName={emoji}
+    />
   );
 }
 
@@ -131,7 +136,7 @@ function ChampionCard({
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="-mt-12 sm:-mt-16 shrink-0">
               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="lg">
-                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
+                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="lg" />
               </AvatarWithPresence>
             </div>
             <div className="min-w-0 flex-1">
@@ -230,7 +235,7 @@ function ChampionCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex gap-3">
           <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
-            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="md" />
+            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="md" />
           </AvatarWithPresence>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">{row.displayName ?? row.username}</p>
@@ -390,7 +395,7 @@ export default async function LeaderboardPage() {
                           <td className="px-4 py-3">
                             <Link href={`/players/${row.username}`} className="flex items-center gap-3 group/link">
                               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="sm" />
+                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="sm" />
                               </AvatarWithPresence>
                               <div className="min-w-0">
                                 <p className="truncate font-semibold leading-none group-hover/link:text-amber">{row.displayName ?? row.username}</p>

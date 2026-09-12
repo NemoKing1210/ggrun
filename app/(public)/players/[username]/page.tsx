@@ -27,6 +27,7 @@ import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
 
 type Params = { params: Promise<{ username: string }> };
@@ -142,9 +143,12 @@ export default async function PlayerProfilePage({ params }: Params) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatarUrl} alt="" className="size-20 object-cover sm:size-24" />
                 ) : (
-                  <span className="inline-flex size-20 items-center justify-center bg-raised font-display text-2xl tracking-widest text-dim sm:size-24">
-                    {displayName.slice(0, 2).toUpperCase()}
-                  </span>
+                  <AvatarFallback
+                    seed={user.id}
+                    name={displayName}
+                    className="size-20 sm:size-24"
+                    emojiClassName="text-4xl sm:text-5xl"
+                  />
                 )}
               </AvatarWithPresence>
             </div>
