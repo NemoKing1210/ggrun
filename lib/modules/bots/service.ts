@@ -141,7 +141,7 @@ export interface BotTickSummary {
  * accumulate into the summary (unless stopOnError halts the run).
  */
 export async function tickBotRun(runId: string): Promise<BotTickSummary> {
-  await requireStaff();
+  const actor = await requireStaff();
   const run = await getBotRun(runId);
   if (!run) throw new BotError("botRunNotFound");
   if (run.status === "stopped") throw new BotError("botRunStopped");
@@ -212,6 +212,13 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           message: `Rolled a new game (roll ${rollId.slice(0, 8)})`,
           payload: { rollId },
         });
+        await logAdminAction({
+          actorId: actor.id,
+          actionType: "bot_roll",
+          targetType: "season_player",
+          targetId: bot.spId,
+          payload: { runId, botUsername: bot.username, rollId },
+        });
       } else {
         const outcome = pickBotOutcome(
           {
@@ -240,6 +247,21 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           botUsername: bot.username,
           message: `Resolved ${outcome}: ${result.fromPosition} → ${result.toPosition} (+${result.newBalancePoints} pts)`,
           payload: { rollId: open.id, outcome, ...result },
+        });
+        await logAdminAction({
+          actorId: actor.id,
+          actionType: "bot_resolve",
+          targetType: "season_player",
+          targetId: bot.spId,
+          payload: {
+            runId,
+            botUsername: bot.username,
+            rollId: open.id,
+            outcome,
+            fromPosition: result.fromPosition,
+            toPosition: result.toPosition,
+            newBalancePoints: result.newBalancePoints,
+          },
         });
       }
     } catch (e) {
@@ -349,11 +371,18 @@ export async function cleanupBotRun(runId: string, deleteRun: boolean): Promise<
 }
 
 export async function updateBotRunConfig(runId: string, config: BotRunConfig): Promise<BotRun> {
-  await requireStaff();
+  const actor = await requireStaff();
   const run = await getBotRun(runId);
   if (!run) throw new BotError("botRunNotFound");
   await updateBotRun(runId, { config });
   await insertBotLog({ runId, level: "info", action: "tick", message: "Run config updated", payload: { config } });
+  await logAdminAction({
+    actorId: actor.id,
+    actionType: "bot_run_config_updated",
+    targetType: "season",
+    targetId: run.seasonId,
+    payload: { runId, config },
+  });
   const updated = await getBotRun(runId);
   if (!updated) throw new BotError("botRunNotFound");
   return updated;
