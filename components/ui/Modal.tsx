@@ -8,6 +8,45 @@ import { cn } from "@/lib/shared/utils/cn";
 const EXIT_MS = 160; // must match hud-backdrop-out / hud-panel-out durations
 
 /**
+ * Body scroll lock, shared across every modal instance.
+ *
+ * It has to be shared because modals overlap: the wheel opens while the
+ * confirmation dialog that triggered it is still playing its 160ms exit
+ * animation, so for a moment two are mounted. With a per-instance
+ * save/restore the second one captured the *first one's* `hidden` as the
+ * value to put back, and restored it after the last modal closed — leaving
+ * the page permanently unscrollable, which reads to a player as the app
+ * freezing right after "you got an effect".
+ *
+ * A counter fixes the general case: the first lock records the real original
+ * style, the last unlock puts it back. Order of mounts and unmounts stops
+ * mattering.
+ */
+let scrollLocks = 0;
+let savedOverflow = "";
+let savedPaddingRight = "";
+
+function lockBodyScroll(): void {
+  if (scrollLocks === 0) {
+    savedOverflow = document.body.style.overflow;
+    savedPaddingRight = document.body.style.paddingRight;
+    // Compensate for the scrollbar the lock removes, or the page jumps.
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+  }
+  scrollLocks += 1;
+}
+
+function unlockBodyScroll(): void {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks === 0) {
+    document.body.style.overflow = savedOverflow;
+    document.body.style.paddingRight = savedPaddingRight;
+  }
+}
+
+/**
  * HUD modal with entrance (backdrop fade + panel scale/slide) and exit
  * animations. Rendered through a portal to document.body: "position: fixed"
  * is relative to the nearest ancestor with a transform/filter (e.g. the
@@ -71,20 +110,11 @@ export function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [rendered, closing, onClose]);
 
-  // Scroll lock
+  // Scroll lock — see lockBodyScroll above for why it is shared, not per-instance.
   useEffect(() => {
     if (!rendered) return;
-    const prevOverflow = document.body.style.overflow;
-    const prevPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPaddingRight;
-    };
+    lockBodyScroll();
+    return unlockBodyScroll;
   }, [rendered]);
 
   // Initial focus

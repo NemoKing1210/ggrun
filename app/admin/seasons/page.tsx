@@ -18,7 +18,7 @@ import { changeStatusAction, resetSeasonDirectAction } from "@/lib/modules/seaso
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SeasonCreateModal } from "@/components/admin/SeasonCreateModal";
-import { Badge } from "@/components/ui/Badge";
+import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
 
@@ -28,14 +28,6 @@ const statusFlow: Record<string, string[]> = {
   paused: ["active", "finished"],
   finished: ["archived"],
   archived: [],
-};
-
-const statusVariant: Record<string, "dim" | "military" | "amber" | "danger"> = {
-  draft: "dim",
-  active: "military",
-  paused: "amber",
-  finished: "danger",
-  archived: "dim",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -129,9 +121,7 @@ export default async function AdminPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={statusVariant[s.status] ?? "dim"} size="sm">
-                          {t.core.seasonStatuses[s.status]}
-                        </Badge>
+                        <StatusBadge kind="season" status={s.status} label={t.core.seasonStatuses[s.status]} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5">
@@ -225,9 +215,7 @@ export default async function AdminPage() {
                 <div key={s.id} className="border border-[#3d3d34] bg-background p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-display text-sm uppercase tracking-wide">{s.title}</span>
-                    <Badge variant={statusVariant[s.status] ?? "dim"} size="sm">
-                      {t.core.seasonStatuses[s.status]}
-                    </Badge>
+                    <StatusBadge kind="season" status={s.status} label={t.core.seasonStatuses[s.status]} />
                   </div>
                   <span className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-dim">
                     <TagIcon className="size-3" aria-hidden /> {s.slug}

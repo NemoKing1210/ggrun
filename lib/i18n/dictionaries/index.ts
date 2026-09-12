@@ -12,6 +12,7 @@ import { admin as adminEn } from "./en/admin";
 import { seasons as seasonsEn } from "./en/seasons";
 import { settings as settingsEn } from "./en/settings";
 import { chat as chatEn } from "./en/chat";
+import { iee as ieeEn } from "./en/iee";
 import * as coreRu from "./ru/core";
 import { landing as landingRu } from "./ru/landing";
 import { board as boardRu } from "./ru/board";
@@ -23,6 +24,7 @@ import { admin as adminRu } from "./ru/admin";
 import { seasons as seasonsRu } from "./ru/seasons";
 import { settings as settingsRu } from "./ru/settings";
 import { chat as chatRu } from "./ru/chat";
+import { iee as ieeRu } from "./ru/iee";
 import * as coreUk from "./uk/core";
 import { landing as landingUk } from "./uk/landing";
 import { board as boardUk } from "./uk/board";
@@ -34,6 +36,7 @@ import { admin as adminUk } from "./uk/admin";
 import { seasons as seasonsUk } from "./uk/seasons";
 import { settings as settingsUk } from "./uk/settings";
 import { chat as chatUk } from "./uk/chat";
+import { iee as ieeUk } from "./uk/iee";
 
 /** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
@@ -74,6 +77,7 @@ export type Dictionary = {
   seasons: Widen<typeof seasonsEn>;
   settings: Widen<typeof settingsEn>;
   chat: Widen<typeof chatEn>;
+  iee: Widen<typeof ieeEn>;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -89,6 +93,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     seasons: seasonsEn,
     settings: settingsEn,
     chat: chatEn,
+    iee: ieeEn,
   },
   ru: {
     core: coreRuDict,
@@ -102,6 +107,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     seasons: seasonsRu,
     settings: settingsRu,
     chat: chatRu,
+    iee: ieeRu,
   },
   uk: {
     core: coreUkDict,
@@ -115,6 +121,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     seasons: seasonsUk,
     settings: settingsUk,
     chat: chatUk,
+    iee: ieeUk,
   },
 };
 

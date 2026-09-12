@@ -40,6 +40,20 @@ Tailwind `@theme inline` maps these to `bg-amber`, `border-amber`, `text-militar
 
 Scale is tight: `xs` for hints, `sm` for labels, `xl`/`3xl` display for page titles.
 
+`text-[11px]` and `text-[10px]` are **HUD label sizes** — mono, uppercase,
+`tracking-widest`, for counters, kickers and stamped captions. They are not
+prose sizes. A sentence a reader has to actually read (what an item does, what
+a status does, what a setting means) takes **`base` on player surfaces and `sm`
+on admin ones**, via `components/iee/EntryDescription.tsx`.
+
+Two reasons it sits a step above what the tight scale suggests. The body face
+is **Barlow Condensed**: a condensed face at a given px carries a visibly
+smaller x-height than a normal one, so the nominal size flatters it. And these
+sentences *are* the content of their card — an entry's description is the only
+place a player ever learns what a status does. Descriptions were once set at
+11px below a `text-sm` name, which inverted the hierarchy outright: the label
+carrying no information outranked the sentence carrying all of it.
+
 ### Spacing & Borders
 
 - Card padding `p-4`, gap `gap-3 / gap-4`, section gap `gap-6`.
@@ -107,6 +121,74 @@ Square chips, clip `4px`, `px-2.5 py-1 text-xs font-medium border`, off `bg-[#1a
 ### Badge `components/ui/Badge.tsx` / `status.tsx`
 
 Square `clip 4px`, `border font-display uppercase`, sizes `sm: px-2 py-0.5 text-[11px]` / `md`. Variants `amber | military | danger | dim | sky | violet | emerald | neutral`. Replaces all pill badges. Use for tags, genres, metacritic, status.
+
+### Item & effect artwork
+
+Optional square `.webp` per catalog entry, **256×256** (512 px ceiling), ≤ 24 KB.
+It replaces the entry's Heroicon glyph on every surface that shows the entry:
+the wheel result, the inventory and status panels, the rules page, the admin
+catalog, and the season wizard's pools and drop table. An entry with no artwork
+keeps its glyph, so the catalog is never half-drawn while art is in progress.
+
+### Square is carried, hex is inflicted
+
+The catalog pairs items and effects almost one to one — `lead_weights` grants
+`heavy_boots`, `lodestone` grants `tailwind`, `spare_die` grants `lucky`,
+`jinx` grants `unlucky`. Any "heavy object" drawn for one reads identically as
+the other, so the distinction cannot be left to the artwork. It is structural,
+in `components/iee/IeeArtTile.tsx`:
+
+| | Frame | Tint |
+|---|---|---|
+| **Item** — a thing in your bag | 4px clipped square, the house cut used by every other control: an inventory slot | amber |
+| **Effect** — a state you are in | **hexagon** | polarity (danger / military) |
+
+The hexagon is the one shape in the interface that is deliberately *not* the
+house cut, because its whole job is to not look like a slot. It stays angular,
+so §1.3 still holds — this is the single documented exception, and it exists to
+carry meaning rather than decoration.
+
+**Consequence for the artwork: keep content inside the central ~75%.** An
+effect's image is hex-cropped, so anything in the corners is lost. This is the
+usual icon safe-area rule; it is not optional here.
+
+### Sizes: discovery vs tuning
+
+`IeeArtTile` — the picture leads, the text follows. Used where a reader is
+meeting the entry: `lg` (96px) on the wheel result, `md` (56px) in the
+inventory, the status panel and the catalog card, `sm` (40px) on the rules
+page.
+
+`IeeIcon` — the bare 16–20px glyph, for the *tuning* surfaces only: the season
+wizard's pool rows and drop table, where a dozen entries are scanned to adjust
+numbers and a picture per row would be noise.
+
+Full-bleed illustrations with their own background work at `md` and `lg`;
+below that they collapse into a coloured square. Transparent, flat art in the
+glyph idiom works at every size. Mixing the two styles across one catalog looks
+accidental, so pick one and finish the set.
+
+The recipe and the naming rule are in `AGENTS.md` §5; the rule is enforced by
+tests, not by convention.
+
+**Status colours are not a per-page choice.** They live in
+`lib/shared/ui/status-variants.ts` and are rendered only through `StatusBadge`,
+which takes `kind="season" | "player"` because both enums contain `finished`
+and it means opposite things — a finished season is over, a finished player
+completed the run. Season statuses carry a glyph, player statuses do not: a
+season badge appears once per page or once per admin row, while player badges
+appear thirty at a time down a leaderboard where a repeated glyph is noise.
+
+| Season | Variant | Why |
+|---|---|---|
+| `draft` | `dim` | idle, not started |
+| `active` | `military` | live |
+| `paused` | `amber` | needs attention |
+| `finished` | `neutral` + check glyph | over, nothing to act on — **never `danger`**, which is reserved for 1.2 |
+| `archived` | `dim` + archive glyph | idle |
+
+The glyph, not a sixth hue, is what separates the three idle statuses. Adding a
+status colour outside 1.2 dilutes the four that already carry meaning.
 
 ---
 

@@ -2,4 +2,8 @@ export * from "./service/errors";
 export * from "./service/helpers";
 export * from "./service/roll";
 export * from "./service/resolve";
+export * from "./service/turn";
+export * from "./service/use-item";
+export * from "./service/iee";
+export * from "./service/events";
 export * from "./moderation";

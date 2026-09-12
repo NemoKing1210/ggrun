@@ -133,6 +133,9 @@ export const dashboard = {
   rollButton: "Roll a game",
   rolling: "Rolling…",
   rollHint: "The server picks a random game from the catalog.",
+  runOver: "Your run is over",
+  runOverHint: "No more rolls this season — the board is behind you.",
+  finishedOn: "Reached the finish on {date}",
   history: "Move history",
   historyEmpty: "No moves yet — make your first roll.",
   noActiveSeason: "There is no active season right now.",
@@ -229,10 +232,32 @@ export const gameInfo = {
  * server actions resolve the code into text in the session language).
  */
 export const errors = {
+  // --- items / effects / events (IEE) ---
+  ieeEventNotFound: "Challenge not found",
+  ieeEventNotOpen: "This challenge is no longer open",
+  ieeProofRequired: "Attach proof (at least 5 characters)",
+  ieeItemNotFound: "Item not found",
+  ieeEffectNotFound: "Status not found",
+  ieeEffectNotActive: "That status has already ended",
+  ieeItemAlreadyUsed: "This item has already been used",
+  ieeItemNotUsable: "This item works on its own — there is nothing to activate",
+  ieeItemWrongWindow: "This item cannot be used right now",
+  ieeTargetingDisabled: "Using items on other players is disabled this season",
+  ieeTargetProtected: "That player is still under the newcomer protection window",
+  ieeTargetAlreadyAffected: "That player is already under this effect",
+  ieeEventKeyExists: "An event template with the key “{key}” already exists",
+  ieeInvalidKey: "Key must contain only lowercase letters, digits and underscores",
+  ieeUnknownItemKey: "Unknown item key — it is not in the catalog",
+  ieeUnknownEffectKey: "Unknown effect key — it is not in the catalog",
+  ieeTargetRequired: "Pick a target player",
+  ieeTargetSelfNotAllowed: "This item cannot be used on yourself",
+  ieeTargetNotActive: "That player is no longer active in this season",
+
   // --- game loop (GameLoopError) ---
   gameNotAllowed: "You are not allowed to perform this action",
   gameParticipantNotFound: "Participant not found",
   gameSeasonNotActive: "The season is not active",
+  gamePlayerNotActive: "This participant is no longer running this season",
   gameSeasonNotFound: "Season not found",
   gameAlreadyHaveRoll: "You already have a rolled game",
   gameRollNotFound: "Roll not found",
@@ -245,6 +270,9 @@ export const errors = {
   gameCompletionRequestNotFound: "Completion request not found",
   gameLoginRequired: "Login required",
   catalogEmpty: "No games available in the catalog. Add games or check your filters.",
+  catalogAllPlayed: "You have already been given every game in this season's pool",
+  catalogFiltersExcludeAll: "No unplayed game matches this season's pool filters",
+  catalogProviderEmpty: "The game provider returned nothing — check its API key and the pool filters",
   formReasonRequired: "Please provide a reason (at least 5 characters)",
   formRatingInvalid: "Rating must be an integer from 1 to 10",
 

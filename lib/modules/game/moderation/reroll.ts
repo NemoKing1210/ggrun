@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/infrastructure/db";
 import { eventLog, gameRolls, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
-import { countRerollsForGame, getRerollRequestById, rollRandomGame } from "@/lib/modules/catalog/repository";
+import { countRerollsForGame, getRerollRequestById, pickGameForRoll, POOL_EMPTY_ERROR } from "@/lib/modules/catalog/repository";
 import { canReroll } from "@/lib/engine";
 import { GameLoopError } from "../service/errors";
 import { parseSeasonConfig, requireStaffActor } from "../service/helpers";
@@ -22,6 +22,13 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
 
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");
+  // The three player-facing paths all refuse a season that is not running; the
+  // two approval paths did not, so a request filed while a season was active
+  // could be approved after it was finished or archived — writing moves and
+  // ledger entries onto a closed run.
+  if (season.status !== "active") throw new GameLoopError("gameSeasonNotActive");
+  if (sp.status !== "active") throw new GameLoopError("gamePlayerNotActive");
+
   const config = parseSeasonConfig(season.config);
   if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
     throw new GameLoopError("gameRerollLimit");
@@ -31,10 +38,14 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
     throw new GameLoopError("gameRerollLimitForGame");
   }
 
-  const game = await rollRandomGame(sp.id);
+  // Same as the instant path: no game means no reroll. Throwing leaves the
+  // request pending, which is the honest state — the judge can reject it and
+  // tell the player why, rather than approving them into an unresolvable roll.
+  const { game, reason } = await pickGameForRoll(sp.id);
+  if (!game) throw new GameLoopError(POOL_EMPTY_ERROR[reason]);
   await db.transaction(async (tx) => {
     await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
-    await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game?.id ?? null, status: "rolled" });
+    await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game.id, status: "rolled" });
     await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
     await tx
       .update(rerollRequests)
@@ -44,7 +55,7 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
       seasonId: sp.seasonId,
       seasonPlayerId: sp.id,
       eventType: "game_rerolled",
-      payload: { oldGameId: roll.gameId, newGameId: game?.id ?? null, title: game?.title ?? null, requestId: req.id },
+      payload: { oldGameId: roll.gameId, newGameId: game.id, title: game.title, requestId: req.id },
     });
   });
 }

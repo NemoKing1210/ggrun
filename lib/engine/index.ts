@@ -8,3 +8,5 @@ export * from "./dice";
 export * from "./board/movement";
 export * from "./board/cell-effects";
 export * from "./roll";
+export * from "./pool";
+export * from "./iee";

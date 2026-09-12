@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/lib/infrastructure/db";
@@ -65,9 +65,24 @@ export const getLeaderboard = cache(async (seasonId: string): Promise<Leaderboar
     .from(seasonPlayers)
     .innerJoin(users, eq(users.id, seasonPlayers.playerId))
     .where(eq(seasonPlayers.seasonId, seasonId))
-    // Finished players first, then by position descending, then by balance
+    /**
+     * Finishers, then runners, then everyone out of the running.
+     *
+     * The comment above this used to say "finished players first" while the
+     * clause said `asc(status)` — which sorts by the *enum's declaration
+     * order*, `active, finished, eliminated, withdrawn`. So active players
+     * outranked finishers, and the champion card on `/leaderboard` showed
+     * whoever was furthest along rather than whoever had actually won. It only
+     * ever looked right because, until now, nothing set anyone to `finished`.
+     *
+     * Among finishers the only ordering that means anything is arrival time:
+     * they all stand on the same cell, so position and balance cannot separate
+     * them. `nulls last` covers a participant a judge marked finished by hand,
+     * who has no arrival time to be ordered by.
+     */
     .orderBy(
-      asc(seasonPlayers.status),
+      sql`case ${seasonPlayers.status} when 'finished' then 0 when 'active' then 1 else 2 end`,
+      sql`${seasonPlayers.finishedAt} asc nulls last`,
       desc(seasonPlayers.position),
       desc(seasonPlayers.balancePoints),
     );

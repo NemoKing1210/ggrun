@@ -30,6 +30,14 @@ const configWith = (
       ...(overrides.gamePool?.catalog ?? {}),
     },
   },
+  iee: {
+    ...DEFAULT_SEASON_CONFIG.iee,
+    ...overrides.iee,
+    catchUp: {
+      ...DEFAULT_SEASON_CONFIG.iee.catchUp,
+      ...(overrides.iee?.catchUp ?? {}),
+    },
+  },
 });
 
 const baseInput = (overrides: Partial<MovementInput>): MovementInput => ({

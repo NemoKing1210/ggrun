@@ -31,7 +31,7 @@ export default async function RulesPage() {
       <PageHeader
         kicker={`${t.rules.kicker} • ${format(t.core.common.seasonKicker, { season: season.title })}`}
         title={t.rules.pageTitle}
-        right={<StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <p className="mb-3 max-w-2xl font-mono text-xs uppercase tracking-widest text-dim">{t.rules.heroSubtitle}</p>
       <div className="mb-4 flex flex-wrap gap-2">

@@ -1,4 +1,5 @@
 import type { SeasonConfig, RollOutcome } from "./season";
+import type { IeeModifiers } from "./iee";
 
 export interface MovementInput {
   currentPosition: number;
@@ -8,6 +9,11 @@ export interface MovementInput {
   streakDrop: number;
   config: SeasonConfig;
   rng: () => number;
+  /**
+   * Reduced result of the `beforeMovement` hook. Optional so every existing
+   * call site keeps compiling; omitted means "no effects are speaking".
+   */
+  modifiers?: IeeModifiers;
 }
 
 export interface MovementResult {

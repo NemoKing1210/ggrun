@@ -94,7 +94,10 @@ export default function UsersManager({
                 href={`/admin/users/${usr.id}`}
                 className="group flex w-full items-center gap-3 border border-[#3d3d34] bg-[#1a1a1a] p-3 text-left transition [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] hover:border-amber/40 hover:bg-amber/5"
               >
-                <AvatarWithPresence lastSeenAt={usr.lastSeenAt} size="sm" href={`/admin/users/${usr.id}`}>
+                {/* No `href`: the whole row is already a Link to the same page,
+                    and an <a> inside an <a> is invalid HTML — React reports it
+                    as a hydration error. */}
+                <AvatarWithPresence lastSeenAt={usr.lastSeenAt} size="sm">
                   {usr.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={usr.avatarUrl} alt={name} className="size-9 object-cover" />

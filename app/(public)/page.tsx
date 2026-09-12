@@ -145,7 +145,7 @@ function ChampionRow({
           #{rank} {t.leaderboard.champion}
         </div>
         <div className="absolute right-3 top-3">
-          <StatusBadge status={row.status} label={t.core.playerStatuses[row.status]} />
+          <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
         </div>
       </div>
 
@@ -333,7 +333,7 @@ export default async function HomePage() {
               <span className="font-mono text-xs uppercase tracking-widest text-dim">
                 /{season.slug}
               </span>
-              <StatusBadge status={season.status} label={t.core.seasonStatuses[season.status]} />
+              <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
             </div>
           </div>
 

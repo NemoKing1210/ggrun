@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/infrastructure/db";
-import { completionRequests, eventLog, gameRolls, gamesCatalog, ledgerEntries, moves, seasonPlayers } from "@/db/schema";
-import { getBoardCells, getMainBoard, getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { completionRequests, eventLog, gameRolls, seasonPlayers } from "@/db/schema";
+import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getCompletionRequestById } from "@/lib/modules/catalog/repository";
-import { applyCellEffect, normalizePosition, nextRollStatus, resolveMovement, type RollOutcome } from "@/lib/engine";
+import type { RollOutcome } from "@/lib/engine";
 import { GameLoopError } from "../service/errors";
 import { parseSeasonConfig, requireStaffActor } from "../service/helpers";
+import { applyResolvedTurn } from "../service/turn";
 
 export async function approveCompletionRequest(requestId: string): Promise<void> {
   const actor = await requireStaffActor();
@@ -20,56 +21,50 @@ export async function approveCompletionRequest(requestId: string): Promise<void>
   if (!sp) throw new GameLoopError("gameParticipantNotFound");
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");
+  // The three player-facing paths all refuse a season that is not running; the
+  // two approval paths did not, so a request filed while a season was active
+  // could be approved after it was finished or archived — writing moves and
+  // ledger entries onto a closed run.
+  if (season.status !== "active") throw new GameLoopError("gameSeasonNotActive");
+  if (sp.status !== "active") throw new GameLoopError("gamePlayerNotActive");
+
   const config = parseSeasonConfig(season.config);
-  const outcome = req.outcome as RollOutcome;
-  // Execute movement exactly as in immediate completion
-  const effectiveStatus = roll.status === "rolled" ? "in_progress" : roll.status;
-  const result = resolveMovement({
-    currentPosition: sp.position,
-    balancePoints: sp.balancePoints,
-    outcome: outcome as Exclude<RollOutcome, "rerolled">,
-    streakPass: sp.streakPass,
-    streakDrop: sp.streakDrop,
+  const outcome = req.outcome as Exclude<RollOutcome, "rerolled">;
+
+  // The turn itself is not written here.
+  //
+  // It used to be — a copy of the movement code that predated items and effects
+  // and never learned about them. Approving a completion therefore moved the
+  // player without a single hook firing, without the landing cell spinning its
+  // wheel, without an event cell handing out a challenge, and without advancing
+  // `season_players.roll_seq`, which is the clock every `rolls` duration is
+  // measured against: a status granted by an item simply never expired. A
+  // season with `moderation.completionRequireApproval` on was playing a
+  // different game from one without it, and nothing said so.
+  //
+  // The request row and its feed line are written *inside* the turn's
+  // transaction, because an approved request whose move did not land — or a
+  // move whose request stayed pending — would each be worse than failing.
+  await applyResolvedTurn({
+    sp,
+    roll,
+    outcome,
+    notes: req.reason,
+    rating: req.rating,
     config,
-    rng: Math.random,
-  });
-  let landedType: string | null = null;
-  let finalPosition = result.newPosition;
-  let finalBalance = result.newBalancePoints;
-  let ledgerDelta = 0;
-  let ledgerReason: string | undefined;
-  const board = await getMainBoard(sp.seasonId);
-  if (board) {
-    const cells = await getBoardCells(board.id);
-    const landed = cells.find((c) => c.position === finalPosition);
-    if (landed) {
-      landedType = landed.cellType;
-      const effect = applyCellEffect({ ...landed, config: (landed.config ?? {}) as Record<string, unknown> }, finalPosition, finalBalance);
-      finalPosition = normalizePosition(effect.position, config.board);
-      finalBalance = effect.balancePoints;
-      ledgerDelta += effect.ledgerDelta;
-      if (effect.reason) ledgerReason = effect.reason;
-    }
-  }
-  const newStatus = nextRollStatus(effectiveStatus, outcome);
-  let gameTitle: string | null = null;
-  if (roll.gameId) {
-    const g = await db.select({ title: gamesCatalog.title }).from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1);
-    gameTitle = g[0]?.title ?? null;
-  }
-  await db.transaction(async (tx) => {
-    await tx.update(gameRolls).set({ status: newStatus, resolvedAt: new Date(), notes: req.reason, rating: req.rating }).where(eq(gameRolls.id, roll.id));
-    const [move] = await tx.insert(moves).values({ seasonPlayerId: sp.id, gameRollId: roll.id, fromPosition: sp.position, toPosition: finalPosition, diceResults: result.diceResults, cellLandedType: landedType as never }).returning({ id: moves.id });
-    if (ledgerDelta !== 0 && ledgerReason) {
-      await tx.insert(ledgerEntries).values({ seasonPlayerId: sp.id, delta: ledgerDelta, reason: ledgerReason, relatedMoveId: move!.id });
-    }
-    await tx.update(seasonPlayers).set({ position: finalPosition, balancePoints: finalBalance, streakPass: result.newStreakPass, streakDrop: result.newStreakDrop }).where(eq(seasonPlayers.id, sp.id));
-    await tx.update(completionRequests).set({ status: "approved", resolvedAt: new Date(), resolvedBy: actor.id }).where(eq(completionRequests.id, req.id));
-    await tx.insert(eventLog).values([
-      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: outcome === "passed" ? "game_passed" : "game_dropped", payload: { gameId: roll.gameId, title: gameTitle, dice: result.diceResults, notes: req.reason, rating: req.rating, approvedBy: actor.id } },
-      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "moved", payload: { from: sp.position, to: finalPosition, dice: result.diceResults, cellType: landedType } },
-      { seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "completion_approved", payload: { requestId: req.id, outcome } },
-    ]);
+    feedExtra: { approvedBy: actor.id },
+    extraWrites: async (tx) => {
+      await tx
+        .update(completionRequests)
+        .set({ status: "approved", resolvedAt: new Date(), resolvedBy: actor.id })
+        .where(eq(completionRequests.id, req.id));
+    },
+    extraEvents: [
+      {
+        eventType: "completion_approved",
+        payload: { requestId: req.id, outcome },
+      },
+    ],
   });
 }
 

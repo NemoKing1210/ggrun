@@ -981,7 +981,7 @@ export default function GamesCatalogManager({ games, availableProviders }: Props
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={g.coverUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="grid h-full place-items-center text-[10px] text-dim">
+                            <div className="grid h-full place-items-center text-dim">
                               <PhotoIcon className="size-4" aria-hidden />
                             </div>
                           )}

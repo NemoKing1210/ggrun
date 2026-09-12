@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   pgTable,
   text,
@@ -13,20 +14,26 @@ import { users } from "./users";
 
 // Board movement & balance ledger
 
-export const moves = pgTable("moves", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  seasonPlayerId: uuid("season_player_id")
-    .notNull()
-    .references(() => seasonPlayers.id, { onDelete: "cascade" }),
-  gameRollId: uuid("game_roll_id").references(() => gameRolls.id),
-  fromPosition: integer("from_position").notNull(),
-  toPosition: integer("to_position").notNull(),
-  diceResults: integer("dice_results").array().notNull(),
-  cellLandedType: cellTypeEnum("cell_landed_type"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const moves = pgTable(
+  "moves",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonPlayerId: uuid("season_player_id")
+      .notNull()
+      .references(() => seasonPlayers.id, { onDelete: "cascade" }),
+    gameRollId: uuid("game_roll_id").references(() => gameRolls.id),
+    fromPosition: integer("from_position").notNull(),
+    toPosition: integer("to_position").notNull(),
+    diceResults: integer("dice_results").array().notNull(),
+    cellLandedType: cellTypeEnum("cell_landed_type"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // Filtered by participant on the dashboard, the profile and by the IEE
+  // move-count gates — the table grows with every resolved roll.
+  (t) => [index("moves_season_player_idx").on(t.seasonPlayerId)],
+);
 
 export const ledgerEntries = pgTable("ledger_entries", {
   id: uuid("id").primaryKey().defaultRandom(),

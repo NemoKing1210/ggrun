@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { count, sql } from "drizzle-orm";
 import {
   UsersIcon,
@@ -24,6 +25,7 @@ import {
   seasons,
   users,
 } from "@/db/schema";
+import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { StatusBadge } from "@/components/ui/status";
@@ -59,6 +61,13 @@ function StatCard({ label, value, icon: Icon, accent }: StatDef) {
 }
 
 export default async function AdminDashboardPage() {
+  // Layout and page render in parallel, so the layout guard alone does not stop
+  // these queries running for an anonymous visitor — their result was reaching
+  // the RSC payload of the redirect response (the active season's title).
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/login");
+  if (!isStaff(actor)) redirect("/");
+
   const { t } = await getT();
 
   const [usersCount, seasonsCount, gamesCount, rollsCount, movesCount, eventsCount] =
@@ -131,7 +140,7 @@ export default async function AdminDashboardPage() {
                 {activeSeason.title}
                 <ArrowRightIcon className="size-4 opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" aria-hidden />
               </Link>
-              <StatusBadge status={activeSeason.status} label={t.core.seasonStatuses[activeSeason.status]} />
+              <StatusBadge kind="season" status={activeSeason.status} label={t.core.seasonStatuses[activeSeason.status]} />
             </>
           ) : (
             <span className="font-mono text-sm text-dim">{t.admin.dashboard.noActiveSeason}</span>

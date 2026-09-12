@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
+import { countPendingEventSubmissions } from "@/lib/modules/iee/repository";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -21,11 +22,12 @@ export default async function AdminLayout({
   if (!user) redirect("/login");
   if (user.role !== "admin" && user.role !== "judge") redirect("/");
 
-  const [pendingRerolls, pendingCompletions] = await Promise.all([
+  const [pendingRerolls, pendingCompletions, pendingEvents] = await Promise.all([
     listPendingRerollRequests(),
     listPendingCompletionRequests(),
+    countPendingEventSubmissions(),
   ]);
-  const moderationPending = pendingRerolls.length + pendingCompletions.length;
+  const moderationPending = pendingRerolls.length + pendingCompletions.length + pendingEvents;
 
   const adminNav = [
     { href: "/admin", label: t.admin.nav.dashboard },
@@ -34,6 +36,7 @@ export default async function AdminLayout({
       ? [{ href: "/admin/users", label: t.admin.nav.users }]
       : []),
     { href: "/admin/games", label: t.admin.nav.catalog },
+    { href: "/admin/catalog", label: t.iee.admin.navLabel },
     { href: "/admin/audit", label: t.admin.nav.audit },
     { href: "/admin/moderation", label: t.admin.nav.moderation },
     ...(user.role === "admin"

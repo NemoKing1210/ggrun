@@ -1,0 +1,1 @@
+ALTER TABLE "season_players" ADD COLUMN "finished_at" timestamp with time zone;
