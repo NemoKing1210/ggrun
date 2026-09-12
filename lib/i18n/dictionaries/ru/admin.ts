@@ -907,5 +907,11 @@ seasonTabs: {
   rejectPlaceholder: "Причина отклонения…",
   approved: "Одобрено",
   rejected: "Отклонено",
+  bulkBarLabel: "массовые действия",
+  bulkRejectTitle: "Отклонить все ×{count}",
+  bulkApproveAll: "Одобрить все",
+  bulkRejectAll: "Отклонить все",
+  bulkConfirmApprove: "Одобрить все {count} заявок? Каждая будет обработана отдельно.",
+  bulkNotePlaceholder: "Общая причина — уйдёт каждому отклонённому игроку…",
  },
 };

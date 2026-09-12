@@ -884,8 +884,13 @@ seasonTabs: {
   rejectPlaceholder: "Reason for rejection…",
   approved: "Approved",
   rejected: "Rejected",
+  bulkBarLabel: "bulk actions",
+  bulkApproveAll: "Approve all",
+  bulkRejectTitle: "Reject all ×{count}",
+  bulkRejectAll: "Reject all",
+  bulkConfirmApprove: "Approve all {count} requests? Each is processed on its own.",
+  bulkNotePlaceholder: "Shared reason — sent to every rejected player…",
  },
-
  /** Completion requests (moderation tab). */
  completions: {
   heading: "Completion requests",

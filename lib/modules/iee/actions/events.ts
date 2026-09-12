@@ -73,3 +73,62 @@ export async function rejectEventAction(
 ): Promise<ActionState> {
   return judge(formData, "rejected");
 }
+
+ // --- Bulk verdicts ------------------------------------------------------------
+ //
+ // Same contract as the moderation bulk bar: every pending submission goes
+ // through the single-item use-case (reward + ledger stay transactional per
+ // item), failures keep their rows, only a total failure rethrows.
+
+ function parseIds(formData: FormData): string[] {
+  return String(formData.get("ids") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+ }
+
+ async function runBulkEvents(
+  outcome: "approved" | "rejected",
+  ids: string[],
+  adminNote: string | null,
+ ): Promise<void> {
+  const actor = await getCurrentUser();
+  if (ids.length === 0) return;
+  const failed: string[] = [];
+  for (const id of ids) {
+    try {
+      await resolveEventUseCase({ playerEventId: id, outcome, adminNote });
+    } catch (e) {
+      failed.push(id);
+      log.error("iee.event.bulk_judge", {
+        actorId: actor?.id ?? null,
+        playerEventId: id,
+        outcome,
+        err: e,
+      });
+    }
+  }
+  const ok = ids.length - failed.length;
+  log.info("iee.event.bulk_judge", {
+    actorId: actor?.id ?? null,
+    outcome,
+    ok,
+    failed: failed.length,
+  });
+  revalidatePath("/admin/moderation");
+  revalidatePath("/dashboard");
+  revalidatePath("/feed");
+  if (ok === 0) throw new Error(`Bulk ${outcome} failed for all ${ids.length} submissions`);
+ }
+
+ export async function approveAllEventsAction(formData: FormData): Promise<void> {
+  await runBulkEvents("approved", parseIds(formData), null);
+ }
+
+ export async function rejectAllEventsAction(formData: FormData): Promise<void> {
+  const ids = parseIds(formData);
+  const sharedNote = String(formData.get("sharedNote") ?? "").trim();
+  if (ids.length === 0) return;
+  if (sharedNote.length < 5) throw new Error("Shared reason required (min 5 characters)");
+  await runBulkEvents("rejected", ids, sharedNote);
+ }

@@ -907,5 +907,11 @@ seasonTabs: {
   rejectPlaceholder: "Причина відхилення…",
   approved: "Схвалено",
   rejected: "Відхилено",
+  bulkBarLabel: "масові дії",
+  bulkRejectTitle: "Відхилити всі ×{count}",
+  bulkApproveAll: "Схвалити всі",
+  bulkRejectAll: "Відхилити всі",
+  bulkConfirmApprove: "Схвалити всі {count} заявок? Кожна буде оброблена окремо.",
+  bulkNotePlaceholder: "Спільна причина — надійде кожному відхиленому гравцю…",
  },
 };
