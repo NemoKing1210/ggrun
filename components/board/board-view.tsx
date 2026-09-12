@@ -32,6 +32,8 @@ import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { EffectBadges } from "@/components/iee/EffectBadges";
 import type { EffectBadge } from "@/lib/engine";
 
@@ -395,6 +397,7 @@ export function BoardView({
                             {p.displayName ?? p.username}
                           </Link>
                           <span className="truncate font-mono text-[10px] tracking-wide text-dim">@{p.username}</span>
+                          {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                           <EffectBadges badges={p.effects} t={t} className="mt-1" />
                         </div>
                       </div>

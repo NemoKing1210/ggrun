@@ -19,6 +19,8 @@ import { EventModerationList, type EventSubmission } from "@/components/admin/Ev
 import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction } from "@/lib/modules/moderation/actions/moderation";
 import { FormShell } from "@/components/admin/FormShell";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { Textarea } from "@/components/ui/Textarea";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { getT } from "@/lib/i18n/server";
@@ -42,6 +44,7 @@ function RequestCard({
   requestedAt,
   dateFmt,
   badges,
+  botLabel,
   children,
 }: {
   accent: "amber" | "emerald";
@@ -55,6 +58,7 @@ function RequestCard({
   requestedAt: Date;
   dateFmt: Intl.DateTimeFormat;
   badges: React.ReactNode;
+  botLabel: string;
   children: React.ReactNode;
 }) {
   const nameEl = isAdmin ? (
@@ -85,6 +89,7 @@ function RequestCard({
               <p className="flex flex-wrap items-center gap-2">
                 {nameEl}
                 <span className="font-mono text-xs text-dim">@{username}</span>
+                {isBotUsername(username) ? <BotBadge label={botLabel} /> : null}
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
                 <span className="inline-flex items-center gap-1 text-dim">
@@ -250,6 +255,7 @@ export default async function AdminRerollsPage({
             {pending.map((req) => (
               <RequestCard
                 key={req.id}
+                botLabel={t.core.common.bot}
                 accent="amber"
                 avatarUrl={req.avatarUrl ?? null}
                 lastSeenAt={req.lastSeenAt ?? null}
@@ -325,6 +331,7 @@ export default async function AdminRerollsPage({
             return (
               <RequestCard
                 key={req.id}
+                botLabel={t.core.common.bot}
                 accent="emerald"
                 avatarUrl={req.avatarUrl ?? null}
                 lastSeenAt={req.lastSeenAt ?? null}

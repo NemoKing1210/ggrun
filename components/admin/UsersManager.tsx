@@ -11,6 +11,8 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { Input } from "@/components/ui/Input";
 import { AddUserModal } from "@/components/admin/AddUserModal";
 import { useI18n } from "@/lib/i18n/client";
@@ -111,6 +113,7 @@ export default function UsersManager({
                       {name}
                     </span>
                     {isSelf && <Badge variant="military" size="sm">{u.you}</Badge>}
+                    {isBotUsername(usr.username) ? <BotBadge label={t.core.common.bot} /> : null}
                   </span>
                   <span className="block truncate font-mono text-xs text-dim">@{usr.username}</span>
                   <span className="block truncate font-mono text-xs text-dim">{usr.email ?? "—"}</span>

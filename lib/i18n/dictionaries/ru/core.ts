@@ -18,6 +18,7 @@ export const common: Widen<typeof CoreEn.common> = {
   balance: "Баланс",
   status: "Статус",
   player: "Игрок",
+  bot: "Бот",
   title: "Название",
   type: "Тип",
   label: "Название",

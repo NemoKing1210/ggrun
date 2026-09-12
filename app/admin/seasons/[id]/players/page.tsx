@@ -31,6 +31,8 @@ import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { StatusBadge } from "@/components/ui/status";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 
@@ -231,6 +233,7 @@ export default async function SeasonPlayersPage({
                                 )}
                               </div>
                               <div className="font-mono text-[11px] text-dim">@{p.username}</div>
+                              {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                             </div>
                           </div>
                         </td>
@@ -340,6 +343,7 @@ export default async function SeasonPlayersPage({
                             {name}
                           </div>
                           <div className="mt-0.5 font-mono text-[11px] text-dim">@{p.username}</div>
+                          {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                         </div>
                       </div>
                       <StatusBadge kind="player" status={p.status} label={t.core.playerStatuses[p.status]} />

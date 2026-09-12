@@ -15,6 +15,7 @@ export const common = {
   balance: "Balance",
   status: "Status",
   player: "Player",
+  bot: "Bot",
   title: "Title",
   type: "Type",
   label: "Name",

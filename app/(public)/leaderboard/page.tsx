@@ -11,7 +11,9 @@ import {
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
 import { StatusBadge } from "@/components/ui/status";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/repository/players";
 import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
@@ -113,6 +115,7 @@ function ChampionCard({
               <TrophyIcon className="h-4 w-4" aria-hidden /> #{rank} {label}
             </span>
             <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+            {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
             <span className="border border-white/15 bg-black/40 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur">
@@ -137,6 +140,7 @@ function ChampionCard({
                   {row.displayName ?? row.username}
                 </h3>
                 <span className="font-mono text-sm text-dim">@{row.username}</span>
+                {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
               </div>
               {row.bio ? <p className="mt-2 line-clamp-2 max-w-prose text-sm leading-relaxed text-zinc-300">{row.bio}</p> : null}
               {links.length ? (
@@ -231,6 +235,7 @@ function ChampionCard({
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">{row.displayName ?? row.username}</p>
             <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
+            {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
             <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs">
               <span className="ammo-counter text-amber">
                 {row.position} {t.leaderboard.cellLabel}
@@ -390,6 +395,7 @@ export default async function LeaderboardPage() {
                               <div className="min-w-0">
                                 <p className="truncate font-semibold leading-none group-hover/link:text-amber">{row.displayName ?? row.username}</p>
                                 <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
+                                {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
                               </div>
                             </Link>
                             <EffectBadges badges={effects.get(row.id) ?? []} t={t} className="mt-1.5" />

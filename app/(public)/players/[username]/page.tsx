@@ -16,7 +16,9 @@ import {
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
 import { StatusBadge } from "@/components/ui/status";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { db } from "@/lib/infrastructure/db";
 import { gameRolls, seasonPlayers, seasons, users } from "@/db/schema";
 import { getOpenRoll } from "@/lib/modules/catalog/repository";
@@ -116,6 +118,7 @@ export default async function PlayerProfilePage({ params }: Params) {
           {/* top row badges */}
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <Badge variant={roleVariant(user.role)}>{t.admin.users.roles[user.role as keyof typeof t.admin.users.roles] ?? user.role}</Badge>
+            {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
             {user.isBlocked ? <Badge variant="danger">{t.profile.blocked}</Badge> : null}
             <span className="hidden border border-white/15 bg-black/35 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-white/80 backdrop-blur sm:inline-flex">
               {format(t.profile.hero.joined, { date: joinedFmt.format(user.createdAt) })}
@@ -150,6 +153,7 @@ export default async function PlayerProfilePage({ params }: Params) {
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h1 className="font-display text-2xl uppercase tracking-wide text-amber sm:text-3xl">{displayName}</h1>
                 <span className="font-mono text-sm text-dim">@{user.username}</span>
+                {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
                 {user.displayName && user.displayName !== user.username ? null : null}
               </div>
 

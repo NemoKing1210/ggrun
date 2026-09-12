@@ -17,8 +17,10 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const { t } = await getT();
   const season = await getSeasonById(id);
-  return { title: season ? `Bots · ${season.title}` : "Bots" };
+  const base = season ? season.title : t.admin.nav.seasons;
+  return { title: `${base} · ${t.admin.seasonTabs.bots}` };
 }
 
 /** JSON-safe plain object for client serialization (jsonb arrives as unknown). */
@@ -50,7 +52,11 @@ function toJsonObject(value: unknown): Record<string, unknown> {
   return (
     <div className="flex flex-col gap-6">
       <BackLink href="/admin/seasons" label={t.admin.nav.seasons} />
-      <SeasonTabs seasonId={seasonId} active="bots" />
+      <SeasonTabs
+        seasonId={seasonId}
+        active="bots"
+        botCount={rosters.reduce((n, r) => n + r.length, 0)}
+      />
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>

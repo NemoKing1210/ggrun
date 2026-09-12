@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/ui/BackLink";
+import { BotBadge } from "@/components/ui/BotBadge";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
@@ -94,6 +96,7 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                             </AvatarWithPresence>
                             <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
                           </Link>
+                          {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
                           <EffectBadges badges={effects.get(row.id) ?? []} t={t} />
                         </div>
                       </td>

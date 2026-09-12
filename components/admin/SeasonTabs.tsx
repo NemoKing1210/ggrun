@@ -19,15 +19,17 @@ const paths: Record<SeasonTabKey, (id: string) => string> = {
   bots: (id) => `/admin/seasons/${id}/bots`,
 };
 
-/** Season editor tab strip: Settings / Board / Players. */
+/** Season editor tab strip: Settings / Board / Players / Bots. */
 export async function SeasonTabs({
   seasonId,
   active,
   playerCount = 0,
+  botCount = 0,
 }: {
   seasonId: string;
   active: SeasonTabKey;
   playerCount?: number;
+  botCount?: number;
 }) {
   const { t } = await getT();
   const labels: Record<SeasonTabKey, string> = {
@@ -41,6 +43,7 @@ export async function SeasonTabs({
     <nav className="mb-6 flex flex-wrap items-stretch gap-1 border-b border-[#3d3d34]">
       {TABS.map(({ key, icon: Icon }) => {
         const isActive = active === key;
+        const count = key === "players" ? playerCount : key === "bots" ? botCount : 0;
         return (
           <Link
             key={key}
@@ -54,7 +57,7 @@ export async function SeasonTabs({
           >
             <Icon className="size-3.5 shrink-0" aria-hidden />
             {labels[key]}
-            {key === "players" && playerCount > 0 && (
+            {count > 0 && (
               <span
                 className={`ml-0.5 inline-flex min-w-[20px] items-center justify-center border px-1 py-px font-mono text-[10px] leading-none [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${
                   isActive
@@ -62,7 +65,7 @@ export async function SeasonTabs({
                     : "border-[#3d3d34] bg-[#1a1a1a] text-amber"
                 }`}
               >
-                {playerCount}
+                {count}
               </span>
             )}
           </Link>

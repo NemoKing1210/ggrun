@@ -24,6 +24,8 @@ import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { StatusBadge } from "@/components/ui/status";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import {
@@ -285,6 +287,7 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-0.5 truncate font-display text-xl uppercase tracking-wide leading-none">
             {user.displayName ?? user.username}
+            {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} className="ml-2 align-middle" /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] leading-none text-dim">
             <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">

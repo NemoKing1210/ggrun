@@ -23,6 +23,8 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -235,6 +237,7 @@ export function UserDetailPage({
                   </h1>
                   {isSelf && <Badge variant="military" size="sm">{u.you}</Badge>}
                   <Badge variant={roleVariant(user.role)} size="sm">{u.roles[user.role]}</Badge>
+                  {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
                   <span
                     className={`inline-flex items-center gap-1.5 border px-2 py-0.5 font-mono text-xs uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${user.isBlocked ? "border-danger/40 bg-danger/10 text-danger" : "border-military/30 bg-military/10 text-military"}`}
                   >
