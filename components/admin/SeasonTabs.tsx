@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Cog8ToothIcon, MapIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { Cog8ToothIcon, CpuChipIcon, MapIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import { getT } from "@/lib/i18n/server";
 
@@ -7,6 +7,7 @@ const TABS = [
   { key: "settings", icon: Cog8ToothIcon },
   { key: "board", icon: MapIcon },
   { key: "players", icon: UserGroupIcon },
+  { key: "bots", icon: CpuChipIcon },
 ] as const;
 
 export type SeasonTabKey = (typeof TABS)[number]["key"];
@@ -15,6 +16,7 @@ const paths: Record<SeasonTabKey, (id: string) => string> = {
   settings: (id) => `/admin/seasons/${id}`,
   board: (id) => `/admin/seasons/${id}/board`,
   players: (id) => `/admin/seasons/${id}/players`,
+  bots: (id) => `/admin/seasons/${id}/bots`,
 };
 
 /** Season editor tab strip: Settings / Board / Players. */
@@ -32,6 +34,7 @@ export async function SeasonTabs({
     settings: t.admin.seasonTabs.settings,
     board: t.admin.seasonTabs.board,
     players: t.admin.seasonTabs.players,
+    bots: t.admin.seasonTabs.bots,
   };
 
   return (

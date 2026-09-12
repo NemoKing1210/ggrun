@@ -12,6 +12,7 @@ export * from "./moderation";
 export * from "./moves";
 export * from "./events";
 export * from "./iee";
+export * from "./bots";
 export * from "./settings";
 export * from "./chat";
 export * from "./relations";

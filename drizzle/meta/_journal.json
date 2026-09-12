@@ -127,6 +127,13 @@
       "when": 1789031420837,
       "tag": "0017_season_player_finished_at",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789246884519,
+      "tag": "0018_bots",
+      "breakpoints": true
     }
   ]
 }
