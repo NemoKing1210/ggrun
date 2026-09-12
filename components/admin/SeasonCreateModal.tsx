@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { DebugError } from "@/components/ui/DebugError";
+import { useActionToast } from "@/components/ui/toast";
 import { SeasonSlugFields } from "@/components/admin/SeasonSlugFields";
 
 type SeasonOption = { id: string; title: string; slug: string };
@@ -22,6 +23,7 @@ export function SeasonCreateModal({ seasons }: { seasons: SeasonOption[] }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createSeasonAction, {});
+  useActionToast(state);
   const [justCreated, setJustCreated] = useState(false);
 
   useEffect(() => {

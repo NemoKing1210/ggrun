@@ -7,6 +7,7 @@ import { bulkSetCellGenresAction, randomizeBoardGenresAction } from "@/lib/modul
 import { Chip } from "@/components/ui/Chip";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { useActionToast } from "@/components/ui/toast";
 import { GENRES } from "@/lib/modules/catalog/pool/constants";
 
 export function BoardBulkGenreEditor({ boardId, seasonId, boardSize }: { boardId: string; seasonId: string; boardSize: number }) {
@@ -16,6 +17,8 @@ export function BoardBulkGenreEditor({ boardId, seasonId, boardSize }: { boardId
   const [applyAll, setApplyAll] = useState(false);
   const [state, formAction, pending] = useActionState(bulkSetCellGenresAction, {});
   const [rState, rAction, rPending] = useActionState(randomizeBoardGenresAction, {});
+  useActionToast(state);
+  useActionToast(rState);
 
   const toggle = (v: string) => setGenres((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
 

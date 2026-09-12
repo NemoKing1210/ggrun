@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import type { AdminFormState } from "@/lib/use-cases/admin/actions/types";
 import { DebugError } from "@/components/ui/DebugError";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { useActionToast } from "@/components/ui/toast";
 
 type Action = (
   prev: AdminFormState,
@@ -33,6 +34,7 @@ export function FormShell({
   confirmDanger?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  useActionToast(state);
   const label = pending ? "..." : (submitLabel ?? "OK");
   return (
     <form action={formAction} className={className ?? "flex flex-col gap-3"}>

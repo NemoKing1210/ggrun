@@ -1,4 +1,4 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
@@ -123,127 +123,281 @@ export async function rollRandomGame(seasonPlayerId: string): Promise<CatalogGam
   else if (filters.ordering === "name") orderExpr = sql`lower(${gamesCatalog.title}) ASC`;
   else if (filters.ordering === "-name") orderExpr = sql`lower(${gamesCatalog.title}) DESC`;
 
-  let candidates: CatalogGame[] = [];
-  if (pool.source === "catalog" || pool.source === "hybrid") {
-    candidates = await db
+  const pickRandom = <T>(arr: T[]): T | null => (arr.length ? arr[Math.floor(Math.random() * arr.length)]! : null);
+
+  // ---- catalog source: purely local, filtered ----
+  if (pool.source === "catalog") {
+    const candidates = await db
       .select()
       .from(gamesCatalog)
       .where(whereClause as never)
       .orderBy(orderExpr as never)
       .limit(pool.maxCandidates);
-    if (candidates.length > 0) {
-      const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
-      if (pool.source === "hybrid" && pool.autoFetchOnRoll && pool.provider !== "internal" && Math.random() < 0.5) {
-        // fall through to API fetch attempt
-      } else {
-        return pick;
-      }
-    }
-  }
-
-  if (pool.source === "api" || pool.source === "hybrid") {
-    if (pool.provider !== "internal") {
-      try {
-        const { getProvider } = await import("@/lib/modules/catalog/providers");
-        const provider = getProvider(pool.provider);
-        const external = await provider.search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
-        if (external.length > 0) {
-          for (const ext of external) {
-            const exists = await db
-              .select({ id: gamesCatalog.id })
-              .from(gamesCatalog)
-              .where(and(eq(gamesCatalog.externalRawId, ext.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
-              .limit(1);
-            if (exists.length === 0 && !playedIds.includes(ext.externalId)) {
-              const titleDup = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(eq(gamesCatalog.title, ext.title)).limit(1);
-              if (titleDup.length === 0) {
-                await db.insert(gamesCatalog).values({
-                  title: ext.title,
-                  genres: ext.genres,
-                  tags: ext.tags,
-                  platform: ext.platforms[0] ?? null,
-                  coverUrl: ext.coverUrl,
-                  metacritic: ext.metacritic,
-                  rating: ext.rating != null ? String(ext.rating) : null,
-                  releasedAt: ext.releasedAt ? new Date(ext.releasedAt) : null,
-                  esrb: ext.esrb,
-                  externalSource: pool.provider,
-                  externalRawId: ext.externalId,
-                  externalIds: { provider: pool.provider, raw: ext.externalId },
-                  description: ext.description ?? null,
-                  playtimeHours: ext.playtimeHours ?? null,
-                  stores: ext.stores ?? [],
-                  website: ext.website ?? null,
-                } as never);
-              }
-            }
-          }
-          const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr as never).limit(pool.maxCandidates);
-          if (refreshed.length > 0) {
-            return refreshed[Math.floor(Math.random() * refreshed.length)]!;
-          }
-          const unplayedExternal = external.filter(() => true);
-          if (unplayedExternal.length > 0) {
-            const chosen = unplayedExternal[Math.floor(Math.random() * unplayedExternal.length)]!;
-            const [inserted] = await db
-              .insert(gamesCatalog)
-              .values({
-                title: chosen.title,
-                genres: chosen.genres,
-                tags: chosen.tags,
-                platform: chosen.platforms[0] ?? null,
-                coverUrl: chosen.coverUrl,
-                metacritic: chosen.metacritic,
-                rating: chosen.rating != null ? String(chosen.rating) : null,
-                releasedAt: chosen.releasedAt ? new Date(chosen.releasedAt) : null,
-                esrb: chosen.esrb,
-                externalSource: pool.provider,
-                externalRawId: chosen.externalId,
-                externalIds: { provider: pool.provider, raw: chosen.externalId },
-                description: chosen.description ?? null,
-                playtimeHours: chosen.playtimeHours ?? null,
-                stores: chosen.stores ?? [],
-                website: chosen.website ?? null,
-              } as never)
-              .returning();
-            return inserted as CatalogGame;
-          }
-        }
-      } catch (e) {
-        console.warn("[rollRandomGame] provider fetch failed", e);
-        if (pool.catalog.fallbackToCatalog && candidates.length > 0) {
-          return candidates[Math.floor(Math.random() * candidates.length)]!;
-        }
-      }
-    }
-    if (pool.source === "api" && pool.catalog.fallbackToCatalog) {
-      const fallback = await db
-        .select()
-        .from(gamesCatalog)
-        .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
-        .orderBy(sql`random()`)
-        .limit(1);
-      return fallback[0] ?? null;
-    }
-  }
-
-  const allowCatalogFallback = pool.catalog.fallbackToCatalog || pool.source === "catalog" || pool.source === "hybrid";
-  if (pool.source === "api" && !pool.catalog.fallbackToCatalog) {
-    if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
+    if (candidates.length > 0) return pickRandom(candidates)!;
+    // No filtered candidates — respect filters and signal empty pool instead of returning
+    // an unrelated random game that violates the configured filters.
     return null;
   }
-  if (candidates.length > 0) return candidates[Math.floor(Math.random() * candidates.length)]!;
-  if (!allowCatalogFallback) return null;
-  const anyFallback = await db
+
+  // ---- api source: exclusively external, dynamically filtered ----
+  if (pool.source === "api") {
+    if (pool.provider === "internal") {
+      // Misconfigured: no external provider selected. Treat as empty rather than
+      // silently falling back to manual catalog which would violate "api only".
+      // If fallback is enabled, we can still try a filtered catalog lookup.
+      if (pool.catalog.fallbackToCatalog) {
+        const fallback = await db
+          .select()
+          .from(gamesCatalog)
+          .where(whereClause as never)
+          .orderBy(orderExpr as never)
+          .limit(pool.maxCandidates);
+        if (fallback.length > 0) return pickRandom(fallback)!;
+      }
+      return null;
+    }
+
+    try {
+      const { getProvider } = await import("@/lib/modules/catalog/providers");
+      const provider = getProvider(pool.provider);
+      const external = await provider.search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
+
+      if (external.length === 0) {
+        if (pool.catalog.fallbackToCatalog) {
+          const fallback = await db
+            .select()
+            .from(gamesCatalog)
+            .where(whereClause as never)
+            .orderBy(orderExpr as never)
+            .limit(pool.maxCandidates);
+          if (fallback.length > 0) return pickRandom(fallback)!;
+        }
+        return null;
+      }
+
+      // Exclude games already played by this player (match by title or externalRawId)
+      let playedTitles = new Set<string>();
+      let playedExternalIds = new Set<string>();
+      if (playedIds.length > 0) {
+        const playedRows = await db
+          .select({ title: gamesCatalog.title, externalRawId: gamesCatalog.externalRawId })
+          .from(gamesCatalog)
+          .where(inArray(gamesCatalog.id, playedIds));
+        playedTitles = new Set(playedRows.map((r) => r.title.trim().toLowerCase()));
+        playedExternalIds = new Set(playedRows.map((r) => r.externalRawId).filter((v): v is string => Boolean(v)));
+      }
+
+      const unplayed = external.filter(
+        (ext) => !playedTitles.has(ext.title.trim().toLowerCase()) && !playedExternalIds.has(ext.externalId),
+      );
+
+      const poolToPick = unplayed.length > 0 ? unplayed : [];
+      if (poolToPick.length === 0) {
+        if (pool.catalog.fallbackToCatalog) {
+          const fallback = await db
+            .select()
+            .from(gamesCatalog)
+            .where(whereClause as never)
+            .orderBy(orderExpr as never)
+            .limit(pool.maxCandidates);
+          if (fallback.length > 0) return pickRandom(fallback)!;
+        }
+        return null;
+      }
+
+      // Upsert external games into catalog for history, but the roll is picked
+      // directly from the filtered external set — not from a re-queried catalog
+      // that would mix in manual entries.
+      const chosen = pickRandom(poolToPick)!;
+
+      // Ensure other unplayed external games are cached as well (best-effort)
+      for (const ext of poolToPick) {
+        if (ext.externalId === chosen.externalId) continue;
+        const exists = await db
+          .select({ id: gamesCatalog.id })
+          .from(gamesCatalog)
+          .where(and(eq(gamesCatalog.externalRawId, ext.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
+          .limit(1);
+        if (exists.length === 0) {
+          await db.insert(gamesCatalog).values({
+            title: ext.title,
+            genres: ext.genres,
+            tags: ext.tags,
+            platform: ext.platforms[0] ?? null,
+            coverUrl: ext.coverUrl,
+            metacritic: ext.metacritic,
+            rating: ext.rating != null ? String(ext.rating) : null,
+            releasedAt: ext.releasedAt ? new Date(ext.releasedAt) : null,
+            esrb: ext.esrb,
+            externalSource: pool.provider,
+            externalRawId: ext.externalId,
+            externalIds: { provider: pool.provider, raw: ext.externalId },
+            description: ext.description ?? null,
+            playtimeHours: ext.playtimeHours ?? null,
+            stores: ext.stores ?? [],
+            website: ext.website ?? null,
+          } as never);
+        }
+      }
+
+      // Try to reuse existing catalog row for chosen (idempotent)
+      const existingChosen = await db
+        .select()
+        .from(gamesCatalog)
+        .where(and(eq(gamesCatalog.externalRawId, chosen.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
+        .limit(1);
+      if (existingChosen.length > 0 && !existingChosen[0]!.isBlacklisted) {
+        // Double-check it hasn't been played in the meantime
+        if (!playedIds.includes(existingChosen[0]!.id)) return existingChosen[0] as CatalogGame;
+      }
+      if (existingChosen.length > 0 && existingChosen[0]!.isBlacklisted) {
+        // Blacklisted -> try another candidate
+        const remaining = poolToPick.filter((e) => e.externalId !== chosen.externalId);
+        if (remaining.length > 0) {
+          const alt = pickRandom(remaining)!;
+          const altExisting = await db
+            .select()
+            .from(gamesCatalog)
+            .where(and(eq(gamesCatalog.externalRawId, alt.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
+            .limit(1);
+          if (altExisting.length > 0 && !altExisting[0]!.isBlacklisted && !playedIds.includes(altExisting[0]!.id)) return altExisting[0] as CatalogGame;
+          const [altInserted] = await db
+            .insert(gamesCatalog)
+            .values({
+              title: alt.title,
+              genres: alt.genres,
+              tags: alt.tags,
+              platform: alt.platforms[0] ?? null,
+              coverUrl: alt.coverUrl,
+              metacritic: alt.metacritic,
+              rating: alt.rating != null ? String(alt.rating) : null,
+              releasedAt: alt.releasedAt ? new Date(alt.releasedAt) : null,
+              esrb: alt.esrb,
+              externalSource: pool.provider,
+              externalRawId: alt.externalId,
+              externalIds: { provider: pool.provider, raw: alt.externalId },
+              description: alt.description ?? null,
+              playtimeHours: alt.playtimeHours ?? null,
+              stores: alt.stores ?? [],
+              website: alt.website ?? null,
+            } as never)
+            .returning();
+          return altInserted as CatalogGame;
+        }
+        return null;
+      }
+
+      // Insert chosen if not already present
+      if (existingChosen.length === 0) {
+        const [inserted] = await db
+          .insert(gamesCatalog)
+          .values({
+            title: chosen.title,
+            genres: chosen.genres,
+            tags: chosen.tags,
+            platform: chosen.platforms[0] ?? null,
+            coverUrl: chosen.coverUrl,
+            metacritic: chosen.metacritic,
+            rating: chosen.rating != null ? String(chosen.rating) : null,
+            releasedAt: chosen.releasedAt ? new Date(chosen.releasedAt) : null,
+            esrb: chosen.esrb,
+            externalSource: pool.provider,
+            externalRawId: chosen.externalId,
+            externalIds: { provider: pool.provider, raw: chosen.externalId },
+            description: chosen.description ?? null,
+            playtimeHours: chosen.playtimeHours ?? null,
+            stores: chosen.stores ?? [],
+            website: chosen.website ?? null,
+          } as never)
+          .returning();
+        return inserted as CatalogGame;
+      }
+      return existingChosen[0] as CatalogGame;
+    } catch (e) {
+      console.warn("[rollRandomGame] provider fetch failed", e);
+      if (pool.catalog.fallbackToCatalog) {
+        const fallback = await db
+          .select()
+          .from(gamesCatalog)
+          .where(whereClause as never)
+          .orderBy(orderExpr as never)
+          .limit(pool.maxCandidates);
+        if (fallback.length > 0) return pickRandom(fallback)!;
+      }
+      return null;
+    }
+  }
+
+  // ---- hybrid source: catalog + api ----
+  // Try local filtered pool first, but allow api fetch to augment it
+  let candidates: CatalogGame[] = [];
+  candidates = await db
     .select()
     .from(gamesCatalog)
-    .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
-    .orderBy(sql`random()`)
-    .limit(1);
-  if (anyFallback[0]) return anyFallback[0];
-  if (playedIds.length > 0) {
-    const replayFallback = await db.select().from(gamesCatalog).where(eq(gamesCatalog.isBlacklisted, false) as never).orderBy(sql`random()`).limit(1);
-    return replayFallback[0] ?? null;
+    .where(whereClause as never)
+    .orderBy(orderExpr as never)
+    .limit(pool.maxCandidates);
+
+  if (candidates.length > 0) {
+    const pick = pickRandom(candidates)!;
+    if (pool.autoFetchOnRoll && pool.provider !== "internal" && Math.random() < 0.5) {
+      // fall through to API fetch to mix fresh results
+    } else {
+      return pick;
+    }
   }
+
+  if (pool.provider !== "internal") {
+    try {
+      const { getProvider } = await import("@/lib/modules/catalog/providers");
+      const provider = getProvider(pool.provider);
+      const external = await provider.search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
+      if (external.length > 0) {
+        // Cache external results
+        for (const ext of external) {
+          const exists = await db
+            .select({ id: gamesCatalog.id })
+            .from(gamesCatalog)
+            .where(and(eq(gamesCatalog.externalRawId, ext.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
+            .limit(1);
+          if (exists.length === 0) {
+            // Avoid duplicate titles blocking hybrid inserts — hybrid intentionally merges,
+            // but we still prevent exact title+genre clashes from spamming duplicates.
+            const titleDup = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(eq(gamesCatalog.title, ext.title)).limit(1);
+            if (titleDup.length === 0) {
+              await db.insert(gamesCatalog).values({
+                title: ext.title,
+                genres: ext.genres,
+                tags: ext.tags,
+                platform: ext.platforms[0] ?? null,
+                coverUrl: ext.coverUrl,
+                metacritic: ext.metacritic,
+                rating: ext.rating != null ? String(ext.rating) : null,
+                releasedAt: ext.releasedAt ? new Date(ext.releasedAt) : null,
+                esrb: ext.esrb,
+                externalSource: pool.provider,
+                externalRawId: ext.externalId,
+                externalIds: { provider: pool.provider, raw: ext.externalId },
+                description: ext.description ?? null,
+                playtimeHours: ext.playtimeHours ?? null,
+                stores: ext.stores ?? [],
+                website: ext.website ?? null,
+              } as never);
+            }
+          }
+        }
+        const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr as never).limit(pool.maxCandidates);
+        if (refreshed.length > 0) {
+          return pickRandom(refreshed)!;
+        }
+      }
+    } catch (e) {
+      console.warn("[rollRandomGame] provider fetch failed", e);
+      if (candidates.length > 0) return pickRandom(candidates)!;
+    }
+  }
+
+  if (candidates.length > 0) return pickRandom(candidates)!;
+  // No unfiltered fallback — respect filters. If nothing matched, surface empty pool.
   return null;
 }

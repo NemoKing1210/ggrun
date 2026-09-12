@@ -34,12 +34,21 @@ import { Chip } from "@/components/ui/Chip";
 import { Field } from "@/components/ui/Field";
 import { Range } from "@/components/ui/Range";
 import { useI18n } from "@/lib/i18n/client";
-
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
+import { useActionToast } from "@/components/ui/toast";
 import type { SeasonConfig } from "@/lib/engine/types";
 import { GAME_POOL_TEMPLATES } from "@/lib/modules/catalog/pool/templates";
+import {
+  BOARD_DISTRIBUTIONS,
+  ESRB,
+  GAME_PROVIDERS,
+  GENRES,
+  ORDERINGS,
+  PLATFORMS,
+  TAGS,
+} from "@/lib/modules/catalog/pool/constants";
 
 const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   EyeIcon,
@@ -55,15 +64,6 @@ const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>
   HeartIcon,
   TrophyIcon,
 };
-import {
-  BOARD_DISTRIBUTIONS,
-  ESRB,
-  GAME_PROVIDERS,
-  GENRES,
-  ORDERINGS,
-  PLATFORMS,
-  TAGS,
-} from "@/lib/modules/catalog/pool/constants";
 type Props = {
   seasonId: string;
   initialConfig: SeasonConfig;
@@ -82,10 +82,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const [rulesMode, setRulesMode] = useState<SeasonConfig["rules"]["mode"]>(initialConfig.rules.mode);
   const templates = GAME_POOL_TEMPLATES;
   const [state, formAction, pending] = useActionState(updateSeasonSettingsAction, {});
+  useActionToast(state);
   const boardTotalSpecials = cfg.board.bonusCount + cfg.board.penaltyCount + cfg.board.teleportCount + cfg.board.eventCount;
   const boardNormal = Math.max(0, cfg.board.size - boardTotalSpecials - (cfg.board.loop ? 1 : 2));
   const boardValid = boardTotalSpecials <= cfg.board.size - (cfg.board.loop ? 1 : 2);
-
   const setBoard = (patch: Partial<SeasonConfig["board"]>) =>
     setCfg((c) => ({ ...c, board: { ...c.board, ...patch } }));
   const setDice = (patch: Partial<SeasonConfig["dice"]>) =>

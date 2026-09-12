@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/Input";
 import { Field } from "@/components/ui/Field";
 import { DebugError } from "@/components/ui/DebugError";
 import { format } from "@/lib/i18n/format";
+import { useActionToast } from "@/components/ui/toast";
 
 type Settings = {
   registrationEnabled: boolean;
@@ -94,12 +95,14 @@ export function GlobalSettingsForm({
   const [maintenanceMode, setMaintenanceMode] = useState(initial.maintenanceMode);
   const [activeTab, setActiveTab] = useState<"general" | "registration" | "invites" | "pending" | "integrations" | "proxy">("general");
   const [copied, setCopied] = useState<string | null>(null);
-
   const [state, formAction, pendingAction] = useActionState(updateSiteSettingsAction, {});
   const [inviteState, inviteAction, invitePending] = useActionState(createInviteAction, {});
+  useActionToast(state);
+  useActionToast(inviteState);
 
   // Provider keys form
   const [providerState, providerFormAction, providerPending] = useActionState(updateProviderKeysAction, {});
+  useActionToast(providerState);
   const [rawgInput, setRawgInput] = useState("");
   const [igdbIdInput, setIgdbIdInput] = useState("");
   const [igdbSecretInput, setIgdbSecretInput] = useState("");

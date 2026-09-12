@@ -10,6 +10,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { DebugError } from "@/components/ui/DebugError";
+import { useActionToast } from "@/components/ui/toast";
 
 const roles = ["admin", "judge", "player", "viewer"] as const;
 
@@ -20,6 +21,7 @@ export function AddUserModal() {
   const u = t.admin.users;
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createUserAction, {});
+  useActionToast(state);
   const [justCreated, setJustCreated] = useState(false);
 
   useEffect(() => {

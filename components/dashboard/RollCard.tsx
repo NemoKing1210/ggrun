@@ -22,9 +22,9 @@ import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
 import { resolveAction, rollAction, type PlayerActionState } from "@/lib/modules/player/actions/game";
+import { useActionToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
-
 /** Compact serializable game fields shown on the roll card. */
 export interface GameSummary {
   title: string;
@@ -115,6 +115,8 @@ export default function RollCard({
   const d = t.core.dashboard;
   const [rollState, rollFormAction, rollPending] = useActionState(rollAction, initialState);
   const [resolveState, resolveFormAction, resolvePending] = useActionState(resolveAction, initialState);
+  useActionToast(rollState);
+  useActionToast(resolveState);
   const [modal, setModal] = useState<"drop" | "pass" | "reroll" | "details" | null>(null);
   const [now, setNow] = useState<number | null>(null);
 

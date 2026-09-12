@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { TopLoader } from "@/components/ui/top-loader";
 import { GlobalChat } from "@/components/chat/GlobalChat";
+import { ToastProvider } from "@/components/ui/toast";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getAccent } from "@/lib/shared/ui/accent";
 import { isDbAvailable } from "@/lib/infrastructure/db/health";
@@ -86,16 +87,18 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <I18nProvider locale={locale} t={t}>
-          <TopLoader />
-          {showMaintenanceBanner && (
-            <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
-              <span className="size-2 bg-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] animate-pulse" aria-hidden />
-              {t.core.maintenance.text} — {t.core.maintenance.title}
-              <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
-            </div>
-          )}
-          {children}
-          <GlobalChat isAuthenticated={!!user} />
+          <ToastProvider>
+            <TopLoader />
+            {showMaintenanceBanner && (
+              <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
+                <span className="size-2 bg-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] animate-pulse" aria-hidden />
+                {t.core.maintenance.text} — {t.core.maintenance.title}
+                <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
+              </div>
+            )}
+            {children}
+            <GlobalChat isAuthenticated={!!user} />
+          </ToastProvider>
         </I18nProvider>
       </body>
     </html>

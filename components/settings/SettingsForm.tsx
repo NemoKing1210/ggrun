@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
 import { updateUserSettingsAction } from "@/lib/modules/player/actions";
+import { useActionToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/client";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/shared/ui/accent";
@@ -66,7 +67,7 @@ export function SettingsForm({
 }: Props) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(updateUserSettingsAction, {});
-
+  useActionToast(state);
   const [name, setName] = useState(displayName ?? "");
   const [bioText, setBioText] = useState(bio ?? "");
   const [avatar, setAvatar] = useState(avatarUrl ?? "");

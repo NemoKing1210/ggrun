@@ -252,12 +252,12 @@ export const errors: Widen<typeof CoreEn.errors> = {
   adminSeasonNotFound: "Сезон не найден",
   adminInvalidTransition: "Недопустимый переход {from} → {to}",
   adminActiveSeasonExists: "Забег «{title}» уже активен. Одновременно может идти только один забег — сначала завершите или архивируйте его.",
+  adminGamePoolProviderRequired: "Для источника API/Hybrid нужно выбрать внешнего провайдера (например FreeToGame, RAWG).",
   proxyUrlInvalid: "URL прокси должен начинаться с http:// или https://",
   adminPlayerNotFound: "Участник не найден",
   adminSelfBlock: "Нельзя заблокировать самого себя",
   adminSelfDemote: "Нельзя разжаловать самого себя",
   adminSelfDelete: "Нельзя удалить самого себя",
-
   authInvalidEmail: "Некорректный email",
   authPasswordTooShort: "Пароль должен быть не короче 8 символов",
   authUserExists: "Пользователь уже существует",

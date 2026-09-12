@@ -215,6 +215,9 @@ export async function resetSeason(seasonId: string): Promise<void> {
 export async function updateSeasonSettings(input: { seasonId: string; config: unknown; rulesMd?: string | null }): Promise<void> {
   const actor = await requireStaff();
   const config = SeasonConfigSchema.parse(input.config);
+  if (config.gamePool.source !== "catalog" && config.gamePool.provider === "internal") {
+    throw new AdminError("adminGamePoolProviderRequired");
+  }
   await db.transaction(async (tx) => {
     await tx.update(seasons).set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) }).where(eq(seasons.id, input.seasonId));
     if (config.board.regenerateOnSave) {

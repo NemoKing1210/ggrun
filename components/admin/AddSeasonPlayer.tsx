@@ -10,9 +10,9 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { DebugError } from "@/components/ui/DebugError";
+import { useActionToast } from "@/components/ui/toast";
 
 type Candidate = { id: string; username: string; displayName: string | null };
-
 /** Add-a-participant panel: live user filter + picker + submit with inline feedback. */
 export function AddSeasonPlayer({
   seasonId,
@@ -24,6 +24,7 @@ export function AddSeasonPlayer({
   t: Dictionary;
 }) {
   const [state, formAction, pending] = useActionState(addPlayerToSeasonAction, {} as never);
+  useActionToast(state);
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {

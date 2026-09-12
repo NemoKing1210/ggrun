@@ -88,7 +88,8 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
           const raw = String(formData.get("gamePool_provider") || "internal").toLowerCase();
           const src = String(formData.get("gamePool_source") || "catalog").toLowerCase();
           if (src === "catalog") return "internal";
-          return raw === "rawg" || raw === "igdb" || raw === "steam" || raw === "internal" ? raw : "internal";
+          const allowed: Record<string, true> = { rawg: true, igdb: true, steam: true, freetogame: true, gamespot: true, internal: true };
+          return allowed[raw] ? raw : "internal";
         })(),
         templateId: (() => {
           const v = formData.get("gamePool_templateId");

@@ -7,6 +7,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
+import { useActionToast } from "@/components/ui/toast";
 import { GENRES } from "@/lib/modules/catalog/pool/constants";
 
 const cellTypes = ["normal", "start", "finish", "penalty", "bonus", "event", "teleport", "custom"] as const;
@@ -23,6 +24,7 @@ export function BoardSingleCellForm({
   const { t } = useI18n();
   const [genres, setGenres] = useState<string[]>([]);
   const [state, formAction, pending] = useActionState(setBoardCellAction, {});
+  useActionToast(state);
   const toggle = (v: string) => setGenres((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
 
   const wrappedAction = (formData: FormData) => {

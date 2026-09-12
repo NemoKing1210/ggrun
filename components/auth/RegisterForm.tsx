@@ -19,6 +19,7 @@ import {
 
 import { registerAction } from "@/lib/modules/auth/actions/register";
 import type { FormState } from "@/lib/modules/auth/actions/types";
+import { useActionToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/client";
 import { Input } from "@/components/ui/Input";
 import { DebugError } from "@/components/ui/DebugError";
@@ -38,6 +39,7 @@ export function RegisterForm({
 }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(registerAction, initial);
+  useActionToast(state);
   const [showPassword, setShowPassword] = useState(false);
   const isClosed = registrationEnabled === false && !invite;
 

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useActionToast } from "@/components/ui/toast";
 import {
   BookOpenIcon,
   MagnifyingGlassIcon,
@@ -60,7 +61,7 @@ function CountSuffix({ count, tone = "default" }: { count: number; tone?: "amber
 function AddGameModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(addCatalogGameAction, {} as never);
-
+  useActionToast(state);
   useEffect(() => {
     if (state?.ok) {
       const timer = setTimeout(() => onClose(), 900);
@@ -160,8 +161,8 @@ function SearchImportModal({
 }) {
   const { t } = useI18n();
   const [searchState, searchAction, searchPending] = useActionState(searchExternalGamesAction, {} as never);
+  useActionToast(searchState);
   const hasProviders = (availableProviders?.length ?? 0) > 0;
-
   return (
     <Modal open={open} onClose={onClose} panelClassName="max-w-3xl">
       <div className="flex items-start justify-between gap-4">
@@ -320,6 +321,8 @@ function ImportByUrlModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [url, setUrl] = useState("");
   const [resolveState, resolveAction, resolvePending] = useActionState(resolveGameUrlAction, {} as never);
   const [importState, importAction, importPending] = useActionState(importGameFromUrlAction, {} as never);
+  useActionToast(resolveState);
+  useActionToast(importState);
   const game = resolveState?.game ?? null;
   const [editTitle, setEditTitle] = useState("");
   const [editCover, setEditCover] = useState("");

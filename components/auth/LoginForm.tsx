@@ -16,6 +16,7 @@ import {
 import { loginAction } from "@/lib/modules/auth/actions/login";
 import type { FormState } from "@/lib/modules/auth/actions/types";
 import { devQuickLoginAction } from "@/lib/infrastructure/auth/dev-login";
+import { useActionToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/client";
 import { Input } from "@/components/ui/Input";
 import { DebugError } from "@/components/ui/DebugError";
@@ -27,6 +28,7 @@ const initial: FormState = {};
 export function LoginForm() {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(loginAction, initial);
+  useActionToast(state);
   const [showPassword, setShowPassword] = useState(false);
 
   return (
