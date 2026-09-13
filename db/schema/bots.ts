@@ -5,8 +5,10 @@ import { seasons } from "./seasons";
 /**
  * Test bots: synthetic players that exercise the real game loop
  * (rollNewGame / resolveGameRoll) so staff can see what works and what
- * breaks under load. Runs are driven by the admin bots console — a tick is
- * one server action call performing a few real player steps.
+ * breaks under load. Runs are driven by the admin bots console (manual step
+ * or page-driven loop) or autonomously — POST /api/bots/tick (CRON_SECRET)
+ * and `pnpm bots:tick` tick every `running` run whose cadence came due. A
+ * tick is one batch of a few real player steps.
  */
 
 export type BotRunStatus = "running" | "paused" | "stopped";

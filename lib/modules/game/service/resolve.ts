@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { eventLog, gameRolls, seasonPlayers } from "@/db/schema";
+import { eventLog, gameRolls, seasonPlayers, type User } from "@/db/schema";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import {
@@ -19,16 +19,19 @@ import { GameLoopError } from "./errors";
 import { assertActorAllowed, parseSeasonConfig } from "./helpers";
 import { applyResolvedTurn } from "./turn";
 
-export async function resolveGameRoll(params: {
-  rollId: string;
-  outcome: RollOutcome;
-  /** Required for dropped (reason) and rerolled (request reason). */
-  reason?: string;
-  /** Optional for passed — player comment. */
-  comment?: string;
-  /** Optional for passed — 1-10 rating. */
-  rating?: number;
-}): Promise<{
+export async function resolveGameRoll(
+  params: {
+    rollId: string;
+    outcome: RollOutcome;
+    /** Required for dropped (reason) and rerolled (request reason). */
+    reason?: string;
+    /** Optional for passed — player comment. */
+    comment?: string;
+    /** Optional for passed — 1-10 rating. */
+    rating?: number;
+  },
+  opts?: { actor?: User },
+): Promise<{
   diceResults?: number[];
   fromPosition: number;
   toPosition: number;
@@ -39,7 +42,7 @@ export async function resolveGameRoll(params: {
    */
   wheel?: import("@/lib/engine").WheelOutcome;
 }> {
-  const actor = await getCurrentUser();
+  const actor = opts?.actor ?? (await getCurrentUser());
   if (!actor) throw new GameLoopError("gameLoginRequired");
 
   const rollRows = await db
@@ -64,7 +67,7 @@ export async function resolveGameRoll(params: {
     .limit(1);
   const sp = spRows[0];
   if (!sp) throw new GameLoopError("gameParticipantNotFound");
-  await assertActorAllowed(sp.id, sp.playerId);
+  await assertActorAllowed(sp.id, sp.playerId, actor);
 
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");

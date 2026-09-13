@@ -742,6 +742,7 @@ seasonTabs: {
   noResults: "Ничего не найдено по фильтрам.",
   detailsButton: "Детали",
   exportCsv: "Экспорт CSV",
+  refresh: "Обновить",
   prevPage: "Предыдущая страница",
   nextPage: "Следующая страница",
   pageOf: "Стр. {page} / {pages}",

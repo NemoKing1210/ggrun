@@ -1,6 +1,6 @@
 import { isAppError } from "@/lib/errors/app-error";
 
-import { db } from "@/lib/infrastructure/db";
+import { db, pool } from "@/lib/infrastructure/db";
 import { seasonPlayers, users } from "@/db/schema";
 import { DEFAULT_BOT_RUN_CONFIG, type BotRun, type BotRunConfig } from "@/db/schema/bots";
 import {
@@ -14,6 +14,7 @@ import { getOpenRollRow } from "@/lib/modules/game/service/helpers";
 import { resolveGameRoll, rollNewGame } from "@/lib/modules/game";
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { getUserById } from "@/lib/modules/player/service/admin";
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { logAdminAction } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
@@ -27,6 +28,7 @@ import {
   getBotRun,
   insertBotLog,
   listBotOwnedPlayers,
+  listRunningBotRuns,
   updateBotRun,
 } from "./repository";
 
@@ -132,7 +134,6 @@ export interface BotTickSummary {
   stopped: boolean;
   lastError: string | null;
 }
-
 /**
  * One tick: up to `actionsPerTick` real player steps (rollNewGame /
  * resolveGameRoll — the same use-cases the dashboard actions call) executed
@@ -140,14 +141,22 @@ export interface BotTickSummary {
  * Every step is journaled to bot_logs; failures never throw mid-tick, they
  * accumulate into the summary (unless stopOnError halts the run).
  */
+/** Console entry: staff session required (manual step / page-driven loop). */
 export async function tickBotRun(runId: string): Promise<BotTickSummary> {
   const actor = await requireStaff();
   const run = await getBotRun(runId);
   if (!run) throw new BotError("botRunNotFound");
-  if (run.status === "stopped") throw new BotError("botRunStopped");
-  // A paused run still accepts a manual single step from the console — only
-  // the automatic loop is gated on "running" (the console resumes first).
+  return tickBotRunAs(run, actor.id);
+}
 
+/**
+ * Core tick: up to `actionsPerTick` real player steps as an automated
+ * trigger (cron/CLI). The caller authorized via CRON_SECRET or host access,
+ * so no staff session is needed. `triggeredBy` lands in the audit payload.
+ */
+export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<BotTickSummary> {
+  if (run.status === "stopped") throw new BotError("botRunStopped");
+  const runId = run.id;
   const season = await getSeasonById(run.seasonId);
   if (!season || season.status !== "active") {
     const message = `Season is not active (status: ${season?.status ?? "missing"}) — pausing run`;
@@ -183,6 +192,26 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
   for (let step = 0; step < run.config.actionsPerTick; step++) {
     const bot = activeSpIds[Math.floor(Math.random() * activeSpIds.length)];
     if (!bot) break;
+    // The bot acts as itself (a real player step): explicit actor keeps the
+    // game loop working outside a request scope, where cookies() throws.
+    const botUser = await getUserById(bot.userId);
+    if (!botUser) {
+      lastError = `skipped ${bot.username}: synthetic user is gone`;
+      errors++;
+      await insertBotLog({
+        runId,
+        level: "error",
+        action: "tick",
+        seasonPlayerId: bot.spId,
+        botUsername: bot.username,
+        message: lastError,
+      });
+      if (run.config.stopOnError) {
+        stopped = true;
+        break;
+      }
+      continue;
+    }
     const open = await getOpenRollRow(bot.spId);
     const kind = nextBotStepKind(open !== null, run.config);
     if (!kind) {
@@ -201,7 +230,7 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
     const attempt: Record<string, unknown> = { step: step + 1, kind };
     try {
       if (kind === "roll") {
-        const rollId = await rollNewGame(bot.spId);
+        const rollId = await rollNewGame(bot.spId, { actor: botUser });
         actions++;
         await insertBotLog({
           runId,
@@ -217,7 +246,7 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           actionType: "bot_roll",
           targetType: "season_player",
           targetId: bot.spId,
-          payload: { runId, triggeredBy: actor.id, botUsername: bot.username, rollId },
+          payload: { runId, triggeredBy, botUsername: bot.username, rollId },
         });
       } else {
         const outcome = pickBotOutcome(
@@ -231,14 +260,16 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
         if (!open) continue;
         attempt.outcome = outcome;
         attempt.rollId = open.id;
-        const result = await resolveGameRoll({
-          rollId: open.id,
-          outcome,
-          reason: pickBotReason(outcome, Math.random),
-          comment: outcome === "passed" ? pickBotComment(Math.random) : undefined,
-          rating: outcome === "passed" ? pickBotRating(Math.random) : undefined,
-        });
-        actions++;
+        const result = await resolveGameRoll(
+          {
+            rollId: open.id,
+            outcome,
+            reason: pickBotReason(outcome, Math.random),
+            comment: outcome === "passed" ? pickBotComment(Math.random) : undefined,
+            rating: outcome === "passed" ? pickBotRating(Math.random) : undefined,
+          },
+          { actor: botUser },
+        );
         await insertBotLog({
           runId,
           level: "info",
@@ -255,7 +286,7 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           targetId: bot.spId,
           payload: {
             runId,
-            triggeredBy: actor.id,
+            triggeredBy,
             botUsername: bot.username,
             rollId: open.id,
             outcome,
@@ -387,4 +418,82 @@ export async function updateBotRunConfig(runId: string, config: BotRunConfig): P
   const updated = await getBotRun(runId);
   if (!updated) throw new BotError("botRunNotFound");
   return updated;
+}
+
+export interface DueTickResult {
+  runId: string;
+  ticked: boolean;
+  reason?: string;
+  summary?: BotTickSummary;
+}
+
+/**
+ * In-process guard against two overlapping ticks of the same run inside one
+ * Node instance. Cross-process overlap is covered by the Postgres advisory
+ * lock taken below — every ticker (API route, CLI, console step excluded)
+ * must go through tickDueRuns, never tickBotRunAs directly.
+ */
+const tickInflight = new Set<string>();
+
+function isTickDue(run: BotRun, now: number): boolean {
+  const updated = run.updatedAt instanceof Date ? run.updatedAt.getTime() : new Date(run.updatedAt).getTime();
+  return now - updated >= Math.max(0, run.config.tickIntervalMs);
+}
+
+/**
+ * Tick every `running` run whose own cadence came due (updatedAt older than
+ * its tickIntervalMs). One cron firing every 10–30s drives all runs; each run
+ * keeps its own pace. Runs never tick twice: in-flight set for this process,
+ * pg advisory lock across processes. Never throws — per-run failures are
+ * collected into the results (the tick itself already journals bot_logs).
+ */
+export async function tickDueRuns(opts: { force?: boolean; triggeredBy?: string } = {}): Promise<DueTickResult[]> {
+  const now = Date.now();
+  const triggeredBy = opts.triggeredBy ?? "cron";
+  const runs = await listRunningBotRuns();
+  const results: DueTickResult[] = [];
+  for (const run of runs) {
+    if (!opts.force && !isTickDue(run, now)) {
+      results.push({ runId: run.id, ticked: false, reason: "not-due" });
+      continue;
+    }
+    if (tickInflight.has(run.id)) {
+      results.push({ runId: run.id, ticked: false, reason: "inflight" });
+      continue;
+    }
+    tickInflight.add(run.id);
+    const client = await pool.connect();
+    try {
+      const locked = await client.query("SELECT pg_try_advisory_lock(hashtext($1)) AS ok", [`bots:${run.id}`]);
+      if (!locked.rows[0]?.ok) {
+        results.push({ runId: run.id, ticked: false, reason: "locked" });
+        continue;
+      }
+      try {
+        const fresh = await getBotRun(run.id);
+        if (!fresh || fresh.status !== "running") {
+          results.push({ runId: run.id, ticked: false, reason: "no-longer-running" });
+          continue;
+        }
+        const summary = await tickBotRunAs(fresh, triggeredBy);
+        results.push({ runId: run.id, ticked: true, summary });
+      } finally {
+        await client.query("SELECT pg_advisory_unlock(hashtext($1))", [`bots:${run.id}`]);
+      }
+    } catch (e) {
+      const reason = e instanceof BotError ? e.code : e instanceof Error ? e.message : "unknown";
+      results.push({ runId: run.id, ticked: false, reason });
+    } finally {
+      client.release();
+      tickInflight.delete(run.id);
+    }
+  }
+  return results;
+}
+
+/** System tick of one run: same steps, no staff session (cron/CLI caller). */
+export async function tickBotRunSystem(runId: string, triggeredBy = "cron"): Promise<BotTickSummary> {
+  const run = await getBotRun(runId);
+  if (!run) throw new BotError("botRunNotFound");
+  return tickBotRunAs(run, triggeredBy);
 }

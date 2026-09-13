@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownTrayIcon,
+  ArrowPathIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -351,6 +352,14 @@ export function AuditLogViewer({
                 {a.clear}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1.5 text-xs"
+            >
+              <ArrowPathIcon className="size-3.5" aria-hidden />
+              {a.refresh}
+            </button>
             <button
               type="button"
               onClick={() => exportCsv(rows, "audit", { action: actionLabel, target: targetLabel, summary })}

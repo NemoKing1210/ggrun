@@ -2,19 +2,19 @@ import { createRoll, pickGameForRoll, POOL_EMPTY_ERROR } from "@/lib/modules/cat
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { logEvent } from "@/lib/infrastructure/events";
+import type { User } from "@/db/schema";
 import { log } from "@/lib/infrastructure/logger";
 
 import { GameLoopError } from "./errors";
 import { assertActorAllowed, getOpenRollRow } from "./helpers";
 
-export async function rollNewGame(seasonPlayerId: string): Promise<string> {
+export async function rollNewGame(seasonPlayerId: string, opts?: { actor?: User }): Promise<string> {
   const sp = await getSeasonPlayerById(seasonPlayerId);
   if (!sp) {
     log.debug("game.roll.participant_not_found", { seasonPlayerId });
     throw new GameLoopError("gameParticipantNotFound");
   }
-  await assertActorAllowed(sp.id, sp.playerId);
-
+  await assertActorAllowed(sp.id, sp.playerId, opts?.actor);
   const season = await getSeasonById(sp.seasonId);
   if (!season || season.status !== "active") {
     log.debug("game.roll.season_not_active", { seasonId: sp.seasonId, status: season?.status ?? "missing" });

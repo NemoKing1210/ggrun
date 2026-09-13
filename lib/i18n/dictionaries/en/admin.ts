@@ -741,6 +741,7 @@ seasonTabs: {
   noResults: "No entries match the filters.",
   detailsButton: "Inspect",
   exportCsv: "Export CSV",
+  refresh: "Refresh",
   prevPage: "Previous page",
   nextPage: "Next page",
   pageOf: "Page {page} / {pages}",

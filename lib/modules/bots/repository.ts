@@ -23,6 +23,11 @@ export async function listBotRuns(seasonId: string): Promise<BotRun[]> {
   return db.select().from(botRuns).where(eq(botRuns.seasonId, seasonId)).orderBy(desc(botRuns.createdAt));
 }
 
+/** Every run in `running` status across seasons — the autonomous ticker's input. */
+export async function listRunningBotRuns(): Promise<BotRun[]> {
+  return db.select().from(botRuns).where(eq(botRuns.status, "running")).orderBy(botRuns.updatedAt);
+}
+
 export async function createBotRunRow(params: {
   seasonId: string;
   config: BotRun["config"];
