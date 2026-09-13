@@ -21,9 +21,12 @@ import { InventoryPanel } from "@/components/dashboard/InventoryPanel";
 import { ChallengesPanel, type ChallengeRow } from "@/components/dashboard/ChallengesPanel";
 import { GamesHistory } from "@/components/dashboard/GamesHistory";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { StatusBadge } from "@/components/ui/status";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import {
@@ -278,13 +281,14 @@ export default async function DashboardPage() {
       {/* Operator ID card */}
       <div className="hud-card flex items-center gap-4 p-4">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" aria-hidden />
-        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} size="lg" />
+        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} seed={user.id} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
             {"// OPERATOR"} <span className="text-amber">· {season.title}</span>
           </div>
           <div className="mt-0.5 truncate font-display text-xl uppercase tracking-wide leading-none">
             {user.displayName ?? user.username}
+            {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} className="ml-2 align-middle" /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] leading-none text-dim">
             <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -380,9 +384,12 @@ export default async function DashboardPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={user.avatarUrl} alt="" className="size-full object-cover" />
                         ) : (
-                          <span className="font-display text-[10px] font-bold leading-none tracking-wider text-amber">
-                            {(user.displayName ?? user.username).slice(0, 2).toUpperCase()}
-                          </span>
+                          <AvatarFallback
+                            seed={user.id}
+                            name={user.displayName ?? user.username}
+                            className="size-full"
+                            emojiClassName="text-sm"
+                          />
                         )}
                       </span>
                       <span className="ammo-counter mt-0.5 text-[9px] font-bold leading-none text-amber">{String(cell.position).padStart(2, "0")}</span>

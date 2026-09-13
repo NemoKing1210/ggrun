@@ -102,10 +102,26 @@ pnpm db:admin                       # BOOTSTRAP_ADMIN_* from .env
 # 4. Build and serve
 pnpm build                          # next build --turbopack
 pnpm start                          # next start on :3000
-```
-
 Point a reverse proxy (nginx, Caddy, …) at `127.0.0.1:3000` for TLS and a
 public hostname.
+
+### Autonomous test bots (no open admin page)
+
+The bots console ticks only while its page is open. For unattended runs, tick
+every `running` run from a scheduler — each run keeps its own cadence
+(`tickIntervalMs`), the ticker skips runs that are not due yet, and
+overlapping callers never double-tick a run (Postgres advisory lock).
+Console start/pause/stop keeps working: it flips the same `status` the ticker
+reads.
+
+1. Set `CRON_SECRET` in `.env` (long random string; empty disables the
+endpoint with 503).
+2. Pick one trigger, every 10–30s:
+   - HTTP: `curl -X POST "$NEXT_PUBLIC_SITE_URL/api/bots/tick" -H
+"Authorization: Bearer $CRON_SECRET"` — works from systemd timers, k8s
+CronJobs, Vercel Cron, or a Docker sidecar.
+   - CLI: `pnpm bots:tick` (add `--force` to ignore cadence) — same steps,
+directly against the DB, for host cron / Task Scheduler.
 
 ---
 

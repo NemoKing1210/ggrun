@@ -51,6 +51,8 @@ function getLabel(
       // fallback to admin players heading word
       return "Players";
     }
+    case "bots":
+      return t.admin.seasonTabs.bots;
     case "login":
       return t.core.auth.loginTitle;
     case "register":

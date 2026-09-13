@@ -81,6 +81,8 @@ already-played) → player marks the outcome → `resolveAction` →
 pnpm dev                # next dev (webpack — Turbopack dev has a Windows-only
                         # _buildManifest.js.tmp ENOENT race; use dev:turbo to opt back in)
 pnpm dev:turbo          # next dev --turbopack
+pnpm dev:bots           # next dev + autonomous bot ticker in one process
+                        # (BOTS_TICK_MS, default 10000; no CRON_SECRET needed)
 pnpm build              # next build --turbopack
 pnpm start              # next start (production server)
 pnpm lint               # eslint (flat config)

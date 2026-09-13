@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { StatusBadge } from "@/components/ui/status";
 import type { Season, BoardCell } from "@/db/schema";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -146,9 +147,12 @@ export function SeasonCard({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={stats.topPlayer.avatarUrl} alt={stats.topPlayer.displayName ?? stats.topPlayer.username} className="size-6 object-cover" />
                   ) : (
-                    <span className="inline-flex size-6 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
-                      {(stats.topPlayer.displayName ?? stats.topPlayer.username).slice(0, 2).toUpperCase()}
-                    </span>
+                    <AvatarFallback
+                      seed={stats.topPlayer.username}
+                      name={stats.topPlayer.displayName ?? stats.topPlayer.username}
+                      className="size-6"
+                      emojiClassName="text-[13px]"
+                    />
                   )}
                 </AvatarWithPresence>
                 <span className="truncate font-mono text-xs text-amber">{stats.topPlayer.displayName ?? stats.topPlayer.username}</span>
@@ -174,9 +178,12 @@ export function SeasonCard({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.avatarUrl} alt={p.displayName ?? p.username} className="size-7 object-cover" />
                     ) : (
-                      <span className="inline-flex size-7 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
-                        {(p.displayName ?? p.username).slice(0, 2).toUpperCase()}
-                      </span>
+                      <AvatarFallback
+                        seed={p.username}
+                        name={p.displayName ?? p.username}
+                        className="size-7"
+                        emojiClassName="text-sm"
+                      />
                     )}
                   </AvatarWithPresence>
                 ))}

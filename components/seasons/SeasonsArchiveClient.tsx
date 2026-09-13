@@ -15,6 +15,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { SeasonCard, type SeasonCardStats } from "./SeasonCard";
 import { Badge } from "@/components/ui/Badge";
 import type { Season } from "@/db/schema";
@@ -161,9 +162,12 @@ export function SeasonsArchiveClient({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={spotlight.stats.topPlayer.avatarUrl} alt={spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username} className="size-6 object-cover" />
                     ) : (
-                      <span className="inline-flex size-6 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
-                        {(spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username).slice(0, 2).toUpperCase()}
-                      </span>
+                      <AvatarFallback
+                        seed={spotlight.stats.topPlayer.username}
+                        name={spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}
+                        className="size-6"
+                        emojiClassName="text-[13px]"
+                      />
                     )}
                   </AvatarWithPresence>
                   <span className="truncate">{spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}</span>
@@ -182,9 +186,12 @@ export function SeasonsArchiveClient({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={p.avatarUrl} alt={p.displayName ?? p.username} className="size-7 object-cover" />
                         ) : (
-                          <span className="inline-flex size-7 items-center justify-center bg-raised font-display text-[10px] tracking-widest text-dim">
-                            {(p.displayName ?? p.username).slice(0, 2).toUpperCase()}
-                          </span>
+                          <AvatarFallback
+                            seed={p.username}
+                            name={p.displayName ?? p.username}
+                            className="size-7"
+                            emojiClassName="text-sm"
+                          />
                         )}
                       </AvatarWithPresence>
                     ))}

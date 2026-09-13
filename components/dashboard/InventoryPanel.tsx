@@ -425,6 +425,7 @@ export function InventoryPanel({
                       size="sm"
                       square
                       name={target.displayName ?? target.username}
+                      seed={target.username}
                       src={target.avatarUrl}
                     />
                     <span className="min-w-0 flex-1">

@@ -12,5 +12,6 @@ export function revalidateAdmin(seasonId?: string): void {
     revalidatePath(`/admin/seasons/${seasonId}`);
     revalidatePath(`/admin/seasons/${seasonId}/board`);
     revalidatePath(`/admin/seasons/${seasonId}/players`);
+    revalidatePath(`/admin/seasons/${seasonId}/bots`);
   }
 }

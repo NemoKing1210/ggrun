@@ -31,15 +31,14 @@ function sourceOf(rel: string): { text: string; sf: ts.SourceFile } {
 }
 
 /**
- * Every path that advances a participant's run. Each must refuse one that is
- * no longer active — including the two approval paths, which for a long while
- * did not even check whether the *season* was still running.
+ * Every player-facing path that advances a participant's run. Each must refuse
+ * one that is no longer active. Staff approval paths are deliberately exempt:
+ * a judge's verdict applies whenever the request was filed, even after the
+ * season closed.
  */
 const WRITE_PATHS = [
   "lib/modules/game/service/roll.ts",
   "lib/modules/game/service/resolve.ts",
-  "lib/modules/game/moderation/completion.ts",
-  "lib/modules/game/moderation/reroll.ts",
 ];
 
 describe("no write path moves a participant who is out of the run", () => {

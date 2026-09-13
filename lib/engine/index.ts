@@ -9,4 +9,5 @@ export * from "./board/movement";
 export * from "./board/cell-effects";
 export * from "./roll";
 export * from "./pool";
+export * from "./bots";
 export * from "./iee";

@@ -4,12 +4,14 @@ import { ArrowRightIcon, MagnifyingGlassIcon, UsersIcon } from "@heroicons/react
 
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { db } from "@/lib/infrastructure/db";
 import { users } from "@/db/schema";
 import { getT } from "@/lib/i18n/server";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { format } from "@/lib/i18n/format";
 import { asc, ilike, or } from "drizzle-orm";
 
@@ -176,6 +178,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     <p className="truncate font-mono text-xs text-dim">@{u.username}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <RoleBadge role={u.role} t={t} />
+                      {isBotUsername(u.username) ? <BotBadge label={t.core.common.bot} /> : null}
                     </div>
                   </div>
                 </div>

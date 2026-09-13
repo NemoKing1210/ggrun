@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import {
   getEventFeed,
   getLeaderboard,
@@ -43,15 +44,17 @@ function PlayerAvatar({
   username,
   displayName,
   avatarUrl,
+  userId,
   size = "sm",
 }: {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  userId?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
   const dim = size === "lg" ? "size-16" : size === "md" ? "size-12" : "size-8";
-  const font = size === "lg" ? "text-base" : size === "md" ? "text-sm" : "text-xs";
+  const emoji = size === "lg" ? "text-3xl" : size === "md" ? "text-2xl" : "text-base";
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -65,11 +68,12 @@ function PlayerAvatar({
     );
   }
   return (
-    <span
-      className={`inline-flex ${dim} shrink-0 items-center justify-center border border-dim/30 bg-raised font-display text-dim ${font}`}
-    >
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={userId ?? username}
+      name={displayName ?? username}
+      className={`${dim} shrink-0 border border-dim/30`}
+      emojiClassName={emoji}
+    />
   );
 }
 
@@ -157,6 +161,7 @@ function ChampionRow({
                 username={row.username}
                 displayName={row.displayName}
                 avatarUrl={row.avatarUrl}
+                userId={row.playerId}
                 size="md"
               />
             </AvatarWithPresence>
@@ -238,6 +243,7 @@ function TopRow({ row, rank, t }: { row: LeaderboardRow; rank: number; t: T }) {
           <PlayerAvatar
             username={row.username}
             displayName={row.displayName}
+            userId={row.playerId}
             avatarUrl={row.avatarUrl}
             size="sm"
           />

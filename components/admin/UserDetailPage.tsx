@@ -23,12 +23,15 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/ui/status";
 import { Textarea } from "@/components/ui/Textarea";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { FormShell } from "@/components/admin/FormShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
@@ -220,12 +223,7 @@ export function UserDetailPage({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatarUrl} alt={name} className="h-14 w-14 shrink-0 object-cover" />
                 ) : (
-                  <span
-                    className="grid h-14 w-14 shrink-0 place-items-center font-display text-lg tracking-widest"
-                    style={{ color: accent.primary, background: `${accent.primary}14` }}
-                  >
-                    {name.slice(0, 2).toUpperCase()}
-                  </span>
+                  <AvatarFallback seed={user.id} name={name} className="h-14 w-14 shrink-0" emojiClassName="text-3xl" />
                 )}
               </AvatarWithPresence>
               <div className="min-w-0">
@@ -235,6 +233,7 @@ export function UserDetailPage({
                   </h1>
                   {isSelf && <Badge variant="military" size="sm">{u.you}</Badge>}
                   <Badge variant={roleVariant(user.role)} size="sm">{u.roles[user.role]}</Badge>
+                  {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
                   <span
                     className={`inline-flex items-center gap-1.5 border px-2 py-0.5 font-mono text-xs uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${user.isBlocked ? "border-danger/40 bg-danger/10 text-danger" : "border-military/30 bg-military/10 text-military"}`}
                   >

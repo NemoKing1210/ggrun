@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
@@ -12,6 +14,7 @@ import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/modules/seas
 import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { getEventFeed } from "@/lib/modules/season/repository/players";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -141,12 +144,13 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.avatarUrl} alt={p.displayName ?? p.username} loading="lazy" decoding="async" className="size-7 object-cover" />
                     ) : (
-                      <span className="inline-flex size-7 items-center justify-center bg-raised font-mono text-xs text-dim">{(p.displayName ?? p.username).slice(0, 2).toUpperCase()}</span>
+                      <AvatarFallback seed={p.username} name={p.displayName ?? p.username} className="size-7" emojiClassName="text-sm" />
                     )}
                   </AvatarWithPresence>
                   <Link href={`/players/${p.username}`} className="flex-1 truncate font-mono text-sm hover:text-amber">
                     {p.displayName ?? p.username}
                   </Link>
+                  {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                   <span className="font-mono text-xs text-amber">#{p.position}</span>
                   <Link href={`/players/${p.username}`} className="inline-flex items-center justify-center border border-dim/40 px-1 py-0.5 text-dim hover:text-amber" aria-label={p.username}>
                     <ArrowRightIcon className="h-3 w-3" aria-hidden />

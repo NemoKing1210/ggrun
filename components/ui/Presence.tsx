@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import { bucketForDiff, diffSince, isOnline } from "@/lib/shared/presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 // ---------------------------------------------------------------------------
 // Tooltip text helper — shared between Dot/Badge/Avatar wrappers
@@ -333,7 +334,7 @@ export function AvatarWithPresence({ lastSeenAt, children, size = "md", locale, 
 }
 
 // ---------------------------------------------------------------------------
-// All-in-one: renders initials/img + presence border + link + tooltip in one go
+// All-in-one: renders emoji/img + presence border + link + tooltip in one go
 // ---------------------------------------------------------------------------
 type PresenceAvatarProps = {
   username: string;
@@ -354,11 +355,11 @@ const avatarDim: Record<string, string> = {
   lg: "size-14",
   xl: "size-20",
 };
-const avatarFont: Record<string, string> = {
-  sm: "text-xs",
-  md: "text-sm",
-  lg: "text-base",
-  xl: "text-xl",
+const avatarEmojiFont: Record<string, string> = {
+  sm: "text-base",
+  md: "text-2xl",
+  lg: "text-4xl",
+  xl: "text-5xl",
 };
 
 export function PresenceAvatar({
@@ -380,14 +381,14 @@ export function PresenceAvatar({
         ? `/admin/users/${userId}`
         : `/players/${username}`;
   const dim = avatarDim[size] ?? avatarDim.md;
-  const font = avatarFont[size] ?? avatarFont.md;
-  const initials = (displayName ?? username).slice(0, 2).toUpperCase();
+  const emojiFont = avatarEmojiFont[size] ?? avatarEmojiFont.md;
+  const label = displayName ?? username;
 
   const content = avatarUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarUrl} alt={displayName ?? username} loading="lazy" decoding="async" className={`${dim} object-cover`} />
+    <img src={avatarUrl} alt={label} loading="lazy" decoding="async" className={`${dim} object-cover`} />
   ) : (
-    <span className={`inline-flex ${dim} items-center justify-center bg-raised font-display tracking-widest text-dim ${font}`}>{initials}</span>
+    <AvatarFallback seed={userId ?? username} name={label} className={dim} emojiClassName={emojiFont} />
   );
 
   return (

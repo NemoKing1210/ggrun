@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
-import { listUsers } from "@/lib/modules/player/service";
+import { listUsers, listUserSeasonsBulk } from "@/lib/modules/player/service";
 import { getT } from "@/lib/i18n/server";
 import UsersManager from "@/components/admin/UsersManager";
 
@@ -23,6 +23,7 @@ export default async function AdminUsersPage({
   const { q } = await searchParams;
   const { t } = await getT();
   const users = await listUsers(q);
+  const seasonsByUser = await listUserSeasonsBulk(users.map((usr) => usr.id));
   const u = t.admin.users;
 
   return (
@@ -32,7 +33,7 @@ export default async function AdminUsersPage({
         <span className="hidden font-mono text-xs tracking-widest text-dim sm:inline">[{users.length}] accounts</span>
       </div>
       <div className="hazard-tape" aria-hidden />
-      <UsersManager initialUsers={users} actor={{ id: actor.id, username: actor.username }} />
+      <UsersManager initialUsers={users} seasonsByUser={seasonsByUser} actor={{ id: actor.id, username: actor.username }} />
     </div>
   );
 }

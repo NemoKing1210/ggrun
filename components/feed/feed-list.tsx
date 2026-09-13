@@ -4,7 +4,10 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import {
   ArrowsRightLeftIcon,
   ArrowRightIcon,
@@ -125,17 +128,26 @@ const dotStyles: Record<Variant, string> = {
   neutral: "bg-dim border-dim/40",
 };
 
-function PlayerLink({ entry, fallback }: { entry: FeedRow; fallback: string }) {
+function PlayerLink({ entry, fallback, botLabel }: { entry: FeedRow; fallback: string; botLabel: string }) {
   const name = entry.displayName ?? entry.username ?? fallback;
   const username = entry.username;
+  const bot = isBotUsername(username);
   if (username) {
     return (
-      <Link href={`/players/${username}`} className="font-semibold text-amber hover:underline">
-        {name}
-      </Link>
+      <>
+        <Link href={`/players/${username}`} className="font-semibold text-amber hover:underline">
+          {name}
+        </Link>
+        {bot ? <BotBadge label={botLabel} className="ml-1.5 align-middle" /> : null}
+      </>
     );
   }
-  return <span className="font-semibold text-amber">{name}</span>;
+  return (
+    <>
+      <span className="font-semibold text-amber">{name}</span>
+      {bot ? <BotBadge label={botLabel} className="ml-1.5 align-middle" /> : null}
+    </>
+  );
 }
 
 function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; dict: Dictionary }) {
@@ -147,7 +159,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const title = str(p.title) ?? t.unknownTitle;
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {format(t.actions.rolled, { title })}
         </>
       );
@@ -156,7 +168,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const title = str(p.title) ?? t.unknownTitle;
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {format(t.actions.rerolled, { title })}
         </>
       );
@@ -165,7 +177,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const reason = str(p.reason);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} /> requested reroll{reason ? `: “${reason}”` : ""}
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} /> requested reroll{reason ? `: “${reason}”` : ""}
         </>
       );
     }
@@ -173,7 +185,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const reason = str(p.reason);
       return (
         <>
-          reroll rejected for <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          reroll rejected for <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {reason ? ` — ${reason}` : ""}
         </>
       );
@@ -181,7 +193,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
     case "game_passed":
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.passed}
           {diceSuffix}
         </>
@@ -189,7 +201,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
     case "game_dropped":
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.dropped}
           {diceSuffix}
         </>
@@ -199,7 +211,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const to = num(p.to);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {format(t.actions.movedFrom, { from: from ?? "?" })}
           <span className="ammo-counter font-bold text-amber">{to ?? "?"}</span>
           {diceSuffix}
@@ -211,21 +223,21 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
     case "player_joined":
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.joined}
         </>
       );
     case "player_left":
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.left}
         </>
       );
     case "player_finished":
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           <span className="font-bold text-amber-300">{t.actions.finished}</span>
         </>
       );
@@ -233,7 +245,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const key = str(p.itemKey);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.itemGranted}
           <span className="font-bold text-military">{ieeName(dict, "items", key)}</span>
         </>
@@ -244,7 +256,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const target = str(p.targetUsername);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.itemUsed}
           <span className="font-bold text-amber">{ieeName(dict, "items", key)}</span>
           {target ? (
@@ -253,6 +265,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
               <Link href={`/players/${target}`} className="font-bold text-amber hover:underline">
                 {target}
               </Link>
+              {isBotUsername(target) ? <BotBadge label={dict.core.common.bot} className="ml-1.5 align-middle" /> : null}
             </>
           ) : null}
         </>
@@ -263,7 +276,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const key = str(p.itemKey);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.itemExpired}
           <span className="text-dim">{ieeName(dict, "items", key)}</span>
         </>
@@ -274,7 +287,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const refreshed = p.refreshed === true;
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {refreshed ? t.actions.effectRefreshed : t.actions.effectApplied}
           <span className="font-bold text-violet-400">{ieeName(dict, "effects", key)}</span>
         </>
@@ -286,7 +299,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       const key = str(p.effectKey);
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {entry.eventType === "effect_expired"
             ? t.actions.effectExpired
             : t.actions.effectCleansed}
@@ -309,7 +322,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
               : t.actions.eventRejected;
       return (
         <>
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {verb}
           <span className="font-bold text-sky-400">{title}</span>
         </>
@@ -320,7 +333,7 @@ function EventLine({ entry, t, dict }: { entry: FeedRow; t: Dictionary["feed"]; 
       return (
         <>
           {t.adminAdjustmentPrefix}
-          <PlayerLink entry={entry} fallback={t.fallbackPlayer} />
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {reason ? format(t.adminAdjustmentReason, { reason }) : null}
         </>
       );
@@ -337,7 +350,7 @@ function Avatar({ entry, fallback }: { entry: FeedRow; fallback: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={entry.avatarUrl} alt="" loading="lazy" decoding="async" className="size-8 object-cover" />
   ) : (
-    <span className="inline-flex size-8 items-center justify-center bg-raised font-display text-xs text-dim">{name.slice(0, 2).toUpperCase()}</span>
+    <AvatarFallback seed={entry.username} name={name} className="size-8" emojiClassName="text-base" />
   );
   const href = entry.username ? `/players/${entry.username}` : null;
   return (
@@ -531,8 +544,9 @@ export async function FeedTimeline({
 
                     {/* player badge on mobile */}
                     <div className="flex w-full items-center justify-between gap-2 border-t border-dim/10 pt-2 sm:hidden">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                      <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
                         {entry.displayName ?? entry.username ?? t.feed.fallbackPlayer}
+                        {isBotUsername(entry.username) ? <BotBadge label={t.core.common.bot} /> : null}
                       </span>
                       <span className="font-mono text-[10px] text-dim">{hour}</span>
                     </div>

@@ -11,7 +11,9 @@ import {
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
 import { StatusBadge } from "@/components/ui/status";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/repository/players";
 import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
@@ -20,6 +22,7 @@ import { EffectBadges } from "@/components/iee/EffectBadges";
 import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -30,15 +33,18 @@ function PlayerAvatar({
   username,
   displayName,
   avatarUrl,
+  userId,
   size = "sm",
 }: {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  userId?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
   const dim = size === "lg" ? "size-20" : size === "md" ? "size-12" : "size-8";
-  const font = size === "lg" ? "text-lg" : size === "md" ? "text-sm" : "text-xs";
+  const emoji = size === "lg" ? "text-4xl" : size === "md" ? "text-2xl" : "text-base";
+  const border = size === "lg" ? "border-amber/40" : "border-dim/30";
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -52,11 +58,12 @@ function PlayerAvatar({
     );
   }
   return (
-    <span
-      className={`inline-flex ${dim} shrink-0 items-center justify-center border bg-raised font-display text-dim ${size === "lg" ? "border-amber/40" : "border-dim/30"} ${font}`}
-    >
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={userId ?? username}
+      name={displayName ?? username}
+      className={`${dim} shrink-0 border ${border}`}
+      emojiClassName={emoji}
+    />
   );
 }
 
@@ -113,6 +120,7 @@ function ChampionCard({
               <TrophyIcon className="h-4 w-4" aria-hidden /> #{rank} {label}
             </span>
             <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+            {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
             <span className="border border-white/15 bg-black/40 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur">
@@ -128,7 +136,7 @@ function ChampionCard({
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="-mt-12 sm:-mt-16 shrink-0">
               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="lg">
-                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="lg" />
+                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="lg" />
               </AvatarWithPresence>
             </div>
             <div className="min-w-0 flex-1">
@@ -137,6 +145,7 @@ function ChampionCard({
                   {row.displayName ?? row.username}
                 </h3>
                 <span className="font-mono text-sm text-dim">@{row.username}</span>
+                {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
               </div>
               {row.bio ? <p className="mt-2 line-clamp-2 max-w-prose text-sm leading-relaxed text-zinc-300">{row.bio}</p> : null}
               {links.length ? (
@@ -226,11 +235,12 @@ function ChampionCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex gap-3">
           <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
-            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="md" />
+            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="md" />
           </AvatarWithPresence>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">{row.displayName ?? row.username}</p>
             <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
+            {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
             <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs">
               <span className="ammo-counter text-amber">
                 {row.position} {t.leaderboard.cellLabel}
@@ -385,11 +395,12 @@ export default async function LeaderboardPage() {
                           <td className="px-4 py-3">
                             <Link href={`/players/${row.username}`} className="flex items-center gap-3 group/link">
                               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} size="sm" />
+                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="sm" />
                               </AvatarWithPresence>
                               <div className="min-w-0">
                                 <p className="truncate font-semibold leading-none group-hover/link:text-amber">{row.displayName ?? row.username}</p>
                                 <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
+                                {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
                               </div>
                             </Link>
                             <EffectBadges badges={effects.get(row.id) ?? []} t={t} className="mt-1.5" />

@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { gameRolls } from "@/db/schema";
+import { gameRolls, type User } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema, type SeasonConfig } from "@/lib/engine";
 
@@ -12,10 +12,15 @@ export function parseSeasonConfig(raw: unknown): SeasonConfig {
   return parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
 }
 
-export async function assertActorAllowed(seasonPlayerId: string, playerId: string): Promise<void> {
-  const actor = await getCurrentUser();
-  if (actor && actor.id === playerId) return;
-  if (actor && isStaff(actor)) return;
+/**
+ * Who may act for this participant: the participant themselves or staff.
+ * `actor` is explicit for request-less callers (bot ticker, cron) — inside a
+ * request it defaults to the cookie session as before.
+ */
+export async function assertActorAllowed(seasonPlayerId: string, playerId: string, actor?: User | null): Promise<void> {
+  const resolved = actor ?? (await getCurrentUser());
+  if (resolved && resolved.id === playerId) return;
+  if (resolved && isStaff(resolved)) return;
   throw new GameLoopError("gameNotAllowed");
 }
 

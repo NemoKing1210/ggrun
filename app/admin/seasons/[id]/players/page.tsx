@@ -31,8 +31,11 @@ import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { BackLink } from "@/components/ui/BackLink";
 import { Badge } from "@/components/ui/Badge";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { StatusBadge } from "@/components/ui/status";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 
 const playerStatuses = ["active", "finished", "eliminated", "withdrawn"] as const;
 
@@ -217,7 +220,7 @@ export default async function SeasonPlayersPage({
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={p.avatarUrl} alt={name} className="size-9 object-cover" />
                               ) : (
-                                <span className="flex size-9 items-center justify-center bg-raised font-display text-xs uppercase tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                                <AvatarFallback seed={p.playerId} name={name} className="size-9" emojiClassName="text-lg" />
                               )}
                             </AvatarWithPresence>
                             <div className="min-w-0">
@@ -231,6 +234,7 @@ export default async function SeasonPlayersPage({
                                 )}
                               </div>
                               <div className="font-mono text-[11px] text-dim">@{p.username}</div>
+                              {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                             </div>
                           </div>
                         </td>
@@ -332,7 +336,7 @@ export default async function SeasonPlayersPage({
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={p.avatarUrl} alt={name} className="size-9 object-cover" />
                           ) : (
-                            <span className="flex size-9 items-center justify-center bg-raised font-display text-xs uppercase tracking-widest">{name.slice(0, 2).toUpperCase()}</span>
+                            <AvatarFallback seed={p.playerId} name={name} className="size-9" emojiClassName="text-lg" />
                           )}
                         </AvatarWithPresence>
                         <div className="min-w-0">
@@ -340,6 +344,7 @@ export default async function SeasonPlayersPage({
                             {name}
                           </div>
                           <div className="mt-0.5 font-mono text-[11px] text-dim">@{p.username}</div>
+                          {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                         </div>
                       </div>
                       <StatusBadge kind="player" status={p.status} label={t.core.playerStatuses[p.status]} />

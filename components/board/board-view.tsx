@@ -31,7 +31,10 @@ import { CELL_THEME } from "./cell-theme";
 import { Modal } from "@/components/ui/Modal";
 import { format } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/client";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
 import { EffectBadges } from "@/components/iee/EffectBadges";
 import type { EffectBadge } from "@/lib/engine";
 
@@ -111,16 +114,26 @@ function Avatar({
     );
   }
   return (
-    <span
-      title={displayName ?? username}
-      className={`${className ?? "size-7"} inline-flex items-center justify-center border border-dim/50 bg-[#1e1e1c] font-mono text-[10px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]`}
-    >
-      {(displayName ?? username).slice(0, 2).toUpperCase()}
-    </span>
+    <AvatarFallback
+      seed={username}
+      name={displayName ?? username}
+      className={`${className ?? "size-7"} border border-dim/50 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]`}
+      emojiClassName={className?.includes("size-9") ? "text-lg" : className?.includes("size-6") ? "text-[13px]" : "text-sm"}
+    />
   );
 }
 
 function CellAvatarStack({ occupants }: { occupants: BoardPlayer[] }) {
+  if (occupants.length === 1) {
+    const solo = occupants[0];
+    return (
+      <span className="inline-flex drop-shadow-[0_0_6px_rgba(242,169,0,0.55)]">
+        <AvatarWithPresence key={solo.username} lastSeenAt={solo.lastSeenAt} size="md">
+          <Avatar {...solo} className="size-9 !border-amber/70" />
+        </AvatarWithPresence>
+      </span>
+    );
+  }
   const shown = occupants.slice(0, 4);
   return (
     <span className="flex -space-x-1.5">
@@ -395,6 +408,7 @@ export function BoardView({
                             {p.displayName ?? p.username}
                           </Link>
                           <span className="truncate font-mono text-[10px] tracking-wide text-dim">@{p.username}</span>
+                          {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                           <EffectBadges badges={p.effects} t={t} className="mt-1" />
                         </div>
                       </div>
@@ -545,9 +559,12 @@ export function BoardView({
                         <button
                           type="button"
                           onClick={() => setSelectedPos(cell.position)}
-                          className={`group relative flex aspect-square w-full flex-col justify-between overflow-hidden border p-2 text-left transition-all hover:-translate-y-0.5 hover:brightness-[1.12] hover:shadow-[0_4px_12px_rgba(0,0,0,0.4)] [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${theme.box} ${cell.cellType === "start" || cell.cellType === "finish" ? "ring-1 ring-amber/30" : ""}`}
+                          className={`group relative flex aspect-square w-full flex-col justify-between overflow-hidden border p-2 text-left transition-all hover:-translate-y-0.5 hover:brightness-[1.12] hover:shadow-[0_4px_12px_rgba(0,0,0,0.4)] [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${theme.box} ${here.length > 0 ? "!border-amber/70" : cell.cellType === "start" || cell.cellType === "finish" ? "ring-1 ring-amber/30" : ""}`}
                         >
                           <CellWatermark type={cell.cellType} />
+                          {here.length > 0 ? (
+                            <span className="pointer-events-none absolute inset-0 bg-amber/[0.08] shadow-[inset_0_0_18px_rgba(242,169,0,0.25)]" aria-hidden />
+                          ) : null}
                           {/* top */}
                           <span className="relative flex items-start justify-between gap-1">
                             <span className={`inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest ${isSpecial ? "text-foreground/90" : "text-dim"}`}>
@@ -555,7 +572,15 @@ export function BoardView({
                               <span className="hidden truncate sm:inline">{cell.label ?? t.core.cellTypes[cell.cellType]}</span>
                               <span className="truncate sm:hidden">{(cell.label ?? t.core.cellTypes[cell.cellType]).slice(0, 3)}</span>
                             </span>
-                            {isSpecial ? <span className={`size-1.5 shrink-0 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden /> : null}
+                            <span className="flex shrink-0 items-center gap-1">
+                              {here.length > 0 ? (
+                                <span className="inline-flex items-center gap-1 border border-amber/60 bg-amber/15 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                                  <UserGroupIcon className="size-3" aria-hidden />
+                                  {here.length}
+                                </span>
+                              ) : null}
+                              {isSpecial ? <span className={`size-1.5 shrink-0 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden /> : null}
+                            </span>
                           </span>
 
                           {/* micro badge centered if special */}
@@ -572,7 +597,7 @@ export function BoardView({
                             ) : (
                               <span />
                             )}
-                            <span className="ammo-counter ml-auto text-xl leading-none tracking-tight sm:text-2xl">
+                            <span className={`ammo-counter ml-auto text-xl leading-none tracking-tight sm:text-2xl${here.length > 0 ? " text-amber" : ""}`}>
                               {String(cell.position).padStart(2, "0")}
                             </span>
                           </span>
@@ -598,7 +623,7 @@ export function BoardView({
                   <button
                     type="button"
                     onClick={() => setSelectedPos(cell.position)}
-                    className={`group relative flex w-full items-center gap-3 border bg-raised px-3 py-2.5 text-left transition-all hover:brightness-[1.08] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} border-l-4 ${isSpecial ? "" : "border-l-dim/30"}`}
+                    className={`group relative flex w-full items-center gap-3 border bg-raised px-3 py-2.5 text-left transition-all hover:brightness-[1.08] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} border-l-4 ${here.length > 0 ? "!border-amber/60" : isSpecial ? "" : "border-l-dim/30"}`}
                   >
                     <span className="ammo-counter w-10 shrink-0 text-right font-display text-xl leading-none text-foreground/90">
                       {String(cell.position).padStart(2, "0")}

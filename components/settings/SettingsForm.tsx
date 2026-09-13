@@ -10,6 +10,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/shared/ui/accent";
 import { ImageCropper } from "@/components/ui/ImageCropper";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { Input } from "@/components/ui/Input";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
@@ -249,9 +250,7 @@ export function SettingsForm({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatar} alt="" className="size-full object-cover" />
                 ) : (
-                  <span className="inline-flex size-full items-center justify-center font-display text-3xl text-dim">
-                    {(name || "?").slice(0, 2).toUpperCase()}
-                  </span>
+                  <AvatarFallback seed={displayName ?? name} name={name || displayName || "?"} className="size-full" emojiClassName="text-5xl" />
                 )}
               </div>
               <input

@@ -3,12 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowPathIcon,
-  CheckCircleIcon,
   ClockIcon,
   FilmIcon,
   InboxIcon,
   StarIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
@@ -16,11 +14,16 @@ import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/
 import { listPendingEventSubmissions } from "@/lib/modules/iee/repository";
 import { listEffects, listItems } from "@/lib/engine";
 import { EventModerationList, type EventSubmission } from "@/components/admin/EventModerationList";
-import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction } from "@/lib/modules/moderation/actions/moderation";
+ import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction, approveAllRerollsAction, rejectAllRerollsAction, approveAllCompletionsAction, rejectAllCompletionsAction } from "@/lib/modules/moderation/actions/moderation";
+ import { approveAllEventsAction, rejectAllEventsAction } from "@/lib/modules/iee/actions/events";
+ import { ModerationBulkBar } from "@/components/admin/ModerationBulkBar";
 import { FormShell } from "@/components/admin/FormShell";
 import { Badge } from "@/components/ui/Badge";
-import { Textarea } from "@/components/ui/Textarea";
+import { BotBadge } from "@/components/ui/BotBadge";
+import { isBotUsername } from "@/lib/shared/utils/bots";
+import { RejectWithNoteButton } from "@/components/admin/RejectWithNoteButton";
 import { AvatarWithPresence } from "@/components/ui/Presence";
+import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 
@@ -42,6 +45,7 @@ function RequestCard({
   requestedAt,
   dateFmt,
   badges,
+  botLabel,
   children,
 }: {
   accent: "amber" | "emerald";
@@ -55,6 +59,7 @@ function RequestCard({
   requestedAt: Date;
   dateFmt: Intl.DateTimeFormat;
   badges: React.ReactNode;
+  botLabel: string;
   children: React.ReactNode;
 }) {
   const nameEl = isAdmin ? (
@@ -70,21 +75,22 @@ function RequestCard({
   return (
     <li className="hud-card overflow-hidden p-0">
       <div className={`h-1 w-full ${accent === "amber" ? "bg-amber/70" : "bg-emerald-500/70"}`} aria-hidden />
-      <div className="p-4 sm:p-5">
+      <div className="p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <AvatarWithPresence lastSeenAt={lastSeenAt} size="md" href={isAdmin ? `/admin/users/${userId}` : `/players/${username}`}>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <AvatarWithPresence lastSeenAt={lastSeenAt} size="sm" href={isAdmin ? `/admin/users/${userId}` : `/players/${username}`}>
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt={name} className="size-10 object-cover" />
+                <img src={avatarUrl} alt={name} className="size-8 object-cover" />
               ) : (
-                <span className="grid h-10 w-10 place-items-center bg-raised font-display text-xs tracking-widest text-amber">{name.slice(0, 2).toUpperCase()}</span>
+                <AvatarFallback seed={userId} name={name} className="h-8 w-8" emojiClassName="text-base" />
               )}
             </AvatarWithPresence>
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2">
                 {nameEl}
                 <span className="font-mono text-xs text-dim">@{username}</span>
+                {isBotUsername(username) ? <BotBadge label={botLabel} /> : null}
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
                 <span className="inline-flex items-center gap-1 text-dim">
@@ -177,6 +183,16 @@ export default async function AdminRerollsPage({
     reward: (row.reward ?? {}) as EventSubmission["reward"],
   }));
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
+  const bulkLabels = {
+    barLabel: t.admin.moderation.bulkBarLabel,
+    approveAll: t.admin.moderation.bulkApproveAll,
+    rejectAll: t.admin.moderation.bulkRejectAll,
+    rejectTitle: t.admin.moderation.bulkRejectTitle,
+    confirmApprove: t.admin.moderation.bulkConfirmApprove,
+    notePlaceholder: t.admin.moderation.bulkNotePlaceholder,
+    cancelLabel: t.core.common.cancel,
+    tooShortError: t.core.errors.formReasonRequired,
+  };
 
   const tabLink = (tabName: "rerolls" | "completions" | "events", count: number) => {
     const active = activeTab === tabName;
@@ -237,19 +253,35 @@ export default async function AdminRerollsPage({
       </div>
 
       {activeTab === "events" ? (
-        <EventModerationList
-          submissions={eventSubmissions}
-          itemNames={itemNames}
-          effectNames={effectNames}
-        />
+        <div className="flex flex-col gap-4">
+          <ModerationBulkBar
+            ids={pendingEvents.map((row) => row.id)}
+            approveAction={approveAllEventsAction}
+            rejectAction={rejectAllEventsAction}
+            labels={bulkLabels}
+          />
+          <EventModerationList
+            submissions={eventSubmissions}
+            itemNames={itemNames}
+            effectNames={effectNames}
+          />
+        </div>
       ) : activeTab === "rerolls" ? (
         pending.length === 0 ? (
           <EmptyState icon={InboxIcon} title={t.admin.moderation.allClear} hint={t.admin.moderation.empty} />
         ) : (
-          <ul className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
+            <ModerationBulkBar
+              ids={pending.map((req) => req.id)}
+              approveAction={approveAllRerollsAction}
+              rejectAction={rejectAllRerollsAction}
+              labels={bulkLabels}
+            />
+          <ul className="flex flex-col gap-2.5">
             {pending.map((req) => (
               <RequestCard
                 key={req.id}
+                botLabel={t.core.common.bot}
                 accent="amber"
                 avatarUrl={req.avatarUrl ?? null}
                 lastSeenAt={req.lastSeenAt ?? null}
@@ -267,64 +299,58 @@ export default async function AdminRerollsPage({
                   </>
                 }
               >
-                <div className="mt-4 border border-[#3d3d34] bg-background/60 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                  <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
-                    <span className="inline-block h-px w-3 bg-dim/40" aria-hidden />
-                    {t.admin.moderation.colReason}
-                  </div>
-                  <p className="mt-1.5 text-sm leading-relaxed break-words">{req.reason}</p>
-                </div>
+                <p className="mt-2 border-l-2 border-amber/40 bg-background/60 px-2.5 py-1.5 text-[13px] leading-snug break-words">{req.reason}</p>
 
-                <div className="hazard-tape my-4 opacity-30" aria-hidden />
-
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="border border-emerald-900/50 bg-emerald-950/20 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                    <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-emerald-400">
-                      <CheckCircleIcon className="size-3.5" aria-hidden />
-                      {t.admin.moderation.approve}
-                    </div>
-                    <FormShell
-                      action={approveRerollAction}
-                      submitLabel={t.admin.moderation.approve}
-                      submitClassName="hud-btn hud-btn-primary w-full"
-                      className="flex flex-col gap-2"
-                    >
-                      <input type="hidden" name="requestId" value={req.id} />
-                      <p className="text-xs leading-relaxed text-dim">
-                        {format(t.admin.moderation.approveConfirm, { player: req.displayName ?? req.username })}
-                      </p>
-                    </FormShell>
-                  </div>
-
-                  <div className="border border-red-900/40 bg-red-950/20 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                    <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-red-300">
-                      <XCircleIcon className="size-3.5" aria-hidden />
-                      {t.admin.moderation.reject}
-                    </div>
-                    <FormShell
-                      action={rejectRerollAction}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <FormShell
+                    action={approveRerollAction}
+                    submitLabel={t.admin.moderation.approve}
+                    submitClassName="hud-btn hud-btn-primary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+                    className="inline-flex items-center"
+                    confirmMessage={format(t.admin.moderation.approveConfirm, { player: req.displayName ?? req.username })}
+                    confirmDanger={false}
+                  >
+                    <input type="hidden" name="requestId" value={req.id} />
+                  </FormShell>
+                  <FormShell
+                    action={rejectRerollAction}
+                    hideSubmit
+                    className="inline-flex items-center"
+                  >
+                    <input type="hidden" name="requestId" value={req.id} />
+                    <RejectWithNoteButton
                       submitLabel={t.admin.moderation.reject}
-                      submitClassName="hud-btn hud-btn-danger w-full"
-                      className="flex flex-col gap-2"
-                    >
-                      <input type="hidden" name="requestId" value={req.id} />
-                      <Textarea name="adminNote" required minLength={5} rows={2} placeholder={t.admin.moderation.rejectPlaceholder} aria-label={t.core.common.reason} />
-                    </FormShell>
-                  </div>
+                      title={t.admin.moderation.reject}
+                      notePlaceholder={t.admin.moderation.rejectPlaceholder}
+                      confirmLabel={t.admin.moderation.reject}
+                      cancelLabel={t.core.common.cancel}
+                      tooShortError={t.core.errors.formReasonRequired}
+                      className="hud-btn hud-btn-danger inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+                    />
+                  </FormShell>
                 </div>
               </RequestCard>
             ))}
           </ul>
+          </div>
         )
       ) : pendingCompletions.length === 0 ? (
         <EmptyState icon={InboxIcon} title={t.admin.moderation.allClear} hint={t.admin.completions.empty} />
       ) : (
-        <ul className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
+          <ModerationBulkBar
+            ids={pendingCompletions.map((req) => req.id)}
+            approveAction={approveAllCompletionsAction}
+            rejectAction={rejectAllCompletionsAction}
+            labels={bulkLabels}
+          />
+        <ul className="flex flex-col gap-2.5">
           {pendingCompletions.map((req) => {
             const passed = req.outcome === "passed";
             return (
               <RequestCard
                 key={req.id}
+                botLabel={t.core.common.bot}
                 accent="emerald"
                 avatarUrl={req.avatarUrl ?? null}
                 lastSeenAt={req.lastSeenAt ?? null}
@@ -346,16 +372,12 @@ export default async function AdminRerollsPage({
                 }
               >
                 {req.reason || req.rating ? (
-                  <div className="mt-4 border border-[#3d3d34] bg-background/60 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                    <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
-                      <span className="inline-block h-px w-3 bg-dim/40" aria-hidden />
-                      {t.admin.completions.colReason}
-                    </div>
+                  <div className="mt-2 border-l-2 border-emerald-500/40 bg-background/60 px-2.5 py-1.5">
                     {req.reason ? (
-                      <p className="mt-1.5 text-sm leading-relaxed break-words">{req.reason}</p>
+                      <p className="text-[13px] leading-snug break-words">{req.reason}</p>
                     ) : null}
                     {req.rating ? (
-                      <p className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-xs text-amber">
+                      <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] text-amber">
                         <StarIcon className="size-3.5" aria-hidden />
                         {t.admin.completions.colRating}: {req.rating}/10
                       </p>
@@ -363,50 +385,42 @@ export default async function AdminRerollsPage({
                   </div>
                 ) : null}
 
-                <div className="hazard-tape my-4 opacity-30" aria-hidden />
-
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="border border-emerald-900/50 bg-emerald-950/20 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                    <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-emerald-400">
-                      <CheckCircleIcon className="size-3.5" aria-hidden />
-                      {t.admin.completions.approve}
-                    </div>
-                    <FormShell
-                      action={approveCompletionAction}
-                      submitLabel={t.admin.completions.approve}
-                      submitClassName="hud-btn hud-btn-primary w-full"
-                      className="flex flex-col gap-2"
-                    >
-                      <input type="hidden" name="requestId" value={req.id} />
-                      <p className="text-xs leading-relaxed text-dim">
-                        {format(t.admin.completions.approveConfirm, {
-                          outcome: passed ? t.admin.completions.outcomePassed : t.admin.completions.outcomeDropped,
-                          player: req.displayName ?? req.username,
-                        })}
-                      </p>
-                    </FormShell>
-                  </div>
-
-                  <div className="border border-red-900/40 bg-red-950/20 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                    <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-red-300">
-                      <XCircleIcon className="size-3.5" aria-hidden />
-                      {t.admin.completions.reject}
-                    </div>
-                    <FormShell
-                      action={rejectCompletionAction}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <FormShell
+                    action={approveCompletionAction}
+                    submitLabel={t.admin.completions.approve}
+                    submitClassName="hud-btn hud-btn-primary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+                    className="inline-flex items-center"
+                    confirmMessage={format(t.admin.completions.approveConfirm, {
+                      outcome: passed ? t.admin.completions.outcomePassed : t.admin.completions.outcomeDropped,
+                      player: req.displayName ?? req.username,
+                    })}
+                    confirmDanger={false}
+                  >
+                    <input type="hidden" name="requestId" value={req.id} />
+                  </FormShell>
+                  <FormShell
+                    action={rejectCompletionAction}
+                    hideSubmit
+                    className="inline-flex items-center"
+                  >
+                    <input type="hidden" name="requestId" value={req.id} />
+                    <RejectWithNoteButton
                       submitLabel={t.admin.completions.reject}
-                      submitClassName="hud-btn hud-btn-danger w-full"
-                      className="flex flex-col gap-2"
-                    >
-                      <input type="hidden" name="requestId" value={req.id} />
-                      <Textarea name="adminNote" required minLength={5} rows={2} placeholder={t.admin.completions.rejectPlaceholder} aria-label={t.core.common.reason} />
-                    </FormShell>
-                  </div>
+                      title={t.admin.completions.reject}
+                      notePlaceholder={t.admin.completions.rejectPlaceholder}
+                      confirmLabel={t.admin.completions.reject}
+                      cancelLabel={t.core.common.cancel}
+                      tooShortError={t.core.errors.formReasonRequired}
+                      className="hud-btn hud-btn-danger inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+                    />
+                  </FormShell>
                 </div>
               </RequestCard>
             );
           })}
         </ul>
+        </div>
       )}
     </div>
   );

@@ -22,12 +22,11 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
 
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");
-  // The three player-facing paths all refuse a season that is not running; the
-  // two approval paths did not, so a request filed while a season was active
-  // could be approved after it was finished or archived — writing moves and
-  // ledger entries onto a closed run.
-  if (season.status !== "active") throw new GameLoopError("gameSeasonNotActive");
-  if (sp.status !== "active") throw new GameLoopError("gamePlayerNotActive");
+  // Staff verdicts apply whenever the request was filed — including after the
+  // season (or the participant) stopped being active. A late approval writes
+  // onto a closed run by design; that is the judge's call, and the trail
+  // (resolvedBy + event log) records who made it. Only player-facing paths
+  // refuse a season that is not running.
 
   const config = parseSeasonConfig(season.config);
   if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
