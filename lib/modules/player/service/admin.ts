@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/infrastructure/db";
@@ -136,6 +136,37 @@ export async function listUserSeasons(userId: string): Promise<AdminUserSeasonRo
     .innerJoin(seasons, eq(seasons.id, seasonPlayers.seasonId))
     .where(eq(seasonPlayers.playerId, userId))
     .orderBy(desc(seasonPlayers.joinedAt));
+}
+
+/** Season participation for many users at once — one query for the users list. */
+export async function listUserSeasonsBulk(
+  userIds: string[],
+): Promise<Record<string, AdminUserSeasonRow[]>> {
+  if (userIds.length === 0) return {};
+  const rows = await db
+    .select({
+      playerId: seasonPlayers.playerId,
+      seasonId: seasons.id,
+      seasonTitle: seasons.title,
+      seasonSlug: seasons.slug,
+      seasonStatus: seasons.status,
+      position: seasonPlayers.position,
+      balancePoints: seasonPlayers.balancePoints,
+      status: seasonPlayers.status,
+      streakPass: seasonPlayers.streakPass,
+      streakDrop: seasonPlayers.streakDrop,
+      rerollsUsed: seasonPlayers.rerollsUsed,
+      joinedAt: seasonPlayers.joinedAt,
+    })
+    .from(seasonPlayers)
+    .innerJoin(seasons, eq(seasons.id, seasonPlayers.seasonId))
+    .where(inArray(seasonPlayers.playerId, userIds))
+    .orderBy(desc(seasonPlayers.joinedAt));
+  const map: Record<string, AdminUserSeasonRow[]> = {};
+  for (const { playerId, ...rest } of rows) {
+    (map[playerId] ??= []).push(rest);
+  }
+  return map;
 }
 
 /** Recent game rolls of a user with game + season titles for the detail tabs. */
