@@ -24,7 +24,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
-import { actionMeta, isPlainObject, payloadSummary } from "@/components/admin/audit-meta";
+import { actionMeta, auditActionLabel, auditFieldLabel, auditTargetLabel, describeAudit, isPlainObject, payloadSummary } from "@/components/admin/audit-meta";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
@@ -48,8 +48,8 @@ function PrimitiveValue({ value }: { value: unknown }) {
   return <span className="font-mono text-xs text-zinc-400">{String(value)}</span>;
 }
 
-/** Recursive key/value tree for a payload — no raw JSON blobs. */
-function PayloadTree({ value, depth = 0 }: { value: unknown; depth?: number }) {
+/** Recursive key/value tree for a payload — keys translated, no raw JSON blobs. */
+function PayloadTree({ value, depth = 0, label }: { value: unknown; depth?: number; label?: (key: string) => string }) {
   const pad = depth * 14;
   if (Array.isArray(value)) {
     if (value.length === 0) return <p className="pl-0 font-mono text-xs text-dim">[ ]</p>;
@@ -65,7 +65,7 @@ function PayloadTree({ value, depth = 0 }: { value: unknown; depth?: number }) {
                     <span className="text-dim transition-transform group-open:rotate-90">▸</span>
                     {Array.isArray(item) ? `array (${item.length})` : "object"}
                   </summary>
-                  <PayloadTree value={item} depth={depth + 1} />
+                  <PayloadTree value={item} depth={depth + 1} label={label} />
                 </details>
               </div>
             ) : (
@@ -83,7 +83,7 @@ function PayloadTree({ value, depth = 0 }: { value: unknown; depth?: number }) {
       <div className="flex flex-col gap-1">
         {entries.map(([key, v]) => (
           <div key={key} className="flex items-start gap-2" style={{ paddingLeft: pad }}>
-            <span className="shrink-0 font-mono text-xs leading-5 text-dim">{key}</span>
+            <span className="shrink-0 font-mono text-xs leading-5 text-dim" title={key}>{label ? label(key) : key}</span>
             <span className="shrink-0 text-dim">:</span>
             <div className="min-w-0 flex-1">
               {isPlainObject(v) || Array.isArray(v) ? (
@@ -92,7 +92,7 @@ function PayloadTree({ value, depth = 0 }: { value: unknown; depth?: number }) {
                     <span className="text-dim transition-transform group-open:rotate-90">▸</span>
                     {Array.isArray(v) ? `array (${v.length})` : "object"}
                   </summary>
-                  <PayloadTree value={v} depth={depth + 1} />
+                  <PayloadTree value={v} depth={depth + 1} label={label} />
                 </details>
               ) : (
                 <PrimitiveValue value={v} />
@@ -133,20 +133,27 @@ function copyText(text: string): Promise<void> {
   return Promise.reject(new Error("clipboard unavailable"));
 }
 
-function exportCsv(rows: AdminAuditRow[], prefix: string) {
+function exportCsv(
+  rows: AdminAuditRow[],
+  prefix: string,
+  resolve: { action: (code: string) => string; target: (code: string) => string; summary: (entry: AdminAuditRow["entry"]) => string },
+) {
   const esc = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ["time", "actor", "action", "target_type", "target_id", "entry_id", "payload"];
+  const header = ["time", "actor", "action", "action_code", "target", "target_type", "target_id", "entry_id", "summary", "payload"];
   const lines = rows.map(({ entry, username }) =>
     [
       esc(entry.createdAt.toISOString()),
       esc(username),
+      esc(resolve.action(entry.actionType)),
       esc(entry.actionType),
+      esc(resolve.target(entry.targetType)),
       esc(entry.targetType),
       esc(entry.targetId),
       esc(entry.id),
+      esc(resolve.summary(entry)),
       esc(JSON.stringify(entry.payload ?? {})),
     ].join(","),
   );
@@ -206,6 +213,11 @@ export function AuditLogViewer({
     () => new Intl.DateTimeFormat(locale, { dateStyle: "full", timeStyle: "long" }),
     [locale],
   );
+  const actionLabel = (code: string) => auditActionLabel(code, a);
+  const targetLabel = (code: string) => auditTargetLabel(code, a);
+  const summary = (entry: AdminAuditRow["entry"]) =>
+    describeAudit({ actionType: entry.actionType, payload: (entry.payload ?? {}) as Record<string, unknown> }, a);
+
 
   const apply = (next: FilterState) => {
     const params = new URLSearchParams();
@@ -291,7 +303,7 @@ export function AuditLogViewer({
               <option value="">{a.allActions}</option>
               {actionTypes.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {actionLabel(value)}
                 </option>
               ))}
             </Select>
@@ -304,7 +316,7 @@ export function AuditLogViewer({
               <option value="">{a.allTargets}</option>
               {targetTypes.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {targetLabel(value)}
                 </option>
               ))}
             </Select>
@@ -341,7 +353,7 @@ export function AuditLogViewer({
             )}
             <button
               type="button"
-              onClick={() => exportCsv(rows, "audit")}
+              onClick={() => exportCsv(rows, "audit", { action: actionLabel, target: targetLabel, summary })}
               className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1.5 text-xs"
               disabled={rows.length === 0}
             >
@@ -418,22 +430,22 @@ export function AuditLogViewer({
                         </span>
                       </td>
                       <td className="p-3">
-                        <Badge variant={meta.variant} size="sm" className="gap-1">
+                        <Badge variant={meta.variant} size="sm" className="gap-1" title={entry.actionType}>
                           <Icon className="size-3" aria-hidden />
-                          {entry.actionType}
+                          {actionLabel(entry.actionType)}
                         </Badge>
                       </td>
                       <td className="p-3">
-                        <span className="inline-flex items-center gap-1 font-mono text-xs">
+                        <span className="inline-flex items-center gap-1 font-mono text-xs" title={entry.targetType}>
                           <span className="border border-dim/30 bg-background/60 px-1.5 py-0.5 text-zinc-300 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                            {entry.targetType}
+                            {targetLabel(entry.targetType)}
                           </span>
                           {entry.targetId ? <span className="text-dim">:{entry.targetId.slice(0, 8)}</span> : null}
                         </span>
                       </td>
                       <td className="max-w-[280px] p-3 font-mono text-xs text-dim">
                         <span className="block truncate" title={payloadSummary(payload)}>
-                          {Object.keys(payload).length === 0 ? "—" : payloadSummary(payload)}
+                          {Object.keys(payload).length === 0 ? a.summaryEmpty : summary(entry)}
                         </span>
                       </td>
                       <td className="p-3 text-right">
@@ -537,10 +549,10 @@ function EntryModal({
           </span>
           <div className="min-w-0">
             <h2 id={a.modalTitle} className="font-display text-xl leading-none tracking-wider text-zinc-100 uppercase">
-              {a.modalTitle}
+              {auditActionLabel(entry.actionType, a)}
             </h2>
             <p className="mt-1.5 font-mono text-[11px] tracking-widest text-dim uppercase">
-              {fullDateFmt.format(entry.createdAt)}
+              {fullDateFmt.format(entry.createdAt)} · {format(a.rawCode, { code: entry.actionType })}
             </p>
           </div>
         </div>
@@ -598,18 +610,19 @@ function EntryModal({
         <div className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <dt className="font-display text-[10px] tracking-widest text-dim uppercase">{a.actionLabel}</dt>
           <dd className="mt-1">
-            <Badge variant={meta.variant} size="sm" className="gap-1">
+            <Badge variant={meta.variant} size="sm" className="gap-1" title={entry.actionType}>
               <Icon className="size-3" aria-hidden />
-              {entry.actionType}
+              {auditActionLabel(entry.actionType, a)}
             </Badge>
+            <p className="mt-1 font-mono text-[11px] text-dim">{format(a.rawCode, { code: entry.actionType })}</p>
           </dd>
         </div>
 
         <div className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
           <dt className="font-display text-[10px] tracking-widest text-dim uppercase">{a.targetLabel}</dt>
           <dd className="mt-1 flex items-center gap-2">
-            <span className="border border-dim/30 bg-background/60 px-1.5 py-0.5 font-mono text-xs text-zinc-300 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-              {entry.targetType}
+            <span className="border border-dim/30 bg-background/60 px-1.5 py-0.5 font-mono text-xs text-zinc-300 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" title={entry.targetType}>
+              {auditTargetLabel(entry.targetType, a)}
             </span>
             {entry.targetId ? (
               <button
@@ -644,7 +657,7 @@ function EntryModal({
         </h3>
         <div className="mt-2 max-h-72 overflow-auto border border-[#3d3d34] bg-[#131312] p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
           {hasPayload ? (
-            <PayloadTree value={payload} />
+            <PayloadTree value={payload} label={(key) => auditFieldLabel(key, a)} />
           ) : (
             <p className="font-mono text-xs text-dim">{a.payloadEmpty}</p>
           )}

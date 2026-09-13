@@ -158,11 +158,11 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
 
   await ensureBotPlayers(run);
   const owned = await listBotOwnedPlayers(run.id, run.seasonId);
-  const activeSpIds: Array<{ spId: string; username: string }> = [];
+  const activeSpIds: Array<{ spId: string; username: string; userId: string }> = [];
   for (const o of owned) {
     if (!o.seasonPlayerId) continue;
     const sp = await getSeasonPlayerById(o.seasonPlayerId);
-    if (sp && sp.status === "active") activeSpIds.push({ spId: sp.id, username: o.username });
+    if (sp && sp.status === "active") activeSpIds.push({ spId: sp.id, username: o.username, userId: o.userId });
   }
   if (activeSpIds.length === 0) {
     const message = "No active bot players — every bot finished, was eliminated or withdrawn";
@@ -213,11 +213,11 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           payload: { rollId },
         });
         await logAdminAction({
-          actorId: actor.id,
+          actorId: bot.userId,
           actionType: "bot_roll",
           targetType: "season_player",
           targetId: bot.spId,
-          payload: { runId, botUsername: bot.username, rollId },
+          payload: { runId, triggeredBy: actor.id, botUsername: bot.username, rollId },
         });
       } else {
         const outcome = pickBotOutcome(
@@ -249,12 +249,13 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
           payload: { rollId: open.id, outcome, ...result },
         });
         await logAdminAction({
-          actorId: actor.id,
+          actorId: bot.userId,
           actionType: "bot_resolve",
           targetType: "season_player",
           targetId: bot.spId,
           payload: {
             runId,
+            triggeredBy: actor.id,
             botUsername: bot.username,
             rollId: open.id,
             outcome,
