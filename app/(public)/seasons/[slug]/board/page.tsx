@@ -4,6 +4,8 @@ import { BackLink } from "@/components/ui/BackLink";
 
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { BoardView, type BoardPlayer, type BoardRoll } from "@/components/board/board-view";
+import { BoardLiveFeed } from "@/components/board/board-live-feed";
+import { BoardLiveRefresh } from "@/components/board/board-live-refresh";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
@@ -106,6 +108,10 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
         right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
       />
       <SeasonTabs slug={season.slug} t={t} />
+      <div className="mt-6">
+        <BoardLiveFeed seasonId={season.id} />
+        <BoardLiveRefresh seasonId={season.id} />
+      </div>
       <div className="mt-6">
         <BoardView cells={cells} players={players} rolls={boardRolls} stats={stats} seasonStartedAt={season.startedAt?.toISOString() ?? null} />
       </div>

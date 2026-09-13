@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LayoutGroup, MotionConfig, motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -123,24 +124,40 @@ function Avatar({
   );
 }
 
+/** Travel between cells, in seconds — the one deliberate exception to the
+ * 120–200ms rule: a token crossing the board must read as movement. */
+const TOKEN_TRAVEL_S = 0.55;
+
+/**
+ * Player token with a board-wide identity. Every token lives under one
+ * `LayoutGroup`, so when a refresh moves a player to another cell the same
+ * `layoutId` unmounts in the old cell and mounts in the new one — and
+ * framer-motion glides it across the board instead of teleporting it.
+ */
+function TokenAvatar({ player, className, size, glow }: { player: BoardPlayer; className: string; size: "sm" | "md"; glow?: boolean }) {
+  return (
+    <motion.span
+      layoutId={`board-token-${player.username}`}
+      transition={{ duration: TOKEN_TRAVEL_S, ease: "easeOut" }}
+      className={`inline-flex ${glow ? "drop-shadow-[0_0_6px_rgba(242,169,0,0.55)]" : ""}`}
+    >
+      <AvatarWithPresence lastSeenAt={player.lastSeenAt} size={size}>
+        <Avatar {...player} className={className} />
+      </AvatarWithPresence>
+    </motion.span>
+  );
+}
+
 function CellAvatarStack({ occupants }: { occupants: BoardPlayer[] }) {
   if (occupants.length === 1) {
     const solo = occupants[0];
-    return (
-      <span className="inline-flex drop-shadow-[0_0_6px_rgba(242,169,0,0.55)]">
-        <AvatarWithPresence key={solo.username} lastSeenAt={solo.lastSeenAt} size="md">
-          <Avatar {...solo} className="size-9 !border-amber/70" />
-        </AvatarWithPresence>
-      </span>
-    );
+    return <TokenAvatar player={solo} className="size-9 !border-amber/70" size="md" glow />;
   }
   const shown = occupants.slice(0, 4);
   return (
     <span className="flex -space-x-1.5">
       {shown.map((p) => (
-        <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm">
-          <Avatar {...p} className="size-6" />
-        </AvatarWithPresence>
+        <TokenAvatar key={p.username} player={p} className="size-6" size="sm" />
       ))}
       {occupants.length > shown.length ? (
         <span className="inline-flex size-6 items-center justify-center border border-dim/50 bg-raised font-mono text-[9px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -345,6 +362,7 @@ export function BoardView({
   const uptime = now !== null && seasonStartedAt ? formatDuration(now - new Date(seasonStartedAt).getTime(), t.board.units) : "—";
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="flex flex-col gap-6">
       {/* Event status */}
       <section aria-label={t.board.stats.title}>
@@ -398,7 +416,7 @@ export function BoardView({
                   const roll = rollByUser[p.username] ?? null;
                   const statusLabel = (t.core.playerStatuses as Record<string, string>)[p.status] ?? p.status;
                   return (
-                    <li key={p.username} className="grid grid-cols-1 gap-2 py-2.5 sm:grid-cols-[1fr_110px_70px_1.6fr] sm:items-start sm:gap-3 sm:py-3">
+                    <motion.li layout transition={{ duration: 0.2, ease: "easeOut" }} key={p.username} className="grid grid-cols-1 gap-2 py-2.5 sm:grid-cols-[1fr_110px_70px_1.6fr] sm:items-start sm:gap-3 sm:py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
                           <Avatar username={p.username} displayName={p.displayName} avatarUrl={p.avatarUrl} />
@@ -493,7 +511,7 @@ export function BoardView({
                           <span className="font-mono text-xs tracking-wide text-dim">{t.board.roster.noGame}</span>
                         )}
                       </div>
-                    </li>
+                    </motion.li>
                   );
                 });
               })()}
@@ -532,6 +550,7 @@ export function BoardView({
 
       {/* Board */}
       <div className="hud-card overflow-hidden bg-[#121210] p-2 sm:p-4">
+        <LayoutGroup id="board-tokens">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#2a2a22] pb-2">
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
             {"// TRACK MAP "}<span className="text-amber">[{String(cells.length).padStart(2, "0")} CELLS]</span>
@@ -563,7 +582,14 @@ export function BoardView({
                         >
                           <CellWatermark type={cell.cellType} />
                           {here.length > 0 ? (
-                            <span className="pointer-events-none absolute inset-0 bg-amber/[0.08] shadow-[inset_0_0_18px_rgba(242,169,0,0.25)]" aria-hidden />
+                            <motion.span
+                              key={here.map((p) => p.username).sort().join(",")}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              className="pointer-events-none absolute inset-0 bg-amber/[0.08] shadow-[inset_0_0_18px_rgba(242,169,0,0.25)]"
+                              aria-hidden
+                            />
                           ) : null}
                           {/* top */}
                           <span className="relative flex items-start justify-between gap-1">
@@ -574,10 +600,16 @@ export function BoardView({
                             </span>
                             <span className="flex shrink-0 items-center gap-1">
                               {here.length > 0 ? (
-                                <span className="inline-flex items-center gap-1 border border-amber/60 bg-amber/15 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
+                                <motion.span
+                                  key={here.length}
+                                  initial={{ scale: 0.6, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ duration: 0.18, ease: "easeOut" }}
+                                  className="inline-flex items-center gap-1 border border-amber/60 bg-amber/15 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]"
+                                >
                                   <UserGroupIcon className="size-3" aria-hidden />
                                   {here.length}
-                                </span>
+                                </motion.span>
                               ) : null}
                               {isSpecial ? <span className={`size-1.5 shrink-0 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden /> : null}
                             </span>
@@ -651,6 +683,7 @@ export function BoardView({
         <div className="mt-3 h-1.5 w-full overflow-hidden border border-[#2a2a22] bg-[#1a1a14] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
           <div className="h-full w-full bg-[repeating-linear-gradient(90deg,rgba(242,169,0,0.18)_0_18px,transparent_18px_28px)] opacity-60" aria-hidden />
         </div>
+        </LayoutGroup>
       </div>
 
       {/* Cell details modal */}
@@ -771,5 +804,6 @@ export function BoardView({
           : null}
       </Modal>
     </div>
+    </MotionConfig>
   );
 }

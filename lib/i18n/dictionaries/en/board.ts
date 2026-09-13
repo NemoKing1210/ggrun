@@ -38,6 +38,12 @@ export const board = {
     since: "in the run for {time}",
     unknownGame: "Unknown game",
   },
+  activity: {
+    title: "Live activity",
+    empty: "Nothing here yet — moves, rolls and other season events will appear in real time.",
+    now: "now",
+    watching: "{count} watching",
+  },
   roster: {
     title: "Roster",
     hint: "everyone in the run",

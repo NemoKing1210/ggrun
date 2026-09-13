@@ -40,6 +40,12 @@ export const board: Widen<typeof BoardEn.board> = {
     since: "в забеге уже {time}",
     unknownGame: "Неизвестная игра",
   },
+  activity: {
+    title: "Активность в эфире",
+    empty: "Пока пусто — ходы, броски и другие события сезона появятся здесь в реальном времени.",
+    now: "только что",
+    watching: "{count} наблюдают",
+  },
   roster: {
     title: "Состав",
     hint: "все в забеге",

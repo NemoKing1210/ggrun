@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { TopLoader } from "@/components/ui/top-loader";
 import { GlobalChat } from "@/components/chat/GlobalChat";
+import { RealtimeProvider } from "@/components/realtime/realtime-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getAccent } from "@/lib/shared/ui/accent";
@@ -88,6 +89,7 @@ export default async function RootLayout({
       >
         <I18nProvider locale={locale} t={t}>
           <ToastProvider>
+            <RealtimeProvider>
             <TopLoader />
             {showMaintenanceBanner && (
               <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
@@ -97,7 +99,8 @@ export default async function RootLayout({
               </div>
             )}
             {children}
-            <GlobalChat isAuthenticated={!!user} />
+            <GlobalChat isAuthenticated={!!user} currentUserId={user?.id ?? null} />
+            </RealtimeProvider>
           </ToastProvider>
         </I18nProvider>
       </body>

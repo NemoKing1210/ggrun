@@ -15,5 +15,8 @@ export const chat = {
   tooLong: "Message too long (max 1000)",
   newMessages: "{count} new",
   onlineHint: "tactical link active",
+  reconnecting: "reconnecting…",
+  typingOne: "{name} is typing…",
+  typingMany: "{names} are typing…",
   close: "Close",
 } as const;

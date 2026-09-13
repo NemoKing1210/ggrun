@@ -55,8 +55,9 @@ dice movement, leaderboard, public feed, player HQ and an admin console.
 ## 3. Command line
 
 ```bash
-pnpm dev            # next dev (webpack). Turbopack dev = pnpm dev:turbo
-                    # (plain dev is the default because Turbopack dev has a
+pnpm dev            # everything: DB check + db:push + Next/Socket.IO server
+                    # + bot ticker (scripts/dev.ts; --port N, --no-bots, --no-push).
+                    # Turbopack dev = pnpm dev:turbo (plain Next, no sockets —
                     # Windows-only _buildManifest.js.tmp ENOENT race)
 pnpm build          # next build --turbopack
 pnpm start          # production server
@@ -284,9 +285,11 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 
 ## 8. Testing & verification
 
-- Vitest, colocated in `lib/engine/` — pure deterministic functions with
-  injected `rng`; no mocks/DB/DOM.
-- No tests outside `lib/engine/`; UI tests (if added) stay colocated and DB-free.
+- Vitest, colocated next to the code, DB-free: `lib/engine/` (pure
+  deterministic functions with injected `rng`; alias-free; no mocks/DOM),
+  `lib/realtime/` (policy units + Socket.IO boundary tests with injected
+  user lookup; dummy env in vitest.config.mts satisfies the pool import).
+  UI tests (if added) stay colocated and DB-free.
 - **Before handoff:** `pnpm lint` → `pnpm exec tsc --noEmit` → `pnpm test` →
   `pnpm build`; verify behavioral changes against a live dev server (admin
   flows included).

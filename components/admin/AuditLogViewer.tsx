@@ -26,6 +26,8 @@ import { Select } from "@/components/ui/Select";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { actionMeta, auditActionLabel, auditFieldLabel, auditTargetLabel, describeAudit, isPlainObject, payloadSummary } from "@/components/admin/audit-meta";
+import { useRealtime, useRealtimeConnects, useRealtimeEvent } from "@/components/realtime/realtime-provider";
+import { AUDIT_ROOM } from "@/lib/realtime/protocol";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
@@ -205,6 +207,76 @@ export function AuditLogViewer({
   const [q, setQ] = useState(filters.q);
   const [details, setDetails] = useState<AdminAuditRow | null>(null);
   const [copied, setCopied] = useState<"json" | "entry" | null>(null);
+  const { connected } = useRealtime();
+  const connects = useRealtimeConnects();
+  /** Live rows arrived over the socket after the server snapshot — shown
+   * immediately on page 1 when they match the active filters. */
+  const [liveRows, setLiveRows] = useState<AdminAuditRow[]>([]);
+  const liveIds = useMemo(() => new Set(liveRows.map((r) => r.entry.id)), [liveRows]);
+  /** Entries that cannot be shown inline (other pages, unmatched filters). */
+  const [pendingLive, setPendingLive] = useState(0);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+  useRealtimeEvent(AUDIT_ROOM, "audit:created", (payload) => {
+    const f = filtersRef.current;
+    const row: AdminAuditRow = {
+      entry: {
+        id: payload.entry.id,
+        actorId: payload.entry.actorId,
+        actionType: payload.entry.actionType,
+        targetType: payload.entry.targetType,
+        targetId: payload.entry.targetId,
+        payload: payload.entry.payload,
+        createdAt: new Date(payload.entry.createdAt),
+      },
+      username: payload.username,
+      avatarUrl: payload.avatarUrl,
+      lastSeenAt: payload.lastSeenAt ? new Date(payload.lastSeenAt) : null,
+    };
+    // Only page 1 shows inline rows; free-text search cannot be matched
+    // client-side, so those fall back to the refresh counter.
+    if (pageRef.current !== 1) {
+      setPendingLive((n) => n + 1);
+      return;
+    }
+    if (f.q.trim()) {
+      setPendingLive((n) => n + 1);
+      return;
+    }
+    if (f.action && row.entry.actionType !== f.action) {
+      setPendingLive((n) => n + 1);
+      return;
+    }
+    if (f.target && row.entry.targetType !== f.target) {
+      setPendingLive((n) => n + 1);
+      return;
+    }
+    setLiveRows((prev) => {
+      if (prev.some((r) => r.entry.id === row.entry.id)) return prev;
+      return [row, ...prev].slice(0, pageSizeRef.current);
+    });
+  });
+
+  // Server snapshot arrived (refresh / filter / page change) — drop live
+  // rows it already contains so they never render twice.
+  const serverIds = useMemo(() => new Set(rows.map((r) => r.entry.id)), [rows]);
+  useEffect(() => {
+    setLiveRows((prev) => (prev.length === 0 ? prev : prev.filter((r) => !serverIds.has(r.entry.id))));
+  }, [serverIds]);
+
+  // Reconnect refresh: rows written while offline never arrive over the
+  // socket and the counter above cannot know about them — reload the
+  // server snapshot on every fresh connect instead of showing a stale list.
+  const lastConnectSeen = useRef(connects);
+  useEffect(() => {
+    if (lastConnectSeen.current === connects) return;
+    lastConnectSeen.current = connects;
+    router.refresh();
+  });
 
   const dateFmt = useMemo(
     () => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }),
@@ -221,6 +293,9 @@ export function AuditLogViewer({
 
 
   const apply = (next: FilterState) => {
+    // New server snapshot is coming — live backlog no longer applies.
+    setPendingLive(0);
+    setLiveRows([]);
     const params = new URLSearchParams();
     const trimmed = next.q.trim();
     if (trimmed) params.set("q", trimmed);
@@ -254,10 +329,11 @@ export function AuditLogViewer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
   const hasFilters = Boolean(q.trim() || filters.action || filters.target || filters.period !== "all");
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(total, page * pageSize);
+  const visibleRows = page === 1 ? [...liveRows, ...rows].slice(0, pageSize) : rows;
+  const liveTotal = total + (page === 1 ? liveRows.length : 0);
+  const from = liveTotal === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = liveTotal === 0 ? 0 : (page - 1) * pageSize + visibleRows.length;
   const copiedTimer = useRef<number | null>(null);
   const flashCopied = (kind: "json" | "entry") => {
     setCopied(kind);
@@ -354,17 +430,27 @@ export function AuditLogViewer({
             )}
             <button
               type="button"
-              onClick={() => router.refresh()}
+              onClick={() => { setPendingLive(0); setLiveRows([]); router.refresh(); }}
               className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1.5 text-xs"
             >
               <ArrowPathIcon className="size-3.5" aria-hidden />
               {a.refresh}
             </button>
+            {pendingLive > 0 && (
+              <button
+                type="button"
+                onClick={() => { setPendingLive(0); setLiveRows([]); router.refresh(); }}
+                className="inline-flex items-center gap-1.5 border border-amber/40 bg-amber px-2.5 py-1.5 font-mono text-xs uppercase tracking-widest text-black shadow-[0_0_12px_rgba(242,169,0,0.35)] hover:bg-amber/90 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+              >
+                <span className="size-1.5 rounded-full bg-black animate-pulse" aria-hidden />
+                {format(a.newEntries, { count: String(pendingLive) })}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => exportCsv(rows, "audit", { action: actionLabel, target: targetLabel, summary })}
+              onClick={() => exportCsv(visibleRows, "audit", { action: actionLabel, target: targetLabel, summary })}
               className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1.5 text-xs"
-              disabled={rows.length === 0}
+              disabled={visibleRows.length === 0}
             >
               <ArrowDownTrayIcon className="size-3.5" aria-hidden />
               {a.exportCsv}
@@ -379,14 +465,24 @@ export function AuditLogViewer({
           <h2 className="inline-flex items-center gap-2 font-display text-sm uppercase tracking-wider">
             <ClockIcon className="size-4 text-amber" aria-hidden />
             {a.heading}
+            <span
+              className={
+                connected
+                  ? "inline-flex items-center gap-1.5 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-emerald-400"
+                  : "inline-flex items-center gap-1.5 border border-dim/20 bg-background/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-dim"
+              }
+            >
+              <span className={connected ? "size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" : "size-1.5 rounded-full bg-dim/50"} aria-hidden />
+              {a.live}
+            </span>
           </h2>
           <div className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-widest text-dim">
-            <span className="text-amber">{format(a.range, { from, to, total })}</span>
+            <span className="text-amber">{format(a.range, { from, to, total: liveTotal })}</span>
             <span>{format(a.pageOf, { page, pages })}</span>
           </div>
         </div>
 
-        {rows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <div className="m-4 border border-dashed border-dim/20 bg-background/20 p-10 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
             <FingerPrintIcon className="mx-auto size-7 text-dim" aria-hidden />
             <p className="mt-3 font-mono text-xs uppercase tracking-widest text-dim">
@@ -412,17 +508,31 @@ export function AuditLogViewer({
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ entry, username, avatarUrl, lastSeenAt }) => {
+                {visibleRows.map(({ entry, username, avatarUrl, lastSeenAt }) => {
                   const meta = actionMeta(entry.actionType);
                   const Icon = meta.icon;
                   const payload = (entry.payload ?? {}) as Record<string, unknown>;
+                  const isLive = liveIds.has(entry.id);
                   return (
                     <tr
                       key={entry.id}
-                      className="group cursor-pointer border-b border-[#2a2a22] transition-colors hover:bg-amber/[0.05]"
+                      className={
+                        isLive
+                          ? "group cursor-pointer border-b border-amber/40 bg-amber/[0.07] shadow-[inset_2px_0_0_0_#f2a900] transition-colors hover:bg-amber/[0.12]"
+                          : "group cursor-pointer border-b border-[#2a2a22] transition-colors hover:bg-amber/[0.05]"
+                      }
                       onClick={() => setDetails({ entry, username, avatarUrl, lastSeenAt })}
                     >
-                      <td className="p-3 font-mono text-xs whitespace-nowrap text-amber/80">{dateFmt.format(entry.createdAt)}</td>
+                      <td className="p-3 font-mono text-xs whitespace-nowrap text-amber/80">
+                        <span className="inline-flex items-center gap-2">
+                          {dateFmt.format(entry.createdAt)}
+                          {isLive && (
+                            <span className="border border-amber/50 bg-amber/15 px-1 py-px font-mono text-[9px] uppercase tracking-widest text-amber">
+                              {a.isNew}
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="p-3">
                         <span className="inline-flex items-center gap-2 font-mono text-xs font-semibold">
                           <AvatarWithPresence lastSeenAt={lastSeenAt} size="sm" href={isAdmin ? `/admin/users/${entry.actorId}` : null}>

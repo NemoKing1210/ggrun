@@ -236,7 +236,7 @@ Loaders `hud-loader-*` (blink, pulse). Alerts use `hud-card` with `border-danger
 ### Press & lift
 
 - `.hud-btn:active` → `translateY(1px)` (press). `.hud-lift:hover` → `translateY(-2px)` + `brightness(1.06)` on interactive cards (SeasonCard, template cards). Chip `active:translate-y-px`, Switch track `active:brightness-90`.
-- Keyframes live in `app/globals.css` (Motion section). Do not add new animation libraries; CSS keyframes keep the bundle small and match the tactical feel.
+ - Keyframes live in `app/globals.css` (Motion section). The only animation library is `framer-motion` (already a dependency), scoped to `components/board/`: shared-`layoutId` token travel between cells (`0.55s ease-out` — the one deliberate exception to the 120–200ms rule, a token crossing the board must read as movement), `layout` reorder of roster rows and live-feed entries (`120–200ms ease-out`), always under `MotionConfig reducedMotion="user"`. Everything else stays CSS keyframes.
 
 ---
 

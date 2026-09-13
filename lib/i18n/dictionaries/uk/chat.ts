@@ -18,5 +18,8 @@ export const chat: Widen<typeof ChatEn.chat> = {
   tooLong: "Повідомлення занадто довге (макс. 1000)",
   newMessages: "{count} нових",
   onlineHint: "канал активний",
+  reconnecting: "перепідключення…",
+  typingOne: "{name} друкує…",
+  typingMany: "{names} друкують…",
   close: "Закрити",
 } as const;

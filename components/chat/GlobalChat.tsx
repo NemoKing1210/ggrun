@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
+import { useRealtime, useRealtimeConnects, useRealtimeEvent } from "@/components/realtime/realtime-provider";
+import { CHAT_ROOM, type ChatMessageBroadcast } from "@/lib/realtime/protocol";
 
 type ChatMsg = {
   id: string;
@@ -55,9 +57,11 @@ function timeLabel(iso: string, locale: string | null): string {
   }
 }
 
-export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { isAuthenticated?: boolean; currentUserId?: string | null }) {
   const { t, locale } = useI18n();
   const chatT = t.chat;
+  const { socket, connected } = useRealtime();
+  const connects = useRealtimeConnects();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -68,7 +72,9 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
-
+  /** userId → who is typing right now (socket `chat:typing`, expires in 3.5s). */
+  const [typists, setTypists] = useState<Record<string, { name: string; ts: number }>>({});
+  const lastTypingSentRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -154,39 +160,87 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
     return () => el.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  // poll for new messages when open (and also keep unread when closed via light poll? only when open to save)
+  // Live messages over sockets. The HTTP poll below stays as a fallback for
+  // when the socket is disconnected (custom `dev:turbo`/`dev:next` servers,
+  // reconnect storms) — same merge, same unread accounting.
+  const appendLive = useCallback((incoming: ChatMsg[]) => {
+    if (incoming.length === 0) return;
+    setMsgs((prev) => {
+      const prevIds = new Set(prev.map((p) => p.id));
+      const filtered = incoming.filter((n) => !prevIds.has(n.id));
+      if (filtered.length === 0) return prev;
+      // merge and keep sorted by time, cap to avoid unbounded growth (keep last 300)
+      const merged = [...prev, ...filtered].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+      return merged.length > 300 ? merged.slice(-300) : merged;
+    });
+    if (!atBottomRef.current) {
+      setUnread((n) => n + incoming.length);
+    } else {
+      requestAnimationFrame(() => scrollToBottom(true));
+    }
+  }, [scrollToBottom]);
+
+  /** Latest page merged over the live list — closes the offline gap. */
+  const fetchLatest = useCallback(async () => {
+    const qs = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    const res = await fetch(`/api/chat?${qs.toString()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { messages: ChatMsg[] };
+    appendLive(data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() })));
+  }, [appendLive]);
+
+  // Reconnect backfill: anything published while offline never arrives over
+  // the socket, so merge the latest page on every fresh connect.
+  const lastConnectSeen = useRef(connects);
+  useEffect(() => {
+    if (lastConnectSeen.current === connects) return;
+    lastConnectSeen.current = connects;
+    if (!open || msgs.length === 0) return;
+    void fetchLatest();
+  });
+  useRealtimeEvent(open ? CHAT_ROOM : null, "chat:message", (m: ChatMessageBroadcast) => {
+    // Own POST already appended optimistically — the id guard drops the echo.
+    if (msgs.some((x) => x.id === m.id)) return;
+    appendLive([{ ...m, createdAt: new Date(m.createdAt).toISOString() }]);
+  });
+  useRealtimeEvent(open ? CHAT_ROOM : null, "chat:typing", (hint) => {
+    if (hint.userId === currentUserId) return;
+    setTypists((prev) => ({
+      ...prev,
+      [hint.userId]: { name: hint.displayName ?? hint.username, ts: Date.now() },
+    }));
+  });
+
+  // typing hints expire — nobody "types" for longer than 3.5s without a refresh
   useEffect(() => {
     if (!open) return;
+    const id = window.setInterval(() => {
+      const cutoff = Date.now() - 3500;
+      setTypists((prev) => {
+        const next: typeof prev = {};
+        let changed = false;
+        for (const [k, v] of Object.entries(prev)) {
+          if (v.ts >= cutoff) next[k] = v;
+          else changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [open ]);
+
+  // fallback poll for new messages — only while the socket is down
+  useEffect(() => {
+    if (!open || connected) return;
     const id = window.setInterval(async () => {
       if (msgs.length === 0) {
         fetchPage(null, "replace");
         return;
       }
-      // fetch latest page
-      const qs = new URLSearchParams({ limit: String(PAGE_SIZE) });
-      const res = await fetch(`/api/chat?${qs.toString()}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { messages: ChatMsg[]; hasMore: boolean; nextBefore: string | null };
-      const latest = data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() }));
-      const existingIds = new Set(msgs.map((m) => m.id));
-      const newOnes = latest.filter((m) => !existingIds.has(m.id));
-      if (newOnes.length === 0) return;
-      setMsgs((prev) => {
-        const prevIds = new Set(prev.map((p) => p.id));
-        const filtered = newOnes.filter((n) => !prevIds.has(n.id));
-        if (filtered.length === 0) return prev;
-        // merge and keep sorted by time, cap to avoid unbounded growth (keep last 300)
-        const merged = [...prev, ...filtered].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
-        return merged.length > 300 ? merged.slice(-300) : merged;
-      });
-      if (!atBottomRef.current) {
-        setUnread((n) => n + newOnes.length);
-      } else {
-        requestAnimationFrame(() => scrollToBottom(true));
-      }
+      void fetchLatest();
     }, POLL_MS);
     return () => window.clearInterval(id);
-  }, [open, msgs, fetchPage, scrollToBottom]);
+  }, [open, connected, msgs, fetchPage, fetchLatest]);
 
   // when opening, ensure scrolled to bottom
   useEffect(() => {
@@ -232,6 +286,21 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
     requestAnimationFrame(() => composerRef.current?.focus());
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  /** Announce "I am typing" — client-throttled to one emit per 2.5s (the
+  server throttles again per socket, so bursts can never spam the room). */
+  const sendTypingHint = useCallback(() => {
+    if (!isAuthenticated || !connected || !socket) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2500) return;
+    lastTypingSentRef.current = now;
+    socket.emit("chat:typing");
+  }, [isAuthenticated, connected, socket]);
+
+  const typingNames = useMemo(
+    () => Object.values(typists).map((v) => v.name).slice(0, 3),
+    [typists],
+  );
 
   const canSend = isAuthenticated && input.trim().length > 0 && input.trim().length <= 1000 && !sending;
 
@@ -377,10 +446,17 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-display text-[13px] uppercase tracking-[0.18em] text-amber leading-none">{chatT.title}</p>
-                <span className="hidden sm:inline-flex items-center gap-1.5 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" aria-hidden />
-                  LIVE
-                </span>
+                {connected ? (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" aria-hidden />
+                    LIVE
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 border border-amber/20 bg-amber/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber">
+                    <span className="size-1.5 rounded-full bg-amber animate-pulse" aria-hidden />
+                    {chatT.reconnecting}
+                  </span>
+                )}
               </div>
               <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim/80 flex items-center gap-2">
                 <span className="hidden sm:inline">{chatT.hint}</span>
@@ -537,13 +613,24 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
         {/* Composer — HUD inset */}
         <div className="shrink-0 border-t border-amber/10 bg-gradient-to-b from-[#151510] to-[#10100e] p-3">
           {error && <p className="mb-2 border-l-2 border-red-500/40 bg-red-500/5 px-2.5 py-1.5 font-mono text-[11px] leading-snug text-red-300">{error}</p>}
-          {/* Composer input — button inside */}
+          {typingNames.length > 0 && (
+            <p className="mb-2 flex items-center gap-2 font-mono text-[11px] tracking-widest text-amber/80" aria-live="polite">
+              <span className="inline-flex gap-1" aria-hidden>
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:0ms]" />
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:150ms]" />
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:300ms]" />
+              </span>
+              {typingNames.length === 1
+                ? format(chatT.typingOne, { name: typingNames[0]! })
+                : format(chatT.typingMany, { names: typingNames.join(", ") })}
+            </p>
+          )}
           <div className="relative">
             <textarea
               ref={composerRef}
               disabled={!isAuthenticated}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); sendTypingHint(); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

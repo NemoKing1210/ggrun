@@ -50,6 +50,17 @@ languages.
 - Two-tier audit: `logAdminAction` → `admin_audit_log` (every staff mutation,
 viewable at `/admin/audit`); `logEvent` → `event_log` (public feed). Both
 are written inside the same use-case transactions.
+- Realtime (Socket.IO, same process + port via `server.ts`): publishers call
+`publish(room, event, payload)` from `lib/realtime/bus.ts` (fire-and-forget,
+never throws — a socket failure must not break the write it announces);
+`lib/realtime/socket-server.ts` forwards the in-process bus into rooms
+(`chat`, staff-only `audit`, `season:<id>`); browsers subscribe with
+`useRealtimeEvent(room, event, handler)` from
+`components/realtime/realtime-provider.tsx`. The contract lives in
+`lib/realtime/protocol.ts` — a new live feature is one event row there plus
+one `publish` call and one hook usage. Every feature degrades: chat falls
+back to HTTP polling, audit shows a "new — show" pill, board badges dim when
+the socket is down.
 
 ### Turn flow (canonical example)
 
@@ -78,14 +89,16 @@ already-played) → player marks the outcome → `resolveAction` →
 ## 3. Commands
 
 ```bash
-pnpm dev                # next dev (webpack — Turbopack dev has a Windows-only
-                        # _buildManifest.js.tmp ENOENT race; use dev:turbo to opt back in)
-pnpm dev:turbo          # next dev --turbopack
-pnpm dev:bots           # next dev + autonomous bot ticker in one process
-                        # (BOTS_TICK_MS, default 10000; no CRON_SECRET needed)
+pnpm dev                # EVERYTHING (scripts/dev.ts): DB check + db:push, then
+                        # Next.js webpack + Socket.IO server + bot ticker in the
+                        # same process. Flags: --port N, --no-bots, --no-push.
+                        # Turbopack dev = pnpm dev:turbo (plain Next, realtime
+                        # falls back to polling — Windows-only _buildManifest race).
+pnpm dev:next           # next dev (webpack, plain Next — same fallback, no sockets)
+pnpm run server         # tsx server.ts (Next + Socket.IO only, no ticker/push;
+                        # bare `pnpm server` is a pnpm store-server builtin — exits 0 silently)
 pnpm build              # next build --turbopack
-pnpm start              # next start (production server)
-pnpm lint               # eslint (flat config)
+pnpm start              # tsx server.ts (production server: Next.js + Socket.IO, same port)
 pnpm test               # vitest run (domain tests)
 pnpm exec tsc --noEmit  # type check
 

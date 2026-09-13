@@ -13,6 +13,8 @@ import {
   type BoardPlayer,
   type BoardRoll,
 } from "@/components/board/board-view";
+import { BoardLiveFeed } from "@/components/board/board-live-feed";
+import { BoardLiveRefresh } from "@/components/board/board-live-refresh";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
@@ -116,6 +118,10 @@ export default async function BoardPage() {
         }
       />
 
+      <div className="mt-6">
+        <BoardLiveFeed seasonId={season.id} />
+        <BoardLiveRefresh seasonId={season.id} />
+      </div>
       <BoardView
         cells={cells}
         players={players}

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { createChatMessage, getChatMessages } from "@/lib/modules/chat/repository";
+import { publish } from "@/lib/realtime/bus";
+import { CHAT_ROOM } from "@/lib/realtime/protocol";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const msg = await createChatMessage({ userId: user.id, content });
+    // Live mirror for `chat` subscribers. Fire-and-forget by design:
+    // `publish` never throws, so the 201 stands even if realtime is down.
+    publish(CHAT_ROOM, "chat:message", {
+      id: msg.id,
+      userId: msg.userId,
+      content: msg.content,
+      createdAt: msg.createdAt.toISOString(),
+      username: msg.username,
+      displayName: msg.displayName,
+      avatarUrl: msg.avatarUrl,
+      role: msg.role,
+    });
     return NextResponse.json({ message: msg }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "FAILED";
