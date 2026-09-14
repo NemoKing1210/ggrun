@@ -8,7 +8,8 @@ import { GlobalChat } from "@/components/chat/GlobalChat";
 import { RealtimeProvider } from "@/components/realtime/realtime-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
-import { getAccent } from "@/lib/shared/ui/accent";
+import { getAccent, isAccentKey, type AccentKey } from "@/lib/shared/ui/accent";
+import { AccentSync } from "@/components/system/accent-sync";
 import { isDbAvailable } from "@/lib/infrastructure/db/health";
 import { SiteUnavailableScreen } from "@/components/system/site-unavailable-screen";
 import "./globals.css";
@@ -70,10 +71,9 @@ export default async function RootLayout({
   }
 
   const user = await getCurrentUser();
-  const accent = getAccent(user?.accent);
-  const accentCss = accent.primary === "#f2a900"
-    ? ""
-    : `:root{--hud-amber:${accent.primary};--hud-amber-border:${accent.border};--hud-amber-glow:${accent.glow};}`;
+  const accentKey: AccentKey = isAccentKey(user?.accent) ? user.accent : "amber";
+  const accent = getAccent(accentKey);
+  const accentCss = `:root{--hud-amber:${accent.primary};--hud-amber-border:${accent.border};--hud-amber-glow:${accent.glow};}`;
   let maintenanceMode = false;
   try {
     const { getSiteSettings } = await import("@/lib/modules/site-settings/repository/site-settings");
@@ -83,10 +83,12 @@ export default async function RootLayout({
   const showMaintenanceBanner = maintenanceMode && (!user || user.role !== "admin");
   return (
     <html lang={locale}>
+      <style id="hud-accent">{accentCss}</style>
       <body
         className={`${stencil.variable} ${techMono.variable} ${body.variable} antialiased`}
         suppressHydrationWarning
       >
+        <AccentSync accentKey={accentKey} />
         <I18nProvider locale={locale} t={t}>
           <ToastProvider>
             <RealtimeProvider>

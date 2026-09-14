@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
@@ -67,8 +68,18 @@ export function SettingsForm({
   links,
 }: Props) {
   const { t } = useI18n();
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(updateUserSettingsAction, {});
   useActionToast(state);
+  // Pull fresh layout data (locale, <html lang>, header identity) right after
+  // save — server revalidation alone doesn't update the current view.
+  const lastOk = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.ok && state.ok !== lastOk.current) {
+      lastOk.current = state.ok;
+      router.refresh();
+    }
+  }, [state.ok, router]);
   const [name, setName] = useState(displayName ?? "");
   const [bioText, setBioText] = useState(bio ?? "");
   const [avatar, setAvatar] = useState(avatarUrl ?? "");
