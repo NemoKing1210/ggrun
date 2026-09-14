@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   QueryClient,
   QueryClientProvider,
   keepPreviousData,
   useQuery,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { MotionConfig, motion } from "framer-motion";
 
 import { useI18n } from "@/lib/i18n/client";
+import { format } from "@/lib/i18n/format";
 import { FEED_FILTERS, matchesFeedFilter, type FeedFilterKey } from "@/lib/engine/feed/filters";
 import { FadeSwitch } from "@/components/ui/motion";
+import { usePresence, useRealtime, useRealtimeConnects, useRealtimeEvent } from "@/components/realtime/realtime-provider";
+import { seasonRoom, type BoardEventBroadcast } from "@/lib/realtime/protocol";
 import { FeedTimelineView } from "./feed-timeline-view";
 import { isSerializedFeedRows, type SerializedFeedRow } from "./feed-wire";
 
@@ -102,6 +106,11 @@ function ExplorerInner({
 }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState<FeedFilterKey>(initialFilter);
+  const queryClient = useQueryClient();
+  const connects = useRealtimeConnects();
+  const reconcileTimer = useRef<number | null>(null);
+  const { connected } = useRealtime();
+  const watchers = usePresence(seasonRoom(seasonId));
 
   const { data, isFetching, isError } = useQuery({
     queryKey: ["feed", seasonId, filter],
@@ -109,8 +118,7 @@ function ExplorerInner({
     // First paint reuses the server rows — no loading flash, no double fetch.
     // Scoped to the initial tab: a static value would seed every filter key
     // and, while fresh, suppress its fetch entirely.
-    initialData:
-      filter === initialFilter ? localFilter(initialRows, initialFilter) : undefined,
+    initialData: filter === initialFilter ? localFilter(initialRows, initialFilter) : undefined,
     placeholderData: keepPreviousData,
     staleTime: 20_000,
     gcTime: 5 * 60_000,
@@ -119,15 +127,73 @@ function ExplorerInner({
     retry: 1,
   });
 
+  // Socket live layer: every `board:event` prepends an optimistic row into
+  // each cached filter it matches (instant, animated via the timeline's
+  // entrance), then a debounced server refetch reconciles temp ids. Polling
+  // above stays as the offline fallback.
+  useRealtimeEvent(seasonRoom(seasonId), "board:event", (payload: BoardEventBroadcast) => {
+    const optimistic: SerializedFeedRow = {
+      id: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      seasonId: payload.seasonId,
+      seasonPlayerId: payload.seasonPlayerId,
+      eventType: payload.eventType as SerializedFeedRow["eventType"],
+      payload: payload.payload,
+      createdAt: payload.createdAt,
+      username: payload.username,
+      displayName: payload.displayName,
+      avatarUrl: payload.avatarUrl,
+      lastSeenAt: null,
+    };
+    // This TanStack major passes only the cached rows to the updater, so
+    // enumerate the matching filter queries explicitly instead.
+    const cached = queryClient.getQueriesData<SerializedFeedRow[]>({
+      queryKey: ["feed", seasonId],
+    });
+    for (const [queryKey, old] of cached) {
+      if (!old) continue;
+      const keyFilter = queryKey[2] as FeedFilterKey | undefined;
+      if (
+        keyFilter !== "all" &&
+        (keyFilter === undefined || !matchesFeedFilter(optimistic.eventType, keyFilter))
+      ) {
+        continue;
+      }
+      queryClient.setQueryData<SerializedFeedRow[]>(
+        queryKey,
+        [optimistic, ...old].slice(0, FEED_LIMIT),
+      );
+    }
+    if (reconcileTimer.current !== null) window.clearTimeout(reconcileTimer.current);
+    reconcileTimer.current = window.setTimeout(() => {
+      reconcileTimer.current = null;
+      void queryClient.invalidateQueries({ queryKey: ["feed", seasonId] });
+    }, 2500);
+  });
+
+  // Reconnect: events written while offline never arrive over the socket.
+  const lastConnectSeen = useRef(connects);
+  useEffect(() => {
+    if (lastConnectSeen.current === connects) return;
+    lastConnectSeen.current = connects;
+    if (connects > 1) void queryClient.invalidateQueries({ queryKey: ["feed", seasonId] });
+  }, [connects, queryClient, seasonId]);
+
+  useEffect(
+    () => () => {
+      if (reconcileTimer.current !== null) window.clearTimeout(reconcileTimer.current);
+    },
+    [],
+  );
+
   const rows = data ?? [];
-  const hasAny = initialRows.length > 0;
+  const hasAny = initialRows.length > 0 || rows.length > 0;
 
   return (
     <MotionConfig reducedMotion="user">
       <FilterTabs filter={filter} onChange={setFilter} />
 
-      {/* sync rail: visible only while a background (re)fetch is in flight */}
-      <div className="mb-3 flex h-4 items-center gap-2" aria-live="polite">
+      {/* sync rail: fetch state on the left, socket presence on the right */}
+      <div className="mb-3 flex min-h-6 flex-wrap items-center gap-2" aria-live="polite">
         {isFetching ? (
           <>
             <span
@@ -138,7 +204,7 @@ function ExplorerInner({
               {"// "}
               {t.feed.syncing}
             </span>
-            <span className="hud-loader-progress h-1 flex-1" aria-hidden />
+            <span className="hud-loader-progress h-1 min-w-24 flex-1" aria-hidden />
           </>
         ) : null}
         {!isFetching && isError ? (
@@ -150,6 +216,27 @@ function ExplorerInner({
             {t.feed.syncFailed}
           </span>
         ) : null}
+        {!isFetching && !isError ? (
+          <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
+            {"// "}
+            {t.feed.filters[filter]}
+            <span className="text-amber"> · {rows.length}</span>
+          </span>
+        ) : null}
+        <span className="ml-auto inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest">
+          <span
+            className={`size-1.5 [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)] ${
+              connected ? "animate-pulse bg-military" : "bg-danger"
+            }`}
+            aria-hidden
+          />
+          <span className={connected ? "text-military" : "text-danger"}>
+            {connected ? t.feed.live : t.feed.offline}
+          </span>
+          {connected && watchers !== null && watchers > 1 ? (
+            <span className="text-dim">· {format(t.feed.watching, { count: String(watchers) })}</span>
+          ) : null}
+        </span>
       </div>
 
       <FadeSwitch viewKey={filter}>
@@ -161,7 +248,9 @@ function ExplorerInner({
 
 /**
  * Live feed explorer: instant client-side tab switching with animated
- * transitions, backed by React Query (per-filter cache, 30s live refresh).
+ * transitions, backed by React Query (per-filter cache, 30s polling
+ * fallback) with a socket layer on top — every `board:event` prepends an
+ * optimistic row instantly and schedules a reconciling refetch.
  * The server still renders the first paint — `initialRows` doubles as the
  * query's initial data, so mounting never refetches.
  */

@@ -32,8 +32,8 @@ import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { ActivityCalendar } from "@/components/profile/ActivityCalendar";
-
 type Params = { params: Promise<{ username: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -111,6 +111,13 @@ export default async function PlayerProfilePage({ params }: Params) {
 
   return (
     <PageContainer>
+      {activeSeason && activeParticipation ? (
+        <SeasonLiveRefresh
+          seasonId={activeSeason.id}
+          matchPlayerId={activeParticipation.id}
+          labels={{ updated: t.feed.updated }}
+        />
+      ) : null}
       {/* HERO — banner + dossier */}
       <div className="hud-card overflow-hidden">
         {/* banner */}
@@ -242,7 +249,11 @@ export default async function PlayerProfilePage({ params }: Params) {
           {/* active run quick stats — full width below */}
           <div className="mt-5 w-full">
             {activeParticipation ? (
-              <div className="hud-card border-amber/25 bg-raised p-4 sm:p-5">
+              <LiveFlash
+                seasonId={activeSeason?.id ?? null}
+                matchPlayerId={activeParticipation.id}
+                className="hud-card border-amber/25 bg-raised p-4 sm:p-5"
+              >
                 {/* header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dim/10 pb-3">
                   <div className="min-w-0">
@@ -251,7 +262,17 @@ export default async function PlayerProfilePage({ params }: Params) {
                     </p>
                     <p className="truncate font-mono text-xs text-dim">{activeSeason?.title}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <LiveBadge
+                      seasonId={activeSeason?.id ?? null}
+                      showCount={false}
+                      labels={{
+                        online: t.feed.live,
+                        offline: t.feed.offline,
+                        syncing: t.feed.updating,
+                        watching: t.feed.watching,
+                      }}
+                    />
                     <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
                       rerolls {activeParticipation.rerollsUsed}
                     </span>
@@ -341,7 +362,7 @@ export default async function PlayerProfilePage({ params }: Params) {
                     </div>
                   </div>
                 </div>
-              </div>
+              </LiveFlash>
             ) : (
               <div className="hud-card p-4 text-center">
                 <p className="font-mono text-xs uppercase tracking-widest text-dim">

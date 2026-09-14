@@ -285,6 +285,8 @@ export const errors: Widen<typeof CoreEn.errors> = {
   botRunNotFound: "Забіг ботів не знайдено",
   botRunStopped: "Забіг ботів зупинено",
   botRunPaused: "Забіг ботів на паузі",
+  botRunNotStopped: "Перезапустити можна лише зупинений забіг",
+  botRunNoPlayers: "У сезоні не лишилося живих ботів цього забігу — створіть новий забіг",
   botSeasonNotActive: "Сезон не активний — забіг ботів поставлено на паузу",
   botInvalidConfig: "Невірні налаштування ботів: хоча б одна вага результату має бути додатною",
   adminSelfBlock: "Не можна блокувати самого себе",

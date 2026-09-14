@@ -543,6 +543,7 @@ seasonTabs: {
   startButton: "Start",
   pauseButton: "Pause",
   resumeButton: "Resume",
+  restartButton: "Restart",
   stopButton: "Stop",
   stepButton: "Single tick",
   cleanupButton: "Remove bots",

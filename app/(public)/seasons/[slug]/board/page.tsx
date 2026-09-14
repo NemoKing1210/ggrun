@@ -5,6 +5,7 @@ import { BackLink } from "@/components/ui/BackLink";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { BoardView, type BoardPlayer, type BoardRoll } from "@/components/board/board-view";
 import { BoardLiveRefresh } from "@/components/board/board-live-refresh";
+import { LiveBadge } from "@/components/realtime/season-live";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
@@ -12,8 +13,16 @@ import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
 import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
-import { getActiveRolls, getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
-import { getBoardCells, getMainBoard, getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
+import {
+  getActiveRolls,
+  getLeaderboard,
+  getSeasonStats,
+} from "@/lib/modules/season/repository/players";
+import {
+  getBoardCells,
+  getMainBoard,
+  getSeasonBySlug,
+} from "@/lib/modules/season/repository/seasons";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -42,7 +51,17 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     return (
       <PageContainer>
         <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
-        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />} />
+        <PageHeader
+          kicker={kicker}
+          title={t.board.pageTitle}
+          right={
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          }
+        />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoBoard}</EmptyState>
@@ -56,7 +75,17 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     return (
       <PageContainer>
         <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
-        <PageHeader kicker={kicker} title={t.board.pageTitle} right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />} />
+        <PageHeader
+          kicker={kicker}
+          title={t.board.pageTitle}
+          right={
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          }
+        />
         <SeasonTabs slug={season.slug} t={t} />
         <div className="mt-6">
           <EmptyState>{t.board.emptyNoCells}</EmptyState>
@@ -100,16 +129,38 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
 
   return (
     <PageContainer>
-      <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={kicker}
         title={t.board.pageTitle}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
+        }
       />
       <SeasonTabs slug={season.slug} t={t} />
       <BoardLiveRefresh seasonId={season.id} />
       <div className="mt-6">
-        <BoardView cells={cells} players={players} rolls={boardRolls} stats={stats} seasonStartedAt={season.startedAt?.toISOString() ?? null} />
+        <BoardView
+          cells={cells}
+          players={players}
+          rolls={boardRolls}
+          stats={stats}
+          seasonStartedAt={season.startedAt?.toISOString() ?? null}
+        />
       </div>
       <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
         {(Object.keys(CELL_THEME) as Array<keyof typeof CELL_THEME>)
@@ -117,7 +168,9 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
           .map((type) => (
             <li key={type} className="flex items-center gap-2">
               <span className={`inline-block size-3 ${CELL_THEME[type].dot}`} aria-hidden />
-              <span className="font-mono text-xs uppercase tracking-widest text-dim">{t.core.cellTypes[type]}</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-dim">
+                {t.core.cellTypes[type]}
+              </span>
             </li>
           ))}
       </ul>

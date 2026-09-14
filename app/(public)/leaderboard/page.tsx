@@ -10,6 +10,7 @@ import {
 
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { Badge } from "@/components/ui/Badge";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { StatusBadge } from "@/components/ui/status";
@@ -374,15 +375,27 @@ export default async function LeaderboardPage() {
 
   return (
     <PageContainer>
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
       <PageHeader
         kicker={t.leaderboard.kicker}
         title={t.leaderboard.pageTitle}
         right={
-          <StatusBadge
-            kind="season"
-            status={season.status}
-            label={t.core.seasonStatuses[season.status]}
-          />
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
         }
       />
       <p className="mb-2 font-mono text-xs uppercase tracking-widest text-dim">
@@ -401,7 +414,7 @@ export default async function LeaderboardPage() {
           </span>
         </EmptyState>
       ) : (
-        <div className="space-y-6">
+        <LiveFlash seasonId={season.id} className="space-y-6">
           {/* champion spotlight */}
           {champion && (
             <section className="animate-hud-rise">
@@ -616,7 +629,7 @@ export default async function LeaderboardPage() {
               ) : null}
             </div>
           </section>
-        </div>
+        </LiveFlash>
       )}
     </PageContainer>
   );

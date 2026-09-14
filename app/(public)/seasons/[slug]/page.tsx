@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { StatusBadge } from "@/components/ui/status";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { isBotUsername } from "@/lib/shared/utils/bots";
@@ -57,9 +58,9 @@ export default async function SeasonOverviewPage({
     hour: "2-digit",
     minute: "2-digit",
   });
-
   return (
     <PageContainer>
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
       <div className="mb-4">
         <Link
           href="/seasons"
@@ -74,17 +75,28 @@ export default async function SeasonOverviewPage({
         kicker={kicker}
         title={season.title}
         right={
-          <StatusBadge
-            kind="season"
-            status={season.status}
-            label={t.core.seasonStatuses[season.status]}
-          />
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
         }
       />
 
       <SeasonTabs slug={season.slug} t={t} />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <LiveFlash seasonId={season.id} className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Season info */}
         <div className="hud-card animate-hud-rise p-5">
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
@@ -221,7 +233,7 @@ export default async function SeasonOverviewPage({
             <ArrowRightIcon className="h-3 w-3" aria-hidden />
           </Link>
         </div>
-      </div>
+      </LiveFlash>
 
       {/* Board preview */}
       <section className="mt-6 hud-card animate-hud-rise p-5" style={{ animationDelay: "60ms" }}>

@@ -14,6 +14,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { FeedList } from "@/components/feed/feed-list";
 import { SeasonUptime } from "@/components/landing/SeasonUptime";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
@@ -335,6 +336,7 @@ export default async function HomePage() {
 
   return (
     <PageContainer className="flex flex-col gap-8">
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
       <section className="hud-card animate-hud-rise overflow-hidden">
         <div className="hazard-tape h-2 w-full" />
         <div
@@ -349,7 +351,16 @@ export default async function HomePage() {
             <p className="font-mono text-xs uppercase tracking-[0.25em] text-dim">
               {t.landing.currentSeason}
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <LiveBadge
+                seasonId={season.id}
+                labels={{
+                  online: t.feed.live,
+                  offline: t.feed.offline,
+                  syncing: t.feed.updating,
+                  watching: t.feed.watching,
+                }}
+              />
               <span className="font-mono text-xs uppercase tracking-widest text-dim">
                 /{season.slug}
               </span>
@@ -388,7 +399,10 @@ export default async function HomePage() {
             </div>
           ) : null}
 
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-dim/20 pt-5 sm:grid-cols-3 lg:grid-cols-5">
+          <LiveFlash
+            seasonId={season.id}
+            className="mt-6 grid grid-cols-2 gap-3 border-t border-dim/20 pt-5 sm:grid-cols-3 lg:grid-cols-5"
+          >
             <StatTile icon={UsersIcon} label={t.landing.statParticipants} value={top.length} />
             <StatTile
               icon={ArrowsRightLeftIcon}
@@ -408,11 +422,11 @@ export default async function HomePage() {
               tone="danger"
             />
             <StatTile icon={ArrowPathIcon} label={t.landing.statRerolls} value={stats.rerolls} />
-          </div>
+          </LiveFlash>
         </div>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <LiveFlash seasonId={season.id} className="grid gap-6 md:grid-cols-2">
         <section className="hud-card animate-hud-rise p-6">
           <header className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
@@ -463,7 +477,7 @@ export default async function HomePage() {
           </header>
           <FeedList rows={feed} />
         </section>
-      </div>
+      </LiveFlash>
 
       <nav className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((s, i) => (

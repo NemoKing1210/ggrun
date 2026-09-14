@@ -17,6 +17,7 @@ import {
   parseBotConfig,
   pauseBotRun,
   resumeBotRun,
+  restartBotRun,
   stopBotRun,
   tickBotRun,
   updateBotRunConfig,
@@ -123,6 +124,10 @@ export async function pauseBotRunAction(formData: FormData): Promise<void> {
 
 export async function resumeBotRunAction(formData: FormData): Promise<void> {
   return lifecycleAction(formData, resumeBotRun, "resume");
+}
+
+export async function restartBotRunAction(formData: FormData): Promise<void> {
+  return lifecycleAction(formData, restartBotRun, "restart");
 }
 
 export async function stopBotRunAction(formData: FormData): Promise<void> {

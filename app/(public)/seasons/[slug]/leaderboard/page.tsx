@@ -5,8 +5,8 @@ import { BackLink } from "@/components/ui/BackLink";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { StatusBadge } from "@/components/ui/status";
-import { SeasonTabs } from "@/components/seasons/SeasonTabs";
 import { isBotUsername } from "@/lib/shared/utils/bots";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
@@ -39,7 +39,13 @@ function PlayerAvatar({
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={displayName ?? username} loading="lazy" decoding="async" className="size-8 shrink-0 border border-dim/40 object-cover" />
+      <img
+        src={avatarUrl}
+        alt={displayName ?? username}
+        loading="lazy"
+        decoding="async"
+        className="size-8 shrink-0 border border-dim/40 object-cover"
+      />
     );
   }
   return (
@@ -52,7 +58,11 @@ function PlayerAvatar({
   );
 }
 
-export default async function SeasonLeaderboardPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SeasonLeaderboardPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const { t, locale } = await getT();
   const season = await getSeasonBySlug(slug);
@@ -65,19 +75,36 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
 
   return (
     <PageContainer>
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
       <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={kicker}
         title={t.leaderboard.pageTitle}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
+        }
       />
-      <SeasonTabs slug={season.slug} t={t} />
 
       <div className="mt-6">
         {rows.length === 0 ? (
           <EmptyState>{t.leaderboard.empty}</EmptyState>
         ) : (
-          <div className="hud-card overflow-hidden">
+          <LiveFlash seasonId={season.id} className="hud-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="border-b border-[#3d3d34] bg-background/60 font-mono text-[10px] uppercase tracking-widest text-dim">
@@ -96,34 +123,56 @@ export default async function SeasonLeaderboardPage({ params }: { params: Promis
                       <td className="px-3 py-2 font-mono text-xs text-dim">#{idx + 1}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link href={`/players/${row.username}`} className="flex items-center gap-2 hover:text-amber">
-                            <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                              <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} />
+                          <Link
+                            href={`/players/${row.username}`}
+                            className="flex items-center gap-2 hover:text-amber"
+                          >
+                            <AvatarWithPresence
+                              lastSeenAt={row.lastSeenAt}
+                              size="sm"
+                              locale={locale}
+                            >
+                              <PlayerAvatar
+                                username={row.username}
+                                displayName={row.displayName}
+                                avatarUrl={row.avatarUrl}
+                                userId={row.playerId}
+                              />
                             </AvatarWithPresence>
-                            <span className="font-mono text-sm">{row.displayName ?? row.username}</span>
+                            <span className="font-mono text-sm">
+                              {row.displayName ?? row.username}
+                            </span>
                           </Link>
-                          {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
+                          {isBotUsername(row.username) ? (
+                            <BotBadge label={t.core.common.bot} />
+                          ) : null}
                           <EffectBadges badges={effects.get(row.id) ?? []} t={t} />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-sm">
                         <span className="ammo-counter text-amber">{row.position}</span>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-sm">{row.balancePoints}</td>
+                      <td className="px-3 py-2 text-right font-mono text-sm">
+                        {row.balancePoints}
+                      </td>
                       <td className="px-3 py-2 text-center font-mono text-xs">
                         <span className="text-military">+{row.streakPass}</span>
                         <span className="text-dim"> / </span>
                         <span className="text-danger">-{row.streakDrop}</span>
                       </td>
                       <td className="px-3 py-2">
-                        <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+                        <StatusBadge
+                          kind="player"
+                          status={row.status}
+                          label={t.core.playerStatuses[row.status]}
+                        />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          </LiveFlash>
         )}
       </div>
     </PageContainer>

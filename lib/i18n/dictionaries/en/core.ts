@@ -287,6 +287,8 @@ export const errors = {
   botRunNotFound: "Bot run not found",
   botRunStopped: "Bot run is stopped",
   botRunPaused: "Bot run is paused",
+  botRunNotStopped: "Only a stopped run can be restarted",
+  botRunNoPlayers: "No live bot players left in this season — create a new run",
   botSeasonNotActive: "The season is not active — the bot run was paused",
   botInvalidConfig: "Invalid bot config: at least one outcome weight must be positive",
   adminSelfBlock: "You cannot block yourself",

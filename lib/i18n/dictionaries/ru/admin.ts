@@ -545,6 +545,7 @@ seasonTabs: {
   startButton: "Старт",
   pauseButton: "Пауза",
   resumeButton: "Продолжить",
+  restartButton: "Рестарт",
   stopButton: "Стоп",
   stepButton: "Один тик",
   cleanupButton: "Удалить ботов",

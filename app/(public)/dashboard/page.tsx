@@ -20,6 +20,7 @@ import RollCard, { type GameSummary } from "@/components/dashboard/RollCard";
 import { InventoryPanel } from "@/components/dashboard/InventoryPanel";
 import { ChallengesPanel, type ChallengeRow } from "@/components/dashboard/ChallengesPanel";
 import { GamesHistory } from "@/components/dashboard/GamesHistory";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { CELL_THEME } from "@/components/board/cell-theme";
@@ -295,6 +296,11 @@ export default async function DashboardPage() {
 
   return (
     <PageContainer className="flex flex-col gap-6">
+      <SeasonLiveRefresh
+        seasonId={season.id}
+        matchPlayerId={seasonPlayer.id}
+        labels={{ updated: t.feed.updated }}
+      />
       {/* Operator ID card */}
       <div className="hud-card flex items-center gap-4 p-4">
         <div
@@ -337,75 +343,86 @@ export default async function DashboardPage() {
           Profile <ArrowRightIcon className="size-3.5" aria-hidden />
         </Link>
       </div>
-
       <PageHeader
         kicker={kicker}
         title={t.core.dashboard.heading}
         right={
-          <StatusBadge
-            kind="season"
-            status={season.status}
-            label={t.core.seasonStatuses[season.status]}
-          />
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
         }
       />
-
       {/* Stats */}
-      <section aria-label={t.core.dashboard.statsTitle} className="animate-hud-rise">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile
-            label={t.core.dashboard.statPosition}
-            value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`}
-            accent
-            icon={MapPinIcon}
-          />
-          <StatTile
-            label={t.core.dashboard.statBalance}
-            value={String(seasonPlayer.balancePoints)}
-            accent
-            icon={BanknotesIcon}
-          />
-          <StatTile
-            label={t.core.dashboard.statStreakPass}
-            value={String(seasonPlayer.streakPass)}
-            icon={CheckCircleIcon}
-          />
-          <StatTile
-            label={t.core.dashboard.statStreakDrop}
-            value={String(seasonPlayer.streakDrop)}
-            icon={FireIcon}
-          />
-          <StatTile
-            label={t.core.dashboard.statRerolls}
-            value={String(seasonPlayer.rerollsUsed)}
-            icon={ArrowPathIcon}
-          />
-          <StatTile
-            label={t.core.dashboard.statProgress}
-            value={`${progressPct}%`}
-            accent
-            icon={ChartBarIcon}
-          />
-        </div>
-        <div className="mt-3 flex items-center gap-3">
-          <div className="relative h-3 flex-1 overflow-hidden border border-[#3d3d34] bg-[#151514] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-            <div
-              className="h-full bg-amber shadow-[0_0_10px_rgba(242,169,0,0.5)] transition-all duration-500"
-              style={{ width: `${Math.min(100, progressPct)}%` }}
+      <LiveFlash seasonId={season.id} matchPlayerId={seasonPlayer.id}>
+        <section aria-label={t.core.dashboard.statsTitle} className="animate-hud-rise">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <StatTile
+              label={t.core.dashboard.statPosition}
+              value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`}
+              accent
+              icon={MapPinIcon}
             />
-            <div
-              className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_22px,rgba(0,0,0,0.35)_22px_23px)] opacity-60"
-              aria-hidden
+            <StatTile
+              label={t.core.dashboard.statBalance}
+              value={String(seasonPlayer.balancePoints)}
+              accent
+              icon={BanknotesIcon}
             />
-            <div className="absolute inset-y-0 left-1/4 w-px bg-black/40" aria-hidden />
-            <div className="absolute inset-y-0 left-1/2 w-px bg-black/40" aria-hidden />
-            <div className="absolute inset-y-0 left-3/4 w-px bg-black/40" aria-hidden />
+            <StatTile
+              label={t.core.dashboard.statStreakPass}
+              value={String(seasonPlayer.streakPass)}
+              icon={CheckCircleIcon}
+            />
+            <StatTile
+              label={t.core.dashboard.statStreakDrop}
+              value={String(seasonPlayer.streakDrop)}
+              icon={FireIcon}
+            />
+            <StatTile
+              label={t.core.dashboard.statRerolls}
+              value={String(seasonPlayer.rerollsUsed)}
+              icon={ArrowPathIcon}
+            />
+            <StatTile
+              label={t.core.dashboard.statProgress}
+              value={`${progressPct}%`}
+              accent
+              icon={ChartBarIcon}
+            />
           </div>
-          <span className="ammo-counter shrink-0 font-mono text-xs tracking-widest text-amber">
-            {progressPct}%
-          </span>
-        </div>
-      </section>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="relative h-3 flex-1 overflow-hidden border border-[#3d3d34] bg-[#151514] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+              <div
+                className="h-full bg-amber shadow-[0_0_10px_rgba(242,169,0,0.5)] transition-all duration-500"
+                style={{ width: `${Math.min(100, progressPct)}%` }}
+              />
+              <div
+                className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_22px,rgba(0,0,0,0.35)_22px_23px)] opacity-60"
+                aria-hidden
+              />
+              <div className="absolute inset-y-0 left-1/4 w-px bg-black/40" aria-hidden />
+              <div className="absolute inset-y-0 left-1/2 w-px bg-black/40" aria-hidden />
+              <div className="absolute inset-y-0 left-3/4 w-px bg-black/40" aria-hidden />
+            </div>
+            <span className="ammo-counter shrink-0 font-mono text-xs tracking-widest text-amber">
+              {progressPct}%
+            </span>
+          </div>
+        </section>
+      </LiveFlash>
 
       {/* Board progress mini */}
       {cells.length > 0 ? (
