@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGroup, MotionConfig, motion } from "framer-motion";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { MotionConfig, motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -124,40 +125,75 @@ function Avatar({
   );
 }
 
-/** Travel between cells, in seconds — the one deliberate exception to the
- * 120–200ms rule: a token crossing the board must read as movement. */
-const TOKEN_TRAVEL_S = 0.55;
+/** Isomorphic layout effect — `useLayoutEffect` warns on SSR, and this view
+ * renders on the server too. */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/** One token flight: board coordinates captured before/after a snapshot. */
+interface TokenFlight {
+  username: string;
+  player: BoardPlayer;
+  fromX: number;
+  fromY: number;
+  dx: number;
+  dy: number;
+}
+
+/** Fixed flight avatar size — uniform stage, no cross-size morphing. */
+const FLIGHT_SIZE = 36;
 
 /**
- * Player token with a board-wide identity. Every token lives under one
- * `LayoutGroup`, so when a refresh moves a player to another cell the same
- * `layoutId` unmounts in the old cell and mounts in the new one — and
- * framer-motion glides it across the board instead of teleporting it.
+ * Player token. `data-token` is the measuring hook for the flight system;
+ * `ghost` hides the destination copy while its flight clone is airborne.
  */
-function TokenAvatar({ player, className, size, glow }: { player: BoardPlayer; className: string; size: "sm" | "md"; glow?: boolean }) {
+function TokenAvatar({ player, className, size, glow, ghost }: { player: BoardPlayer; className: string; size: "sm" | "md"; glow?: boolean; ghost?: boolean }) {
   return (
-    <motion.span
-      layoutId={`board-token-${player.username}`}
-      transition={{ duration: TOKEN_TRAVEL_S, ease: "easeOut" }}
-      className={`inline-flex ${glow ? "drop-shadow-[0_0_6px_rgba(242,169,0,0.55)]" : ""}`}
+    <span
+      data-token={player.username}
+      className={`inline-flex transition-opacity duration-150 ${glow ? "drop-shadow-[0_0_6px_rgba(242,169,0,0.55)]" : ""} ${ghost ? "opacity-0" : ""}`}
     >
       <AvatarWithPresence lastSeenAt={player.lastSeenAt} size={size}>
         <Avatar {...player} className={className} />
       </AvatarWithPresence>
-    </motion.span>
+    </span>
   );
 }
 
-function CellAvatarStack({ occupants }: { occupants: BoardPlayer[] }) {
+/**
+ * Airborne clone: `position: fixed` in a body portal, so no cell
+ * `overflow-hidden` can clip the flight. Arc path (up then down) with a
+ * distance-based duration; the destination ghost fades back in on landing.
+ */
+function FlightClone({ flight, onDone }: { flight: TokenFlight; onDone: (username: string) => void }) {
+  const dist = Math.hypot(flight.dx, flight.dy);
+  const lift = Math.min(140, Math.max(48, dist * 0.18));
+  const duration = Math.min(0.95, Math.max(0.45, dist / 1800));
+  return createPortal(
+    <motion.span
+      aria-hidden
+      initial={{ x: 0, y: 0, scale: 1 }}
+      animate={{ x: flight.dx, y: [0, -lift, flight.dy], scale: [1, 1.12, 1] }}
+      transition={{ duration, ease: [0.22, 1, 0.36, 1], times: [0, 0.42, 1] }}
+      onAnimationComplete={() => onDone(flight.username)}
+      className="pointer-events-none fixed left-0 top-0 z-[70] inline-flex drop-shadow-[0_0_12px_rgba(242,169,0,0.7)]"
+      style={{ left: flight.fromX, top: flight.fromY, width: FLIGHT_SIZE, height: FLIGHT_SIZE }}
+    >
+      <Avatar {...flight.player} className="size-9 !border-amber/70" />
+    </motion.span>,
+    document.body,
+  );
+}
+function CellAvatarStack({ occupants, ghosts }: { occupants: BoardPlayer[]; ghosts?: Set<string> }) {
+  const ghostOf = (username: string) => ghosts?.has(username) ?? false;
   if (occupants.length === 1) {
     const solo = occupants[0];
-    return <TokenAvatar player={solo} className="size-9 !border-amber/70" size="md" glow />;
+    return <TokenAvatar player={solo} className="size-9 !border-amber/70" size="md" glow ghost={ghostOf(solo.username)} />;
   }
   const shown = occupants.slice(0, 4);
   return (
     <span className="flex -space-x-1.5">
       {shown.map((p) => (
-        <TokenAvatar key={p.username} player={p} className="size-6" size="sm" />
+        <TokenAvatar key={p.username} player={p} className="size-6" size="sm" ghost={ghostOf(p.username)} />
       ))}
       {occupants.length > shown.length ? (
         <span className="inline-flex size-6 items-center justify-center border border-dim/50 bg-raised font-mono text-[9px] leading-none text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -196,7 +232,7 @@ function StatTile({
   );
 }
 
-function CellTypeIcon({
+export function CellTypeIcon({
   type,
   className,
 }: {
@@ -284,6 +320,48 @@ export function BoardView({
   const [now, setNow] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [cols, setCols] = useState(6);
+  /** Airborne token clones (see `FlightClone`). */
+  const [flights, setFlights] = useState<TokenFlight[]>([]);
+  const flying = useMemo(() => new Set(flights.map((f) => f.username)), [flights]);
+  /** username → cell position at the previous commit; null = first mount. */
+  const prevPosRef = useRef<Map<string, number> | null>(null);
+  /** username → token rect at the previous commit (pre-update geometry). */
+  const lastRectsRef = useRef(new Map<string, DOMRect>());
+
+  // Token flights: after every snapshot, players whose *position* changed
+  // get a fixed-portal clone gliding from the previous rect to the new one.
+  // Runs in a layout effect so destination ghosts apply before paint.
+  useIsomorphicLayoutEffect(() => {
+    const prev = prevPosRef.current;
+    prevPosRef.current = new Map(players.map((p) => [p.username, p.position]));
+    const fresh = new Map<string, DOMRect>();
+    for (const el of document.querySelectorAll("[data-token]")) {
+      const name = el.getAttribute("data-token");
+      if (name) fresh.set(name, el.getBoundingClientRect());
+    }
+    if (prev) {
+      const movers: TokenFlight[] = [];
+      for (const p of players) {
+        const was = prev.get(p.username);
+        if (was === undefined || was === p.position) continue;
+        const from = lastRectsRef.current.get(p.username);
+        const to = fresh.get(p.username);
+        if (!from || !to) continue;
+        const fromCx = from.left + from.width / 2;
+        const fromCy = from.top + from.height / 2;
+        movers.push({
+          username: p.username,
+          player: p,
+          fromX: fromCx - FLIGHT_SIZE / 2,
+          fromY: fromCy - FLIGHT_SIZE / 2,
+          dx: to.left + to.width / 2 - fromCx,
+          dy: to.top + to.height / 2 - fromCy,
+        });
+      }
+      if (movers.length > 0) setFlights(movers);
+    }
+    lastRectsRef.current = fresh;
+  }, [players]);
 
   useEffect(() => {
     setNow(Date.now());
@@ -550,7 +628,6 @@ export function BoardView({
 
       {/* Board */}
       <div className="hud-card overflow-hidden bg-[#121210] p-2 sm:p-4">
-        <LayoutGroup id="board-tokens">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#2a2a22] pb-2">
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
             {"// TRACK MAP "}<span className="text-amber">[{String(cells.length).padStart(2, "0")} CELLS]</span>
@@ -624,7 +701,7 @@ export function BoardView({
                           <span className="relative flex items-end justify-between gap-1">
                             {here.length > 0 ? (
                               <span className="absolute -bottom-0.5 -left-0.5">
-                                <CellAvatarStack occupants={here} />
+                                <CellAvatarStack occupants={here} ghosts={flying} />
                               </span>
                             ) : (
                               <span />
@@ -671,7 +748,7 @@ export function BoardView({
                       {cell.label ?? t.core.cellTypes[cell.cellType]}
                     </span>
                     {isSpecial ? <MicroEffectBadge cell={cell} /> : null}
-                    {here.length > 0 ? <CellAvatarStack occupants={here} /> : null}
+                    {here.length > 0 ? <CellAvatarStack occupants={here} ghosts={flying} /> : null}
                     <ArrowRightIcon className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" aria-hidden />
                   </button>
                 </li>
@@ -683,8 +760,15 @@ export function BoardView({
         <div className="mt-3 h-1.5 w-full overflow-hidden border border-[#2a2a22] bg-[#1a1a14] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
           <div className="h-full w-full bg-[repeating-linear-gradient(90deg,rgba(242,169,0,0.18)_0_18px,transparent_18px_28px)] opacity-60" aria-hidden />
         </div>
-        </LayoutGroup>
       </div>
+      {/* Airborne token clones — portalled to body, see `FlightClone`. */}
+      {flights.map((flight) => (
+        <FlightClone
+          key={flight.username}
+          flight={flight}
+          onDone={(username) => setFlights((prev) => prev.filter((f) => f.username !== username))}
+        />
+      ))}
 
       {/* Cell details modal */}
       <Modal open={selectedPos !== null} onClose={() => setSelectedPos(null)} labelledBy="cell-detail-modal">

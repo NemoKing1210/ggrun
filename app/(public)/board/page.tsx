@@ -1,19 +1,5 @@
-import {
-  ArrowsRightLeftIcon,
-  BoltIcon,
-  FireIcon,
-  FlagIcon,
-  GiftIcon,
-  PuzzlePieceIcon,
-  TrophyIcon,
-} from "@heroicons/react/24/outline";
 import { CELL_THEME } from "@/components/board/cell-theme";
-import {
-  BoardView,
-  type BoardPlayer,
-  type BoardRoll,
-} from "@/components/board/board-view";
-import { BoardLiveFeed } from "@/components/board/board-live-feed";
+import { BoardView, CellTypeIcon, type BoardPlayer, type BoardRoll } from "@/components/board/board-view";
 import { BoardLiveRefresh } from "@/components/board/board-live-refresh";
 import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -118,10 +104,7 @@ export default async function BoardPage() {
         }
       />
 
-      <div className="mt-6">
-        <BoardLiveFeed seasonId={season.id} />
-        <BoardLiveRefresh seasonId={season.id} />
-      </div>
+      <BoardLiveRefresh seasonId={season.id} />
       <BoardView
         cells={cells}
         players={players}
@@ -136,35 +119,31 @@ export default async function BoardPage() {
         <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
           {"// LEGEND · CELL TYPES"}
         </p>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+        <dl className="hud-card grid gap-x-8 px-4 py-1 sm:grid-cols-2">
           {(
-            [
-              { type: "start" as const, Icon: FlagIcon, desc: t.board.descriptions.start },
-              { type: "finish" as const, Icon: TrophyIcon, desc: t.board.descriptions.finish },
-              { type: "bonus" as const, Icon: GiftIcon, desc: t.board.descriptions.bonus },
-              { type: "penalty" as const, Icon: FireIcon, desc: t.board.descriptions.penalty },
-              { type: "teleport" as const, Icon: ArrowsRightLeftIcon, desc: t.board.descriptions.teleport },
-              { type: "event" as const, Icon: BoltIcon, desc: t.board.descriptions.event },
-              { type: "custom" as const, Icon: PuzzlePieceIcon, desc: t.board.descriptions.custom },
-            ] as const
-          ).map(({ type, Icon, desc }) => (
-            <li
+            ["start", "finish", "bonus", "penalty", "teleport", "event", "custom"] as const
+          ).map((type) => (
+            <div
               key={type}
-              className={`hud-card flex flex-col gap-2 p-3 ${CELL_THEME[type].box} border`}
+              className="flex items-center gap-3 border-b border-[#242420] py-2.5 last:border-b-0 sm:last:col-span-2"
             >
-              <span className="flex items-center gap-2">
-                <span className={`inline-flex size-7 items-center justify-center border bg-raised [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${CELL_THEME[type].box}`}>
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-widest">
-                  {t.core.cellTypes[type]}
-                </span>
-                <span className={`ml-auto size-1.5 shrink-0 ${CELL_THEME[type].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+              <span
+                aria-hidden
+                className={`inline-flex size-9 shrink-0 items-center justify-center border [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${CELL_THEME[type].box}`}
+              >
+                <CellTypeIcon type={type} className="size-4" />
               </span>
-              <span className="line-clamp-2 font-mono text-[11px] leading-snug text-dim">{desc}</span>
-            </li>
+              <div className="min-w-0">
+                <dt className="font-mono text-[11px] font-semibold uppercase tracking-widest">
+                  {t.core.cellTypes[type]}
+                </dt>
+                <dd className="mt-0.5 text-xs leading-relaxed text-dim">
+                  {t.board.descriptions[type]}
+                </dd>
+              </div>
+            </div>
           ))}
-        </ul>
+        </dl>
       </section>
     </PageContainer>
   );
