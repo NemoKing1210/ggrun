@@ -53,6 +53,8 @@ export const feed: Widen<typeof FeedEn.feed> = {
   yesterday: "Вчора",
   noFilterResults: "Немає подій за цим фільтром.",
   clearFilter: "Скинути фільтр",
+  syncing: "Синхронізація подій…",
+  syncFailed: "Не вдалося оновити стрічку — показано збережені події.",
   stats: {
     events: "подій",
     players: "активних гравців",

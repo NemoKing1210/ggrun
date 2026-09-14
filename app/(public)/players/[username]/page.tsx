@@ -22,7 +22,11 @@ import { isBotUsername } from "@/lib/shared/utils/bots";
 import { db } from "@/lib/infrastructure/db";
 import { gameRolls, seasonPlayers, seasons, users } from "@/db/schema";
 import { getOpenRoll } from "@/lib/modules/catalog/repository";
-import { getPlayerMoves, getSeasonPlayerForUser, getUserActivityDays } from "@/lib/modules/season/repository/players";
+import {
+  getPlayerMoves,
+  getSeasonPlayerForUser,
+  getUserActivityDays,
+} from "@/lib/modules/season/repository/players";
 import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
@@ -68,9 +72,13 @@ export default async function PlayerProfilePage({ params }: Params) {
     getActiveSeason(),
   ]);
 
-  const activeParticipation = activeSeason ? await getSeasonPlayerForUser(activeSeason.id, user.id) : null;
+  const activeParticipation = activeSeason
+    ? await getSeasonPlayerForUser(activeSeason.id, user.id)
+    : null;
   const [recentMoves, openRoll, activityDays] = await Promise.all([
-    activeParticipation ? getPlayerMoves(activeParticipation.id, 10) : Promise.resolve([] as Awaited<ReturnType<typeof getPlayerMoves>>),
+    activeParticipation
+      ? getPlayerMoves(activeParticipation.id, 10)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getPlayerMoves>>),
     activeParticipation ? getOpenRoll(activeParticipation.id) : Promise.resolve(null),
     getUserActivityDays(user.id),
   ]);
@@ -78,19 +86,27 @@ export default async function PlayerProfilePage({ params }: Params) {
   const rollsByStatus = new Map(rollStats.map((r) => [r.status, Number(r.total)]));
   const totalRolls = rollStats.reduce((acc, r) => acc + Number(r.total), 0);
 
-  const joinedFmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const moveFmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const joinedFmt = new Intl.DateTimeFormat(
+    locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+  );
+  const moveFmt = new Intl.DateTimeFormat(
+    locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU",
+    {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
 
-  const links = Array.isArray(user.links) ? (user.links as Array<{ network: string; url: string }>) : [];
+  const links = Array.isArray(user.links)
+    ? (user.links as Array<{ network: string; url: string }>)
+    : [];
   const displayName = user.displayName ?? user.username;
 
   return (
@@ -115,10 +131,15 @@ export default async function PlayerProfilePage({ params }: Params) {
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent" aria-hidden />
+          <div
+            className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent"
+            aria-hidden
+          />
           {/* top row badges */}
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-            <Badge variant={roleVariant(user.role)}>{t.admin.users.roles[user.role as keyof typeof t.admin.users.roles] ?? user.role}</Badge>
+            <Badge variant={roleVariant(user.role)}>
+              {t.admin.users.roles[user.role as keyof typeof t.admin.users.roles] ?? user.role}
+            </Badge>
             {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
             {user.isBlocked ? <Badge variant="danger">{t.profile.blocked}</Badge> : null}
             <span className="hidden border border-white/15 bg-black/35 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-white/80 backdrop-blur sm:inline-flex">
@@ -127,7 +148,8 @@ export default async function PlayerProfilePage({ params }: Params) {
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
             <span className="border border-amber/30 bg-[#111110] px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-amber">
-              {format(t.profile.hero.seasonsCount, { count: participations.length })} • {format(t.profile.hero.movesCount, { count: recentMoves.length })}
+              {format(t.profile.hero.seasonsCount, { count: participations.length })} •{" "}
+              {format(t.profile.hero.movesCount, { count: recentMoves.length })}
             </span>
           </div>
           <div className="hazard-tape absolute inset-x-0 bottom-0 opacity-90" aria-hidden />
@@ -155,21 +177,27 @@ export default async function PlayerProfilePage({ params }: Params) {
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h1 className="font-display text-2xl uppercase tracking-wide text-amber sm:text-3xl">{displayName}</h1>
+                <h1 className="font-display text-2xl uppercase tracking-wide text-amber sm:text-3xl">
+                  {displayName}
+                </h1>
                 <span className="font-mono text-sm text-dim">@{user.username}</span>
                 {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} /> : null}
                 {user.displayName && user.displayName !== user.username ? null : null}
               </div>
 
               {user.bio ? (
-                <p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed text-zinc-300">{user.bio}</p>
+                <p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed text-zinc-300">
+                  {user.bio}
+                </p>
               ) : (
                 <p className="mt-2 font-mono text-xs italic text-dim/60">—</p>
               )}
 
               {links.length ? (
                 <div className="mt-3">
-                  <p className="mb-1.5 font-mono text-[11px] uppercase tracking-widest text-dim">{t.profile.hero.linksLabel}</p>
+                  <p className="mb-1.5 font-mono text-[11px] uppercase tracking-widest text-dim">
+                    {t.profile.hero.linksLabel}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {links.map((l, i) => (
                       <a
@@ -179,7 +207,10 @@ export default async function PlayerProfilePage({ params }: Params) {
                         rel="noopener noreferrer"
                         className="border border-dim/20 bg-raised px-2.5 py-1 font-mono text-xs text-dim hover:border-amber/40 hover:text-amber"
                       >
-                        <span className="uppercase tracking-widest">{t.settings.network[l.network as keyof typeof t.settings.network] ?? l.network}</span>
+                        <span className="uppercase tracking-widest">
+                          {t.settings.network[l.network as keyof typeof t.settings.network] ??
+                            l.network}
+                        </span>
                       </a>
                     ))}
                   </div>
@@ -200,7 +231,8 @@ export default async function PlayerProfilePage({ params }: Params) {
                     href={`/seasons/${activeSeason.slug}`}
                     className="inline-flex items-center gap-1 whitespace-nowrap border border-amber/30 bg-amber/10 px-2 py-1 uppercase tracking-widest text-amber hover:bg-amber hover:text-black"
                   >
-                    {t.profile.hero.activeRun} <ArrowRightIcon className="size-3 shrink-0" aria-hidden /> {activeSeason.title}
+                    {t.profile.hero.activeRun}{" "}
+                    <ArrowRightIcon className="size-3 shrink-0" aria-hidden /> {activeSeason.title}
                   </Link>
                 ) : null}
               </div>
@@ -214,12 +246,20 @@ export default async function PlayerProfilePage({ params }: Params) {
                 {/* header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dim/10 pb-3">
                   <div className="min-w-0">
-                    <p className="font-display text-[11px] uppercase tracking-widest text-amber">{t.profile.hero.activeRun}</p>
+                    <p className="font-display text-[11px] uppercase tracking-widest text-amber">
+                      {t.profile.hero.activeRun}
+                    </p>
                     <p className="truncate font-mono text-xs text-dim">{activeSeason?.title}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-[11px] uppercase tracking-widest text-dim">rerolls {activeParticipation.rerollsUsed}</span>
-                    <StatusBadge kind="player" status={activeParticipation.status} label={t.core.playerStatuses[activeParticipation.status]} />
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
+                      rerolls {activeParticipation.rerollsUsed}
+                    </span>
+                    <StatusBadge
+                      kind="player"
+                      status={activeParticipation.status}
+                      label={t.core.playerStatuses[activeParticipation.status]}
+                    />
                   </div>
                 </div>
 
@@ -240,10 +280,14 @@ export default async function PlayerProfilePage({ params }: Params) {
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.currentGame}</p>
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                        {t.profile.currentGame}
+                      </p>
                       {openRoll?.game ? (
                         <>
-                          <p className="mt-1 truncate font-display text-base uppercase tracking-wide text-amber">{openRoll.game.title}</p>
+                          <p className="mt-1 truncate font-display text-base uppercase tracking-wide text-amber">
+                            {openRoll.game.title}
+                          </p>
                           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                             {openRoll.game.platform ? (
                               <span className="border border-dim/30 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -251,13 +295,18 @@ export default async function PlayerProfilePage({ params }: Params) {
                               </span>
                             ) : null}
                             <span className="inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                              <span className="size-1.5 animate-pulse bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                              <span
+                                className="size-1.5 animate-pulse bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]"
+                                aria-hidden
+                              />
                               {"// ACTIVE ROLL"}
                             </span>
                           </div>
                         </>
                       ) : (
-                        <p className="mt-1 font-mono text-xs text-dim/60">{t.profile.noCurrentGame}</p>
+                        <p className="mt-1 font-mono text-xs text-dim/60">
+                          {t.profile.noCurrentGame}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -265,15 +314,25 @@ export default async function PlayerProfilePage({ params }: Params) {
                   {/* run stats */}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.cell}</div>
-                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">{activeParticipation.position}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                        {t.profile.cell}
+                      </div>
+                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">
+                        {activeParticipation.position}
+                      </div>
                     </div>
                     <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.balance}</div>
-                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">{activeParticipation.balancePoints}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                        {t.profile.balance}
+                      </div>
+                      <div className="ammo-counter mt-1.5 text-2xl leading-none text-amber">
+                        {activeParticipation.balancePoints}
+                      </div>
                     </div>
                     <div className="flex min-h-[84px] flex-col items-center justify-center border border-dim/15 bg-[#111110] p-3 text-center">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.streak}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                        {t.profile.streak}
+                      </div>
                       <div className="mt-1.5 flex items-center justify-center gap-1 font-mono text-sm">
                         <span className="text-military">+{activeParticipation.streakPass}</span>
                         <span className="text-dim/40">/</span>
@@ -285,8 +344,12 @@ export default async function PlayerProfilePage({ params }: Params) {
               </div>
             ) : (
               <div className="hud-card p-4 text-center">
-                <p className="font-mono text-xs uppercase tracking-widest text-dim">{t.profile.hero.noActiveRun}</p>
-                <p className="mt-1 font-mono text-[11px] text-dim/60">{totalRolls} rolls total • {participations.length} seasons</p>
+                <p className="font-mono text-xs uppercase tracking-widest text-dim">
+                  {t.profile.hero.noActiveRun}
+                </p>
+                <p className="mt-1 font-mono text-[11px] text-dim/60">
+                  {totalRolls} rolls total • {participations.length} seasons
+                </p>
               </div>
             )}
           </div>
@@ -301,7 +364,9 @@ export default async function PlayerProfilePage({ params }: Params) {
             {totalRolls} rolls
           </h2>
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[11px] uppercase tracking-widest text-dim">{participations.length} seasons • {recentMoves.length} moves</span>
+            <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
+              {participations.length} seasons • {recentMoves.length} moves
+            </span>
             <Link
               href={`/players/${user.username}/games`}
               className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1 text-[11px]"
@@ -322,9 +387,16 @@ export default async function PlayerProfilePage({ params }: Params) {
             ] as const
           ).map(({ key, variant, icon: Icon }) => (
             <div key={key} className="hud-card p-4 text-center">
-              <Icon className={`mx-auto h-5 w-5 ${variant === "military" ? "text-military" : variant === "danger" ? "text-danger" : variant === "violet" ? "text-violet-400" : variant === "sky" ? "text-sky-400" : "text-amber"}`} aria-hidden />
-              <p className="ammo-counter mt-2 text-2xl leading-none text-amber">{rollsByStatus.get(key) ?? 0}</p>
-              <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">{t.profile.rollStats[key]}</p>
+              <Icon
+                className={`mx-auto h-5 w-5 ${variant === "military" ? "text-military" : variant === "danger" ? "text-danger" : variant === "violet" ? "text-violet-400" : variant === "sky" ? "text-sky-400" : "text-amber"}`}
+                aria-hidden
+              />
+              <p className="ammo-counter mt-2 text-2xl leading-none text-amber">
+                {rollsByStatus.get(key) ?? 0}
+              </p>
+              <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.profile.rollStats[key]}
+              </p>
               <div className="mx-auto mt-2 h-px w-8 bg-dim/20" aria-hidden />
             </div>
           ))}
@@ -350,18 +422,22 @@ export default async function PlayerProfilePage({ params }: Params) {
               {participations.length}
             </span>
           </div>
-          <div className="mb-3 h-px w-full bg-gradient-to-r from-amber/20 via-dim/10 to-transparent" aria-hidden />
+          <div
+            className="mb-3 h-px w-full bg-gradient-to-r from-amber/20 via-dim/10 to-transparent"
+            aria-hidden
+          />
           {participations.length === 0 ? (
             <EmptyState>{t.profile.emptySeasons}</EmptyState>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {participations.map(({ sp, season }) => {
+              {participations.map(({ sp, season }, pi) => {
                 const isActive = season.status === "active";
                 return (
                   <Link
                     key={sp.id}
                     href={`/seasons/${season.slug}`}
-                    className={`hud-card hud-lift group flex flex-col overflow-hidden p-0 ${isActive ? "border-amber/35 shadow-[0_0_16px_rgba(242,169,0,0.12)]" : ""}`}
+                    style={{ animationDelay: `${Math.min(pi * 40, 280)}ms` }}
+                    className={`hud-card hud-lift animate-hud-rise group flex flex-col overflow-hidden p-0 ${isActive ? "border-amber/35 shadow-[0_0_16px_rgba(242,169,0,0.12)]" : ""}`}
                   >
                     {isActive ? (
                       <div className="h-[2px] w-full bg-amber" aria-hidden />
@@ -385,20 +461,34 @@ export default async function PlayerProfilePage({ params }: Params) {
                             ) : null}
                           </p>
                         </div>
-                        <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
+                        <StatusBadge
+                          kind="season"
+                          status={season.status}
+                          label={t.core.seasonStatuses[season.status]}
+                        />
                       </div>
 
                       <div className="mt-3 grid grid-cols-3 gap-1.5">
                         <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.cell}</div>
-                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">{sp.position}</div>
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+                            {t.profile.cell}
+                          </div>
+                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">
+                            {sp.position}
+                          </div>
                         </div>
                         <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.balance}</div>
-                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">{sp.balancePoints}</div>
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+                            {t.profile.balance}
+                          </div>
+                          <div className="ammo-counter mt-1 text-lg leading-none text-amber">
+                            {sp.balancePoints}
+                          </div>
                         </div>
                         <div className="border border-dim/15 bg-[#111110] p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.profile.streak}</div>
+                          <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+                            {t.profile.streak}
+                          </div>
                           <div className="mt-1 flex items-center justify-center gap-1 font-mono text-xs">
                             <span className="text-military">+{sp.streakPass}</span>
                             <span className="text-dim/40">/</span>
@@ -408,7 +498,11 @@ export default async function PlayerProfilePage({ params }: Params) {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between border-t border-dim/10 pt-2.5">
-                        <StatusBadge kind="player" status={sp.status} label={t.core.playerStatuses[sp.status]} />
+                        <StatusBadge
+                          kind="player"
+                          status={sp.status}
+                          label={t.core.playerStatuses[sp.status]}
+                        />
                         <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-dim">
                           rerolls {sp.rerollsUsed}
                           <ArrowRightIcon
@@ -432,15 +526,24 @@ export default async function PlayerProfilePage({ params }: Params) {
             {t.profile.movesHeading}
           </h2>
           {!activeParticipation ? (
-            <div className="hud-card p-6 text-center font-mono text-xs uppercase tracking-widest text-dim">{t.profile.hero.noActiveRun}</div>
+            <div className="hud-card p-6 text-center font-mono text-xs uppercase tracking-widest text-dim">
+              {t.profile.hero.noActiveRun}
+            </div>
           ) : recentMoves.length === 0 ? (
             <EmptyState>{t.profile.emptyMoves}</EmptyState>
           ) : (
             <div className="relative">
-              <div className="pointer-events-none absolute bottom-0 left-[11px] top-1 w-px bg-gradient-to-b from-amber/40 via-dim/15 to-transparent" aria-hidden />
+              <div
+                className="pointer-events-none absolute bottom-0 left-[11px] top-1 w-px bg-gradient-to-b from-amber/40 via-dim/15 to-transparent"
+                aria-hidden
+              />
               <ul className="space-y-3">
-                {recentMoves.map((move) => (
-                  <li key={move.id} className="relative flex gap-3">
+                {recentMoves.map((move, mi) => (
+                  <li
+                    key={move.id}
+                    className="animate-hud-rise relative flex gap-3"
+                    style={{ animationDelay: `${Math.min(mi * 30, 300)}ms` }}
+                  >
                     <span className="relative z-10 mt-1 flex size-6 shrink-0 items-center justify-center border border-amber bg-amber text-[10px] font-bold text-black [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                       {move.diceResults.length}
                     </span>
@@ -456,22 +559,31 @@ export default async function PlayerProfilePage({ params }: Params) {
                             </Badge>
                           ) : null}
                         </span>
-                        <time dateTime={move.createdAt.toISOString()} className="shrink-0 font-mono text-[11px] text-dim">
+                        <time
+                          dateTime={move.createdAt.toISOString()}
+                          className="shrink-0 font-mono text-[11px] text-dim"
+                        >
                           {moveFmt.format(move.createdAt)}
                         </time>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 border border-amber/20 bg-amber/10 px-2 py-0.5 font-mono text-xs text-amber">
-                          {move.diceResults.join(" + ")} <span className="text-dim/60">{t.profile.diceLabel}</span>
+                          {move.diceResults.join(" + ")}{" "}
+                          <span className="text-dim/60">{t.profile.diceLabel}</span>
                         </span>
-                        <span className="font-mono text-[11px] text-dim">ID {move.id.slice(0, 8)}…</span>
+                        <span className="font-mono text-[11px] text-dim">
+                          ID {move.id.slice(0, 8)}…
+                        </span>
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
               <div className="mt-3 text-center">
-                <Link href="/board" className="inline-flex border border-dim/20 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:border-amber/40 hover:text-amber">
+                <Link
+                  href="/board"
+                  className="inline-flex border border-dim/20 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:border-amber/40 hover:text-amber"
+                >
                   View board <ArrowRightIcon className="size-3.5" aria-hidden />
                 </Link>
               </div>

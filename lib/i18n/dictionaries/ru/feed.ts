@@ -53,6 +53,8 @@ export const feed: Widen<typeof FeedEn.feed> = {
   yesterday: "Вчера",
   noFilterResults: "Нет событий по этому фильтру.",
   clearFilter: "Сбросить фильтр",
+  syncing: "Синхронизация событий…",
+  syncFailed: "Не удалось обновить ленту — показаны сохранённые события.",
   stats: {
     events: "событий",
     players: "активных игроков",

@@ -16,7 +16,11 @@ import { StatusBadge } from "@/components/ui/status";
 import { isBotUsername } from "@/lib/shared/utils/bots";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/modules/season/repository/players";
-import { getActiveSeason, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
+import {
+  getActiveSeason,
+  getMainBoard,
+  getBoardCells,
+} from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { EffectBadges } from "@/components/iee/EffectBadges";
 import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
@@ -95,20 +99,35 @@ function ChampionCard({
     boardSize > 1 ? Math.round((row.position / (boardSize - 1)) * 100) : row.position ? 100 : 0;
   const clamped = Math.max(0, Math.min(100, progress));
 
-  const links = Array.isArray(row.links) ? (row.links as Array<{ network: string; url: string }>) : [];
+  const links = Array.isArray(row.links)
+    ? (row.links as Array<{ network: string; url: string }>)
+    : [];
 
   if (featured) {
     return (
-      <Link href={`/players/${row.username}`} className="hud-card group overflow-hidden border-amber/40 hud-lift block">
+      <Link
+        href={`/players/${row.username}`}
+        className="hud-card group overflow-hidden border-amber/40 hud-lift block"
+      >
         {/* banner */}
         <div className="relative h-48 overflow-hidden border-b border-amber/30 bg-raised sm:h-56">
           {row.bannerUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={row.bannerUrl} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.02]" />
+            <img
+              src={row.bannerUrl}
+              alt=""
+              className="size-full object-cover transition duration-500 group-hover:scale-[1.02]"
+            />
           ) : (
             <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,#1a1a18_0_14px,#22221e_14px_28px)]">
               <div className="absolute inset-0 bg-gradient-to-br from-amber/15 via-transparent to-military/15" />
-              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, #f2a900 1px, transparent 0)`, backgroundSize: "22px 22px" }} />
+              <div
+                className="absolute inset-0 opacity-[0.04]"
+                style={{
+                  backgroundImage: `radial-gradient(circle at 1px 1px, #f2a900 1px, transparent 0)`,
+                  backgroundSize: "22px 22px",
+                }}
+              />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
@@ -119,7 +138,11 @@ function ChampionCard({
             <span className="inline-flex items-center gap-1.5 border border-amber bg-amber px-2.5 py-1 font-display text-xs uppercase tracking-widest text-black shadow-[0_0_12px_rgba(242,169,0,0.45)]">
               <TrophyIcon className="h-4 w-4" aria-hidden /> #{rank} {label}
             </span>
-            <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+            <StatusBadge
+              kind="player"
+              status={row.status}
+              label={t.core.playerStatuses[row.status]}
+            />
             {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
           </div>
           <div className="absolute right-3 top-3 hidden sm:flex">
@@ -136,7 +159,13 @@ function ChampionCard({
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="-mt-12 sm:-mt-16 shrink-0">
               <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="lg">
-                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="lg" />
+                <PlayerAvatar
+                  username={row.username}
+                  displayName={row.displayName}
+                  avatarUrl={row.avatarUrl}
+                  userId={row.playerId}
+                  size="lg"
+                />
               </AvatarWithPresence>
             </div>
             <div className="min-w-0 flex-1">
@@ -147,15 +176,26 @@ function ChampionCard({
                 <span className="font-mono text-sm text-dim">@{row.username}</span>
                 {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
               </div>
-              {row.bio ? <p className="mt-2 line-clamp-2 max-w-prose text-sm leading-relaxed text-zinc-300">{row.bio}</p> : null}
+              {row.bio ? (
+                <p className="mt-2 line-clamp-2 max-w-prose text-sm leading-relaxed text-zinc-300">
+                  {row.bio}
+                </p>
+              ) : null}
               {links.length ? (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {links.slice(0, 4).map((l, i) => (
-                    <span key={i} className="border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim">
+                    <span
+                      key={i}
+                      className="border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim"
+                    >
                       {l.network}
                     </span>
                   ))}
-                  {links.length > 4 ? <span className="px-1 py-0.5 font-mono text-[10px] text-dim">+{links.length - 4}</span> : null}
+                  {links.length > 4 ? (
+                    <span className="px-1 py-0.5 font-mono text-[10px] text-dim">
+                      +{links.length - 4}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -169,20 +209,32 @@ function ChampionCard({
           {/* stats grid */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.cell}</div>
-              <div className="ammo-counter mt-1 text-2xl leading-none text-amber">{row.position}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.leaderboard.columns.cell}
+              </div>
+              <div className="ammo-counter mt-1 text-2xl leading-none text-amber">
+                {row.position}
+              </div>
               <div className="mt-2">
                 <ProgressBar value={clamped} />
               </div>
               <div className="mt-1 font-mono text-[10px] text-dim">{clamped}%</div>
             </div>
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.balance}</div>
-              <div className="ammo-counter mt-1 text-2xl leading-none text-amber">{row.balancePoints}</div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">{t.leaderboard.abbrev.points}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.leaderboard.columns.balance}
+              </div>
+              <div className="ammo-counter mt-1 text-2xl leading-none text-amber">
+                {row.balancePoints}
+              </div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">
+                {t.leaderboard.abbrev.points}
+              </div>
             </div>
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.streaks}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.leaderboard.columns.streaks}
+              </div>
               <div className="mt-1 flex items-center justify-center gap-3 font-mono text-sm">
                 <span className="inline-flex items-center gap-1 text-military">
                   <ChevronUpIcon className="h-3.5 w-3.5" /> {row.streakPass}
@@ -192,10 +244,14 @@ function ChampionCard({
                   <ChevronDownIcon className="h-3.5 w-3.5" /> {row.streakDrop}
                 </span>
               </div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">{t.leaderboard.abbrev.passDrop}</div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-dim/60">
+                {t.leaderboard.abbrev.passDrop}
+              </div>
             </div>
             <div className="border border-dim/20 bg-[#1a1a18] p-3 text-center">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.leaderboard.columns.place}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.leaderboard.columns.place}
+              </div>
               <div className="ammo-counter mt-1 text-2xl leading-none text-amber">#{rank}</div>
               <div className="mt-2 inline-flex">
                 <Badge variant="amber" size="sm" className="!px-2 !py-0.5">
@@ -214,11 +270,18 @@ function ChampionCard({
   const accent = rank === 2 ? "text-zinc-300" : "text-amber/80";
   const Icon = rank === 2 ? StarIcon : FlagIcon;
   return (
-    <Link href={`/players/${row.username}`} className={`hud-card hud-lift group flex flex-col overflow-hidden ${borderColor}`}>
+    <Link
+      href={`/players/${row.username}`}
+      className={`hud-card hud-lift group flex flex-col overflow-hidden ${borderColor}`}
+    >
       <div className="relative h-24 overflow-hidden border-b border-dim/15 bg-raised">
         {row.bannerUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.bannerUrl} alt="" className="size-full object-cover opacity-80 group-hover:opacity-100 transition" />
+          <img
+            src={row.bannerUrl}
+            alt=""
+            className="size-full object-cover opacity-80 group-hover:opacity-100 transition"
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-zinc-700/20 via-transparent to-zinc-600/10" />
         )}
@@ -229,16 +292,28 @@ function ChampionCard({
           <span className="text-dim">{label}</span>
         </div>
         <div className="absolute right-3 top-3">
-          <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+          <StatusBadge
+            kind="player"
+            status={row.status}
+            label={t.core.playerStatuses[row.status]}
+          />
         </div>
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex gap-3">
           <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="md">
-            <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="md" />
+            <PlayerAvatar
+              username={row.username}
+              displayName={row.displayName}
+              avatarUrl={row.avatarUrl}
+              userId={row.playerId}
+              size="md"
+            />
           </AvatarWithPresence>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">{row.displayName ?? row.username}</p>
+            <p className="truncate font-display text-base uppercase leading-none tracking-wide group-hover:text-amber">
+              {row.displayName ?? row.username}
+            </p>
             <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
             {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
             <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs">
@@ -255,15 +330,21 @@ function ChampionCard({
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.balanceShort}</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+              {t.leaderboard.abbrev.balanceShort}
+            </div>
             <div className="ammo-counter text-sm text-amber">{row.balancePoints}</div>
           </div>
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.passShort}</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+              {t.leaderboard.abbrev.passShort}
+            </div>
             <div className="font-mono text-sm text-military">+{row.streakPass}</div>
           </div>
           <div className="border border-dim/15 bg-[#1a1a18] px-2 py-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">{t.leaderboard.abbrev.dropShort}</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-dim">
+              {t.leaderboard.abbrev.dropShort}
+            </div>
             <div className="font-mono text-sm text-danger">-{row.streakDrop}</div>
           </div>
         </div>
@@ -296,33 +377,73 @@ export default async function LeaderboardPage() {
       <PageHeader
         kicker={t.leaderboard.kicker}
         title={t.leaderboard.pageTitle}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <StatusBadge
+            kind="season"
+            status={season.status}
+            label={t.core.seasonStatuses[season.status]}
+          />
+        }
       />
       <p className="mb-2 font-mono text-xs uppercase tracking-widest text-dim">
-        {kicker} • {format(t.leaderboard.stats.total, { count: rows.length } as never) ?? `${rows.length} players`} •{" "}
-        {t.leaderboard.stats.boardSize} {boardSize}
+        {kicker} •{" "}
+        {format(t.leaderboard.stats.total, { count: rows.length } as never) ??
+          `${rows.length} players`}{" "}
+        • {t.leaderboard.stats.boardSize} {boardSize}
       </p>
       <div className="hazard-tape mb-6" aria-hidden />
 
       {rows.length === 0 ? (
         <EmptyState>
           <span className="block">{t.leaderboard.empty}</span>
-          <span className="mt-1 block font-mono text-xs normal-case tracking-normal text-dim">{t.leaderboard.emptyHint}</span>
+          <span className="mt-1 block font-mono text-xs normal-case tracking-normal text-dim">
+            {t.leaderboard.emptyHint}
+          </span>
         </EmptyState>
       ) : (
         <div className="space-y-6">
           {/* champion spotlight */}
           {champion && (
-            <section>
-              <ChampionCard row={champion} boardSize={boardSize} t={t} label={t.leaderboard.champion} rank={1} featured />
+            <section className="animate-hud-rise">
+              <ChampionCard
+                row={champion}
+                boardSize={boardSize}
+                t={t}
+                label={t.leaderboard.champion}
+                rank={1}
+                featured
+              />
             </section>
           )}
 
           {/* podium 2-3 */}
           {(runnerUp || third) && (
-            <section className="grid gap-4 sm:grid-cols-2">
-              {runnerUp ? <ChampionCard row={runnerUp} boardSize={boardSize} t={t} label={t.leaderboard.runnerUp} rank={2} /> : <div className="hud-card flex items-center justify-center p-8 text-dim">—</div>}
-              {third ? <ChampionCard row={third} boardSize={boardSize} t={t} label={t.leaderboard.thirdPlace} rank={3} /> : <div className="hud-card flex items-center justify-center p-8 text-dim">—</div>}
+            <section
+              className="grid animate-hud-rise gap-4 sm:grid-cols-2"
+              style={{ animationDelay: "60ms" }}
+            >
+              {runnerUp ? (
+                <ChampionCard
+                  row={runnerUp}
+                  boardSize={boardSize}
+                  t={t}
+                  label={t.leaderboard.runnerUp}
+                  rank={2}
+                />
+              ) : (
+                <div className="hud-card flex items-center justify-center p-8 text-dim">—</div>
+              )}
+              {third ? (
+                <ChampionCard
+                  row={third}
+                  boardSize={boardSize}
+                  t={t}
+                  label={t.leaderboard.thirdPlace}
+                  rank={3}
+                />
+              ) : (
+                <div className="hud-card flex items-center justify-center p-8 text-dim">—</div>
+              )}
             </section>
           )}
 
@@ -330,14 +451,21 @@ export default async function LeaderboardPage() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-sm uppercase tracking-widest text-dim">
-                {rows.length > 3 ? `${t.leaderboard.pageTitle} — ${rows.length} ${t.leaderboard.stats.total.toLowerCase()}` : t.leaderboard.pageTitle}
+                {rows.length > 3
+                  ? `${t.leaderboard.pageTitle} — ${rows.length} ${t.leaderboard.stats.total.toLowerCase()}`
+                  : t.leaderboard.pageTitle}
               </h2>
-              <span className="font-mono text-[11px] uppercase tracking-widest text-dim">{t.leaderboard.stats.contenders} {rows.length}</span>
+              <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
+                {t.leaderboard.stats.contenders} {rows.length}
+              </span>
             </div>
 
             <div className="hud-card overflow-hidden">
               {/* subtle top accent line */}
-              <div className="h-px w-full bg-gradient-to-r from-transparent via-amber/30 to-transparent" aria-hidden />
+              <div
+                className="h-px w-full bg-gradient-to-r from-transparent via-amber/30 to-transparent"
+                aria-hidden
+              />
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
                   <thead>
@@ -370,11 +498,13 @@ export default async function LeaderboardPage() {
                     {rows.map((row, i) => {
                       const rank = i + 1;
                       const isTop3 = rank <= 3;
-                      const pct = boardSize > 1 ? Math.round((row.position / (boardSize - 1)) * 100) : 0;
+                      const pct =
+                        boardSize > 1 ? Math.round((row.position / (boardSize - 1)) * 100) : 0;
                       return (
                         <tr
                           key={row.id}
-                          className={`border-b border-dim/10 last:border-b-0 transition-colors hover:bg-amber/[0.04] ${isTop3 ? "bg-amber/[0.02]" : ""} ${rank === 1 ? "bg-amber/[0.06]" : ""}`}
+                          style={{ animationDelay: `${Math.min(i * 15, 300)}ms` }}
+                          className={`animate-hud-fade border-b border-dim/10 last:border-b-0 transition-colors hover:bg-amber/[0.04] ${isTop3 ? "bg-amber/[0.02]" : ""} ${rank === 1 ? "bg-amber/[0.06]" : ""}`}
                         >
                           <td className="px-4 py-3">
                             <span
@@ -388,22 +518,47 @@ export default async function LeaderboardPage() {
                                       : "border-dim/20 bg-raised text-dim"
                               }`}
                             >
-                              {rank === 1 ? <TrophyIcon className="mr-1 h-3 w-3" aria-hidden /> : null}
+                              {rank === 1 ? (
+                                <TrophyIcon className="mr-1 h-3 w-3" aria-hidden />
+                              ) : null}
                               {rank}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <Link href={`/players/${row.username}`} className="flex items-center gap-3 group/link">
-                              <AvatarWithPresence lastSeenAt={row.lastSeenAt} size="sm" locale={locale}>
-                                <PlayerAvatar username={row.username} displayName={row.displayName} avatarUrl={row.avatarUrl} userId={row.playerId} size="sm" />
+                            <Link
+                              href={`/players/${row.username}`}
+                              className="flex items-center gap-3 group/link"
+                            >
+                              <AvatarWithPresence
+                                lastSeenAt={row.lastSeenAt}
+                                size="sm"
+                                locale={locale}
+                              >
+                                <PlayerAvatar
+                                  username={row.username}
+                                  displayName={row.displayName}
+                                  avatarUrl={row.avatarUrl}
+                                  userId={row.playerId}
+                                  size="sm"
+                                />
                               </AvatarWithPresence>
                               <div className="min-w-0">
-                                <p className="truncate font-semibold leading-none group-hover/link:text-amber">{row.displayName ?? row.username}</p>
-                                <p className="truncate font-mono text-xs text-dim">@{row.username}</p>
-                                {isBotUsername(row.username) ? <BotBadge label={t.core.common.bot} /> : null}
+                                <p className="truncate font-semibold leading-none group-hover/link:text-amber">
+                                  {row.displayName ?? row.username}
+                                </p>
+                                <p className="truncate font-mono text-xs text-dim">
+                                  @{row.username}
+                                </p>
+                                {isBotUsername(row.username) ? (
+                                  <BotBadge label={t.core.common.bot} />
+                                ) : null}
                               </div>
                             </Link>
-                            <EffectBadges badges={effects.get(row.id) ?? []} t={t} className="mt-1.5" />
+                            <EffectBadges
+                              badges={effects.get(row.id) ?? []}
+                              t={t}
+                              className="mt-1.5"
+                            />
                           </td>
                           <td className="px-4 py-3">
                             <div className="w-28">
@@ -413,7 +568,9 @@ export default async function LeaderboardPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className="ammo-counter text-amber">{row.position}</span>
-                            <span className="ml-1 font-mono text-[10px] text-dim">/ {boardSize - 1}</span>
+                            <span className="ml-1 font-mono text-[10px] text-dim">
+                              / {boardSize - 1}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="ammo-counter text-amber">{row.balancePoints}</span>
@@ -432,7 +589,11 @@ export default async function LeaderboardPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+                            <StatusBadge
+                              kind="player"
+                              status={row.status}
+                              label={t.core.playerStatuses[row.status]}
+                            />
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link
@@ -449,7 +610,9 @@ export default async function LeaderboardPage() {
                 </table>
               </div>
               {rest.length === 0 && rows.length <= 3 ? (
-                <div className="border-t border-dim/15 px-4 py-3 text-center font-mono text-xs text-dim">{t.leaderboard.emptyHint}</div>
+                <div className="border-t border-dim/15 px-4 py-3 text-center font-mono text-xs text-dim">
+                  {t.leaderboard.emptyHint}
+                </div>
               ) : null}
             </div>
           </section>

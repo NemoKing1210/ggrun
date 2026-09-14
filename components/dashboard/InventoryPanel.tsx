@@ -73,8 +73,7 @@ function DurationMeter({
   label: string;
   tone: "danger" | "military" | "amber";
 }) {
-  const fill =
-    tone === "danger" ? "bg-danger" : tone === "military" ? "bg-military" : "bg-amber";
+  const fill = tone === "danger" ? "bg-danger" : tone === "military" ? "bg-military" : "bg-amber";
   const showPips = total !== null && total > 0 && total <= 8 && left <= total;
 
   return (
@@ -146,6 +145,7 @@ function EntryCard({
   footer,
   stripe,
   frame,
+  index,
 }: {
   tile: React.ReactNode;
   title: string;
@@ -154,9 +154,14 @@ function EntryCard({
   footer: React.ReactNode;
   stripe: string;
   frame: string;
+  /** Stagger position for the mount entrance; omits the delay when undefined. */
+  index?: number;
 }) {
   return (
-    <li className={`relative border ${frame} ${CARD_CLIP}`}>
+    <li
+      style={index === undefined ? undefined : { animationDelay: `${Math.min(index * 30, 240)}ms` }}
+      className={`animate-hud-rise relative border ${frame} ${CARD_CLIP}`}
+    >
       <span className={`absolute inset-y-0 left-0 w-1 ${stripe}`} aria-hidden />
       <div className="flex items-start gap-3 p-3 pl-4">
         {tile}
@@ -240,7 +245,7 @@ export function InventoryPanel({
           <EmptySlots kind="item" hint={p.empty} />
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {items.map((row) => {
+            {items.map((row, itemIdx) => {
               const def = getItem(row.itemKey);
               const active = def?.usage.mode === "active";
               const needsTarget = def?.usage.target === "other" || def?.usage.target === "any";
@@ -249,6 +254,7 @@ export function InventoryPanel({
               return (
                 <EntryCard
                   key={row.id}
+                  index={itemIdx}
                   frame="border-[#3d3d34] bg-[#1a1a1a]"
                   stripe="bg-amber/70"
                   tile={
@@ -332,7 +338,7 @@ export function InventoryPanel({
           <EmptySlots kind="effect" hint={p.statusesEmpty} />
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {statuses.map((row) => {
+            {statuses.map((row, statusIdx) => {
               const def = getEffect(row.effectKey);
               const negative = row.polarity === "negative";
               const tone = negative ? "danger" : "military";
@@ -345,7 +351,10 @@ export function InventoryPanel({
               return (
                 <EntryCard
                   key={row.id}
-                  frame={negative ? "border-danger/40 bg-danger/10" : "border-military/40 bg-military/10"}
+                  index={statusIdx}
+                  frame={
+                    negative ? "border-danger/40 bg-danger/10" : "border-military/40 bg-military/10"
+                  }
                   stripe={negative ? "bg-danger" : "bg-military"}
                   tile={
                     <IeeArtTile
@@ -411,11 +420,7 @@ export function InventoryPanel({
               <li key={target.seasonPlayerId}>
                 <form action={formAction}>
                   <input type="hidden" name="inventoryId" value={picking?.id ?? ""} />
-                  <input
-                    type="hidden"
-                    name="targetSeasonPlayerId"
-                    value={target.seasonPlayerId}
-                  />
+                  <input type="hidden" name="targetSeasonPlayerId" value={target.seasonPlayerId} />
                   <button
                     type="submit"
                     disabled={pending || !target.targetable}

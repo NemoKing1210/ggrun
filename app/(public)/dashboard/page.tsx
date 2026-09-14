@@ -43,10 +43,7 @@ import {
   getPlayerEvents,
   listTargetOptions,
 } from "@/lib/modules/iee/repository";
-import {
-  getPlayerMoves,
-  getSeasonPlayerForUser,
-} from "@/lib/modules/season/repository/players";
+import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/repository/players";
 import {
   getActiveSeason,
   getBoardCells,
@@ -75,7 +72,10 @@ function StatTile({
 }) {
   return (
     <div className="hud-card relative overflow-hidden px-3 py-2.5">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/20 to-transparent" aria-hidden />
+      <div
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/20 to-transparent"
+        aria-hidden
+      />
       <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
         <Icon className="size-3.5 opacity-60" aria-hidden />
         {label}
@@ -137,14 +137,28 @@ export default async function DashboardPage() {
         <PageHeader
           kicker={format(t.core.common.seasonKicker, { season: season.title })}
           title={t.core.dashboard.heading}
-          right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+          right={
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          }
         />
         <EmptyState>{t.core.dashboard.notInSeason}</EmptyState>
       </PageContainer>
     );
   }
 
-  const [openRoll, pendingReroll, pendingCompletion, lastMoves, recentRolls, board, catalogPreview] = await Promise.all([
+  const [
+    openRoll,
+    pendingReroll,
+    pendingCompletion,
+    lastMoves,
+    recentRolls,
+    board,
+    catalogPreview,
+  ] = await Promise.all([
     getOpenRoll(seasonPlayer.id),
     getPendingRerollForPlayer(seasonPlayer.id),
     getPendingCompletionForPlayer(seasonPlayer.id),
@@ -178,9 +192,7 @@ export default async function DashboardPage() {
     }
     return typeof node === "string" ? node : path;
   };
-  const itemNames = Object.fromEntries(
-    listItems().map((d) => [d.key, catalogName(d.i18n.name)]),
-  );
+  const itemNames = Object.fromEntries(listItems().map((d) => [d.key, catalogName(d.i18n.name)]));
   const effectNames = Object.fromEntries(
     listEffects().map((d) => [d.key, catalogName(d.i18n.name)]),
   );
@@ -205,20 +217,19 @@ export default async function DashboardPage() {
   // its own copy, reading the roll that had already happened, so a status spent
   // a moment earlier lingered here showing "0 rolls left" — present to the
   // player, inert to the game.
-  const statuses = activeEffects
-    .map((e) => ({
-      id: e.id,
-      effectKey: e.effectKey,
-      polarity: e.polarity,
-      chargesLeft: e.chargesLeft,
-      // Rolls this will still affect, counting the next one — so it never
-      // reads zero while the status is on screen.
-      rollsLeft:
-        e.expiresAfterRollSeq === null
-          ? null
-          : Math.max(0, e.expiresAfterRollSeq - seasonPlayer.rollSeq),
-      castByUsername: e.castByUsername,
-    }));
+  const statuses = activeEffects.map((e) => ({
+    id: e.id,
+    effectKey: e.effectKey,
+    polarity: e.polarity,
+    chargesLeft: e.chargesLeft,
+    // Rolls this will still affect, counting the next one — so it never
+    // reads zero while the status is on screen.
+    rollsLeft:
+      e.expiresAfterRollSeq === null
+        ? null
+        : Math.max(0, e.expiresAfterRollSeq - seasonPlayer.rollSeq),
+    castByUsername: e.castByUsername,
+  }));
 
   const cells = board ? await getBoardCells(board.id) : [];
   const totalCells = cells.length || 1;
@@ -232,25 +243,31 @@ export default async function DashboardPage() {
     timeZone: "UTC",
   });
 
-  const toGameSummary = (g: {
-    title: string;
-    platform: string | null;
-    coverUrl: string | null;
-    genres: string[];
-    tags: string[];
-    metacritic: number | null;
-    rating: string | number | null;
-    releasedAt: Date | null;
-    esrb: string | null;
-    description: string | null;
-    playtimeHours: number | null;
-    stores: unknown;
-    website: string | null;
-    externalSource: string | null;
-  } | null): GameSummary | null => {
+  const toGameSummary = (
+    g: {
+      title: string;
+      platform: string | null;
+      coverUrl: string | null;
+      genres: string[];
+      tags: string[];
+      metacritic: number | null;
+      rating: string | number | null;
+      releasedAt: Date | null;
+      esrb: string | null;
+      description: string | null;
+      playtimeHours: number | null;
+      stores: unknown;
+      website: string | null;
+      externalSource: string | null;
+    } | null,
+  ): GameSummary | null => {
     if (!g) return null;
     const stores = Array.isArray(g.stores)
-      ? g.stores.filter((s): s is { store?: unknown; url?: unknown } => !!s && typeof s === "object" && !!s.store && !!s.url)
+      ? g.stores
+          .filter(
+            (s): s is { store?: unknown; url?: unknown } =>
+              !!s && typeof s === "object" && !!s.store && !!s.url,
+          )
           .map((s) => ({ store: String(s.store), url: String(s.url) }))
       : [];
     return {
@@ -280,15 +297,25 @@ export default async function DashboardPage() {
     <PageContainer className="flex flex-col gap-6">
       {/* Operator ID card */}
       <div className="hud-card flex items-center gap-4 p-4">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" aria-hidden />
-        <AvatarBadge name={user.displayName ?? user.username} src={user.avatarUrl ?? null} seed={user.id} size="lg" />
+        <div
+          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent"
+          aria-hidden
+        />
+        <AvatarBadge
+          name={user.displayName ?? user.username}
+          src={user.avatarUrl ?? null}
+          seed={user.id}
+          size="lg"
+        />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-dim">
             {"// OPERATOR"} <span className="text-amber">· {season.title}</span>
           </div>
           <div className="mt-0.5 truncate font-display text-xl uppercase tracking-wide leading-none">
             {user.displayName ?? user.username}
-            {isBotUsername(user.username) ? <BotBadge label={t.core.common.bot} className="ml-2 align-middle" /> : null}
+            {isBotUsername(user.username) ? (
+              <BotBadge label={t.core.common.bot} className="ml-2 align-middle" />
+            ) : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] leading-none text-dim">
             <span className="border border-dim/30 bg-background/40 px-1.5 py-0.5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
@@ -296,7 +323,11 @@ export default async function DashboardPage() {
             </span>
             <span className="hidden h-3 w-px bg-dim/20 sm:inline-block" aria-hidden />
             <span className="hidden truncate sm:inline">{kicker}</span>
-            <StatusBadge kind="player" status={seasonPlayer.status} label={t.core.playerStatuses[seasonPlayer.status]} />
+            <StatusBadge
+              kind="player"
+              status={seasonPlayer.status}
+              label={t.core.playerStatuses[seasonPlayer.status]}
+            />
           </div>
         </div>
         <Link
@@ -310,18 +341,51 @@ export default async function DashboardPage() {
       <PageHeader
         kicker={kicker}
         title={t.core.dashboard.heading}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <StatusBadge
+            kind="season"
+            status={season.status}
+            label={t.core.seasonStatuses[season.status]}
+          />
+        }
       />
 
       {/* Stats */}
-      <section aria-label={t.core.dashboard.statsTitle}>
+      <section aria-label={t.core.dashboard.statsTitle} className="animate-hud-rise">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile label={t.core.dashboard.statPosition} value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`} accent icon={MapPinIcon} />
-          <StatTile label={t.core.dashboard.statBalance} value={String(seasonPlayer.balancePoints)} accent icon={BanknotesIcon} />
-          <StatTile label={t.core.dashboard.statStreakPass} value={String(seasonPlayer.streakPass)} icon={CheckCircleIcon} />
-          <StatTile label={t.core.dashboard.statStreakDrop} value={String(seasonPlayer.streakDrop)} icon={FireIcon} />
-          <StatTile label={t.core.dashboard.statRerolls} value={String(seasonPlayer.rerollsUsed)} icon={ArrowPathIcon} />
-          <StatTile label={t.core.dashboard.statProgress} value={`${progressPct}%`} accent icon={ChartBarIcon} />
+          <StatTile
+            label={t.core.dashboard.statPosition}
+            value={`${seasonPlayer.position} / ${Math.max(0, totalCells - 1)}`}
+            accent
+            icon={MapPinIcon}
+          />
+          <StatTile
+            label={t.core.dashboard.statBalance}
+            value={String(seasonPlayer.balancePoints)}
+            accent
+            icon={BanknotesIcon}
+          />
+          <StatTile
+            label={t.core.dashboard.statStreakPass}
+            value={String(seasonPlayer.streakPass)}
+            icon={CheckCircleIcon}
+          />
+          <StatTile
+            label={t.core.dashboard.statStreakDrop}
+            value={String(seasonPlayer.streakDrop)}
+            icon={FireIcon}
+          />
+          <StatTile
+            label={t.core.dashboard.statRerolls}
+            value={String(seasonPlayer.rerollsUsed)}
+            icon={ArrowPathIcon}
+          />
+          <StatTile
+            label={t.core.dashboard.statProgress}
+            value={`${progressPct}%`}
+            accent
+            icon={ChartBarIcon}
+          />
         </div>
         <div className="mt-3 flex items-center gap-3">
           <div className="relative h-3 flex-1 overflow-hidden border border-[#3d3d34] bg-[#151514] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
@@ -329,18 +393,27 @@ export default async function DashboardPage() {
               className="h-full bg-amber shadow-[0_0_10px_rgba(242,169,0,0.5)] transition-all duration-500"
               style={{ width: `${Math.min(100, progressPct)}%` }}
             />
-            <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_22px,rgba(0,0,0,0.35)_22px_23px)] opacity-60" aria-hidden />
+            <div
+              className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_22px,rgba(0,0,0,0.35)_22px_23px)] opacity-60"
+              aria-hidden
+            />
             <div className="absolute inset-y-0 left-1/4 w-px bg-black/40" aria-hidden />
             <div className="absolute inset-y-0 left-1/2 w-px bg-black/40" aria-hidden />
             <div className="absolute inset-y-0 left-3/4 w-px bg-black/40" aria-hidden />
           </div>
-          <span className="ammo-counter shrink-0 font-mono text-xs tracking-widest text-amber">{progressPct}%</span>
+          <span className="ammo-counter shrink-0 font-mono text-xs tracking-widest text-amber">
+            {progressPct}%
+          </span>
         </div>
       </section>
 
       {/* Board progress mini */}
       {cells.length > 0 ? (
-        <section aria-label={t.core.dashboard.boardProgressTitle} className="hud-card overflow-hidden bg-[#121210] p-3 sm:p-4">
+        <section
+          aria-label={t.core.dashboard.boardProgressTitle}
+          className="hud-card animate-hud-rise overflow-hidden bg-[#121210] p-3 sm:p-4"
+          style={{ animationDelay: "60ms" }}
+        >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#2a2a22] pb-2">
             <h2 className="flex items-center gap-2 font-display text-sm uppercase tracking-widest">
               <MapPinIcon className="size-4 text-amber" aria-hidden />
@@ -364,17 +437,30 @@ export default async function DashboardPage() {
                 <div
                   key={cell.id}
                   className={`group relative flex aspect-square flex-col items-center justify-center border p-1 text-center transition-all [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${theme.box} ${isHere ? "ring-2 ring-amber ring-offset-1 ring-offset-[#121210] z-10 scale-[1.04] shadow-[0_0_12px_rgba(242,169,0,0.35)]" : isPast ? "opacity-70" : ""}`}
-                  title={cell.label ? `${t.core.cellTypes[cell.cellType]}: ${cell.label}` : t.core.cellTypes[cell.cellType]}
+                  title={
+                    cell.label
+                      ? `${t.core.cellTypes[cell.cellType]}: ${cell.label}`
+                      : t.core.cellTypes[cell.cellType]
+                  }
                 >
                   {cell.cellType !== "normal" ? (
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.08]">
                       <CellMiniIcon type={cell.cellType} className="size-6" />
                     </span>
                   ) : null}
-                  <span className={`absolute right-1 top-1 size-1 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+                  <span
+                    className={`absolute right-1 top-1 size-1 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`}
+                    aria-hidden
+                  />
                   {isHere ? (
-                    <span className="absolute inset-[3px] flex items-center justify-center bg-amber/12 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" aria-hidden>
-                      <span className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(242,169,0,0.18),transparent_70%)]" aria-hidden />
+                    <span
+                      className="absolute inset-[3px] flex items-center justify-center bg-amber/12 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                      aria-hidden
+                    >
+                      <span
+                        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(242,169,0,0.18),transparent_70%)]"
+                        aria-hidden
+                      />
                     </span>
                   ) : null}
                   {isHere ? (
@@ -392,11 +478,15 @@ export default async function DashboardPage() {
                           />
                         )}
                       </span>
-                      <span className="ammo-counter mt-0.5 text-[9px] font-bold leading-none text-amber">{String(cell.position).padStart(2, "0")}</span>
+                      <span className="ammo-counter mt-0.5 text-[9px] font-bold leading-none text-amber">
+                        {String(cell.position).padStart(2, "0")}
+                      </span>
                     </span>
                   ) : (
                     <>
-                      <span className="ammo-counter relative text-xs leading-none">{String(cell.position).padStart(2, "0")}</span>
+                      <span className="ammo-counter relative text-xs leading-none">
+                        {String(cell.position).padStart(2, "0")}
+                      </span>
                       {cell.cellType !== "normal" ? (
                         <span className="relative mt-0.5">
                           <CellMiniIcon type={cell.cellType} className="size-3 opacity-60" />
@@ -425,8 +515,14 @@ export default async function DashboardPage() {
             {(Object.keys(CELL_THEME) as Array<keyof typeof CELL_THEME>)
               .filter((k) => k !== "normal")
               .map((k) => (
-                <span key={k} className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim">
-                  <span className={`inline-block size-2 ${CELL_THEME[k].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+                <span
+                  key={k}
+                  className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-dim"
+                >
+                  <span
+                    className={`inline-block size-2 ${CELL_THEME[k].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`}
+                    aria-hidden
+                  />
                   {t.core.cellTypes[k]}
                 </span>
               ))}
@@ -436,11 +532,7 @@ export default async function DashboardPage() {
 
       {/* Current game */}
       {iee?.enabled && challenges.length > 0 ? (
-        <ChallengesPanel
-          challenges={challenges}
-          itemNames={itemNames}
-          effectNames={effectNames}
-        />
+        <ChallengesPanel challenges={challenges} itemNames={itemNames} effectNames={effectNames} />
       ) : null}
 
       {iee?.enabled && (heldItems.length > 0 || statuses.length > 0) ? (
@@ -466,7 +558,7 @@ export default async function DashboardPage() {
         produces an error is worse than no button.
       */}
       {seasonPlayer.status !== "active" ? (
-        <section className="hud-card flex flex-col items-center gap-2 p-8 text-center">
+        <section className="hud-card animate-hud-rise flex flex-col items-center gap-2 p-8 text-center">
           <TrophyIcon className="size-10 text-amber" aria-hidden />
           <h2 className="font-display text-lg uppercase tracking-widest">
             {t.core.dashboard.runOver}
@@ -486,40 +578,62 @@ export default async function DashboardPage() {
           <p className="text-sm text-dim">{t.core.dashboard.runOverHint}</p>
         </section>
       ) : (
-      <RollCard
-        seasonPlayerId={seasonPlayer.id}
-        openRoll={
-          openRoll
-            ? {
-                id: openRoll.id,
-                game: toGameSummary(openRoll.game),
-                rolledAt: openRoll.rolledAt.toISOString(),
-              }
-            : null
-        }
-        pendingCompletion={
-          pendingCompletion
-            ? { id: pendingCompletion.id, outcome: pendingCompletion.outcome as "passed" | "dropped", reason: pendingCompletion.reason, rating: pendingCompletion.rating, requestedAt: pendingCompletion.requestedAt.toISOString() }
-            : null
-        }
-        pendingReroll={
-          pendingReroll
-            ? { id: pendingReroll.id, reason: pendingReroll.reason, requestedAt: pendingReroll.requestedAt.toISOString() }
-            : null
-        }
-        rerollsUsed={seasonPlayer.rerollsUsed}
-        lastDice={lastMoves[0]?.diceResults ?? null}
-        catalogGames={catalogPreview.map((g) => ({ title: g.title, coverUrl: g.coverUrl, platform: g.platform }))}
-      />
+        <RollCard
+          seasonPlayerId={seasonPlayer.id}
+          openRoll={
+            openRoll
+              ? {
+                  id: openRoll.id,
+                  game: toGameSummary(openRoll.game),
+                  rolledAt: openRoll.rolledAt.toISOString(),
+                }
+              : null
+          }
+          pendingCompletion={
+            pendingCompletion
+              ? {
+                  id: pendingCompletion.id,
+                  outcome: pendingCompletion.outcome as "passed" | "dropped",
+                  reason: pendingCompletion.reason,
+                  rating: pendingCompletion.rating,
+                  requestedAt: pendingCompletion.requestedAt.toISOString(),
+                }
+              : null
+          }
+          pendingReroll={
+            pendingReroll
+              ? {
+                  id: pendingReroll.id,
+                  reason: pendingReroll.reason,
+                  requestedAt: pendingReroll.requestedAt.toISOString(),
+                }
+              : null
+          }
+          rerollsUsed={seasonPlayer.rerollsUsed}
+          lastDice={lastMoves[0]?.diceResults ?? null}
+          catalogGames={catalogPreview.map((g) => ({
+            title: g.title,
+            coverUrl: g.coverUrl,
+            platform: g.platform,
+          }))}
+        />
       )}
 
       {/* Game history */}
-      <section aria-label={t.core.dashboard.history} className="grid gap-6 lg:grid-cols-2">
+      <section
+        aria-label={t.core.dashboard.history}
+        className="grid animate-hud-rise gap-6 lg:grid-cols-2"
+        style={{ animationDelay: "90ms" }}
+      >
         <div className="hud-card flex flex-col p-0">
           <div className="flex items-center gap-2 border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
             <ChartBarIcon className="size-4 text-amber" aria-hidden />
-            <h2 className="font-display text-sm uppercase tracking-widest">{t.core.dashboard.history}</h2>
-            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">{lastMoves.length} moves</span>
+            <h2 className="font-display text-sm uppercase tracking-widest">
+              {t.core.dashboard.history}
+            </h2>
+            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">
+              {lastMoves.length} moves
+            </span>
           </div>
           <div className="flex-1 p-4">
             {lastMoves.length === 0 ? (
@@ -537,22 +651,34 @@ export default async function DashboardPage() {
                       {move.diceResults.join("+")}
                     </span>
                     <span className="font-mono text-sm tracking-wide">
-                      {format(t.core.dashboard.moveFormat, { from: move.fromPosition, to: move.toPosition })}
+                      {format(t.core.dashboard.moveFormat, {
+                        from: move.fromPosition,
+                        to: move.toPosition,
+                      })}
                     </span>
                     <span className="hidden items-center gap-1.5 sm:inline-flex">
                       {move.cellLandedType ? (
                         <>
-                          <span className={`inline-block size-2 ${CELL_THEME[move.cellLandedType].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`} aria-hidden />
+                          <span
+                            className={`inline-block size-2 ${CELL_THEME[move.cellLandedType].dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`}
+                            aria-hidden
+                          />
                           <span className="font-mono text-[11px] uppercase tracking-widest text-dim">
                             {t.core.cellTypes[move.cellLandedType]}
                           </span>
-                          <CellMiniIcon type={move.cellLandedType} className="size-3.5 opacity-50" />
+                          <CellMiniIcon
+                            type={move.cellLandedType}
+                            className="size-3.5 opacity-50"
+                          />
                         </>
                       ) : (
                         <span className="font-mono text-xs text-dim">—</span>
                       )}
                     </span>
-                    <time dateTime={move.createdAt.toISOString()} className="ml-auto hidden shrink-0 font-mono text-[11px] text-dim sm:block">
+                    <time
+                      dateTime={move.createdAt.toISOString()}
+                      className="ml-auto hidden shrink-0 font-mono text-[11px] text-dim sm:block"
+                    >
                       {dateFormatter.format(move.createdAt)}
                     </time>
                   </li>
@@ -565,8 +691,12 @@ export default async function DashboardPage() {
         <div className="hud-card flex flex-col p-0">
           <div className="flex items-center gap-2 border-b border-[#3d3d34] bg-raised/40 px-4 py-3">
             <TrophyIcon className="size-4 text-amber" aria-hidden />
-            <h2 className="font-display text-sm uppercase tracking-widest">{t.core.dashboard.games}</h2>
-            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">{recentRolls.length} rolls</span>
+            <h2 className="font-display text-sm uppercase tracking-widest">
+              {t.core.dashboard.games}
+            </h2>
+            <span className="ml-auto font-mono text-[10px] tracking-widest text-dim">
+              {recentRolls.length} rolls
+            </span>
           </div>
           <div className="flex-1 p-4">
             {recentRolls.length === 0 ? (

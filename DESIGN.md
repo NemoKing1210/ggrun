@@ -20,15 +20,15 @@ This is the source of truth for visual language. All new UI **must** follow it. 
 
 ### Colors (CSS vars in `app/globals.css`)
 
-| Token | Value | Use |
-|---|---|---|
-| `--hud-bg` | `#1b1b1a` | Page background (with scanline repeat) |
-| `--hud-bg-raised` | `#2a2a22` | `hud-card` |
-| `--hud-amber` | `#f2a900` | Primary, active, focus |
-| `--hud-green` | `#7c8f4a` | Success / military |
-| `--hud-red` | `#b0341f` | Danger / penalty |
-| `--hud-text` | `#e6e1d3` | Body |
-| `--hud-text-dim` | `#9a958a` | Labels, hints |
+| Token             | Value     | Use                                    |
+| ----------------- | --------- | -------------------------------------- |
+| `--hud-bg`        | `#1b1b1a` | Page background (with scanline repeat) |
+| `--hud-bg-raised` | `#2a2a22` | `hud-card`                             |
+| `--hud-amber`     | `#f2a900` | Primary, active, focus                 |
+| `--hud-green`     | `#7c8f4a` | Success / military                     |
+| `--hud-red`       | `#b0341f` | Danger / penalty                       |
+| `--hud-text`      | `#e6e1d3` | Body                                   |
+| `--hud-text-dim`  | `#9a958a` | Labels, hints                          |
 
 Tailwind `@theme inline` maps these to `bg-amber`, `border-amber`, `text-military`, `text-danger`, `text-dim`, `bg-raised`.
 
@@ -49,7 +49,7 @@ on admin ones**, via `components/iee/EntryDescription.tsx`.
 Two reasons it sits a step above what the tight scale suggests. The body face
 is **Barlow Condensed**: a condensed face at a given px carries a visibly
 smaller x-height than a normal one, so the nominal size flatters it. And these
-sentences *are* the content of their card — an entry's description is the only
+sentences _are_ the content of their card — an entry's description is the only
 place a player ever learns what a status does. Descriptions were once set at
 11px below a `text-sm` name, which inverted the hierarchy outright: the label
 carrying no information outranked the sentence carrying all of it.
@@ -63,6 +63,7 @@ carrying no information outranked the sentence carrying all of it.
 ### Layout Containers
 
 `components/ui/PageContainer.tsx` is the single source of truth for page content width. The public shell (`app/(public)/layout.tsx`) centers **one** fixed-width container (`max-w-6xl`) that holds both the breadcrumbs row and `<main>` — their edges always align and the vertical rhythm between them is defined exactly once. Every page renders its content through `PageContainer`, which spans the full width of that shared container; pages never write their own `mx-auto max-w-*` wrapper and never narrow their content below the breadcrumb row.
+
 ### The Cut
 
 ```
@@ -104,6 +105,7 @@ Square, not pill. Track `h-6 w-11` (sm `h-5 w-9`), clip `4px`/`3px`, border + in
 ### Input / Textarea / Select — HUD square
 
 Base in `globals.css` + wrappers `Input.tsx / Select.tsx / Textarea.tsx / Field.tsx`:
+
 - `bg-[#1a1a1a] border #3d3d34, clip 4px, px-3 py-2 text-sm, placeholder:text-zinc-500`
 - Focus `border-amber ring-1 ring-amber/30`
 - `Field` renders `label` as `font-display uppercase text-[11px] tracking-widest text-zinc-400` + optional `hint/error`.
@@ -138,12 +140,12 @@ The catalog pairs items and effects almost one to one — `lead_weights` grants
 the other, so the distinction cannot be left to the artwork. It is structural,
 in `components/iee/IeeArtTile.tsx`:
 
-| | Frame | Tint |
-|---|---|---|
-| **Item** — a thing in your bag | 4px clipped square, the house cut used by every other control: an inventory slot | amber |
-| **Effect** — a state you are in | **hexagon** | polarity (danger / military) |
+|                                 | Frame                                                                            | Tint                         |
+| ------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
+| **Item** — a thing in your bag  | 4px clipped square, the house cut used by every other control: an inventory slot | amber                        |
+| **Effect** — a state you are in | **hexagon**                                                                      | polarity (danger / military) |
 
-The hexagon is the one shape in the interface that is deliberately *not* the
+The hexagon is the one shape in the interface that is deliberately _not_ the
 house cut, because its whole job is to not look like a slot. It stays angular,
 so §1.3 still holds — this is the single documented exception, and it exists to
 carry meaning rather than decoration.
@@ -159,7 +161,7 @@ meeting the entry: `lg` (96px) on the wheel result, `md` (56px) in the
 inventory, the status panel and the catalog card, `sm` (40px) on the rules
 page.
 
-`IeeIcon` — the bare 16–20px glyph, for the *tuning* surfaces only: the season
+`IeeIcon` — the bare 16–20px glyph, for the _tuning_ surfaces only: the season
 wizard's pool rows and drop table, where a dozen entries are scanned to adjust
 numbers and a picture per row would be noise.
 
@@ -179,13 +181,13 @@ completed the run. Season statuses carry a glyph, player statuses do not: a
 season badge appears once per page or once per admin row, while player badges
 appear thirty at a time down a leaderboard where a repeated glyph is noise.
 
-| Season | Variant | Why |
-|---|---|---|
-| `draft` | `dim` | idle, not started |
-| `active` | `military` | live |
-| `paused` | `amber` | needs attention |
+| Season     | Variant                 | Why                                                                     |
+| ---------- | ----------------------- | ----------------------------------------------------------------------- |
+| `draft`    | `dim`                   | idle, not started                                                       |
+| `active`   | `military`              | live                                                                    |
+| `paused`   | `amber`                 | needs attention                                                         |
 | `finished` | `neutral` + check glyph | over, nothing to act on — **never `danger`**, which is reserved for 1.2 |
-| `archived` | `dim` + archive glyph | idle |
+| `archived` | `dim` + archive glyph   | idle                                                                    |
 
 The glyph, not a sixth hue, is what separates the three idle statuses. Adding a
 status colour outside 1.2 dilutes the four that already carry meaning.
@@ -236,7 +238,7 @@ Loaders `hud-loader-*` (blink, pulse). Alerts use `hud-card` with `border-danger
 ### Press & lift
 
 - `.hud-btn:active` → `translateY(1px)` (press). `.hud-lift:hover` → `translateY(-2px)` + `brightness(1.06)` on interactive cards (SeasonCard, template cards). Chip `active:translate-y-px`, Switch track `active:brightness-90`.
- - Keyframes live in `app/globals.css` (Motion section). The only animation library is `framer-motion` (already a dependency), scoped to `components/board/`: shared-`layoutId` token travel between cells (`0.55s ease-out` — the one deliberate exception to the 120–200ms rule, a token crossing the board must read as movement), `layout` reorder of roster rows and live-feed entries (`120–200ms ease-out`), always under `MotionConfig reducedMotion="user"`. Everything else stays CSS keyframes.
+- Keyframes live in `app/globals.css` (Motion section). The only animation library is `framer-motion`: shared primitives in `components/ui/motion.tsx` (`Reveal`, `Stagger`/`StaggerItem`, `FadeSwitch` — all `160–200ms ease-out`, opacity + `translateY(8px)` only, always under `MotionConfig reducedMotion="user"`) drive client compositions — board grid/linear switch (`AnimatePresence mode="wait"`), cell stagger, roster enter + `layout`, keyed cell-modal content, archive filter switch, games history, feed filter tabs (active pill via shared-`layoutId`, list via `FadeSwitch`) — plus the board token flight (`0.55s ease-out`, the one deliberate exception: a token crossing the board must read as movement). Server-rendered lists stay CSS: `animate-hud-rise` for cards/rows (stagger via inline `animation-delay`, 30ms steps capped ~300ms) and `animate-hud-fade` for table rows (transforms on `<tr>` are unreliable — opacity only). Live client data goes through React Query (`components/feed/feed-explorer.tsx` is the reference: scoped `QueryClient`, per-filter keys, `keepPreviousData`, `initialData` from the server paint so mounting never refetches, 30s poll for live surfaces).
 
 ---
 

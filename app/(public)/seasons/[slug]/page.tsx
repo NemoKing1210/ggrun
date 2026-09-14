@@ -10,7 +10,11 @@ import { isBotUsername } from "@/lib/shared/utils/bots";
 import { CELL_THEME } from "@/components/board/cell-theme";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
-import { getSeasonBySlug, getMainBoard, getBoardCells } from "@/lib/modules/season/repository/seasons";
+import {
+  getSeasonBySlug,
+  getMainBoard,
+  getBoardCells,
+} from "@/lib/modules/season/repository/seasons";
 import { getLeaderboard, getSeasonStats } from "@/lib/modules/season/repository/players";
 import { getEventFeed } from "@/lib/modules/season/repository/players";
 import { AvatarWithPresence } from "@/components/ui/Presence";
@@ -24,7 +28,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${season.title} — ${t.seasons.metaTitle}` };
 }
 
-export default async function SeasonOverviewPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SeasonOverviewPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const { t, locale } = await getT();
   const season = await getSeasonBySlug(slug);
@@ -53,7 +61,10 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
   return (
     <PageContainer>
       <div className="mb-4">
-        <Link href="/seasons" className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-dim hover:text-amber">
+        <Link
+          href="/seasons"
+          className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-dim hover:text-amber"
+        >
           <ArrowLeftIcon className="h-3 w-3" aria-hidden />
           {t.seasons.detail.backToArchive}
         </Link>
@@ -62,14 +73,20 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
       <PageHeader
         kicker={kicker}
         title={season.title}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <StatusBadge
+            kind="season"
+            status={season.status}
+            label={t.core.seasonStatuses[season.status]}
+          />
+        }
       />
 
       <SeasonTabs slug={season.slug} t={t} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Season info */}
-        <div className="hud-card p-5">
+        <div className="hud-card animate-hud-rise p-5">
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
             {t.seasons.overview.seasonInfoTitle}
           </h2>
@@ -103,32 +120,40 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
         </div>
 
         {/* Stats */}
-        <div className="hud-card p-5">
+        <div className="hud-card animate-hud-rise p-5" style={{ animationDelay: "60ms" }}>
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
             {t.seasons.overview.statsTitle}
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-amber">{leaderboard.length}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statPlayers}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.seasons.overview.statPlayers}
+              </div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-amber">{stats.totalMoves}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statMoves}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.seasons.overview.statMoves}
+              </div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-military">{stats.passedRolls}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statPassed}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.seasons.overview.statPassed}
+              </div>
             </div>
             <div className="border border-dim/30 bg-background p-2 text-center">
               <div className="ammo-counter text-lg text-danger">{stats.droppedRolls}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statDropped}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                {t.seasons.overview.statDropped}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Top players */}
-        <div className="hud-card p-5">
+        <div className="hud-card animate-hud-rise p-5" style={{ animationDelay: "120ms" }}>
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
             {t.seasons.overview.topPlayersTitle}
           </h2>
@@ -137,29 +162,61 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
           ) : (
             <ol className="mt-3 space-y-2">
               {top.map((p, idx) => (
-                <li key={p.id} className="flex items-center gap-2">
-                  <span className="ammo-counter w-6 shrink-0 text-center text-xs text-dim">#{idx + 1}</span>
-                  <AvatarWithPresence lastSeenAt={p.lastSeenAt} size="sm" locale={locale} href={`/players/${p.username}`}>
+                <li
+                  key={p.id}
+                  className="animate-hud-rise flex items-center gap-2"
+                  style={{ animationDelay: `${Math.min(idx * 30, 200)}ms` }}
+                >
+                  <span className="ammo-counter w-6 shrink-0 text-center text-xs text-dim">
+                    #{idx + 1}
+                  </span>
+                  <AvatarWithPresence
+                    lastSeenAt={p.lastSeenAt}
+                    size="sm"
+                    locale={locale}
+                    href={`/players/${p.username}`}
+                  >
                     {p.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.avatarUrl} alt={p.displayName ?? p.username} loading="lazy" decoding="async" className="size-7 object-cover" />
+                      <img
+                        src={p.avatarUrl}
+                        alt={p.displayName ?? p.username}
+                        loading="lazy"
+                        decoding="async"
+                        className="size-7 object-cover"
+                      />
                     ) : (
-                      <AvatarFallback seed={p.username} name={p.displayName ?? p.username} className="size-7" emojiClassName="text-sm" />
+                      <AvatarFallback
+                        seed={p.username}
+                        name={p.displayName ?? p.username}
+                        className="size-7"
+                        emojiClassName="text-sm"
+                      />
                     )}
                   </AvatarWithPresence>
-                  <Link href={`/players/${p.username}`} className="flex-1 truncate font-mono text-sm hover:text-amber">
+                  <Link
+                    href={`/players/${p.username}`}
+                    className="flex-1 truncate font-mono text-sm hover:text-amber"
+                  >
                     {p.displayName ?? p.username}
                   </Link>
                   {isBotUsername(p.username) ? <BotBadge label={t.core.common.bot} /> : null}
                   <span className="font-mono text-xs text-amber">#{p.position}</span>
-                  <Link href={`/players/${p.username}`} className="inline-flex items-center justify-center border border-dim/40 px-1 py-0.5 text-dim hover:text-amber" aria-label={p.username}>
+                  <Link
+                    href={`/players/${p.username}`}
+                    className="inline-flex items-center justify-center border border-dim/40 px-1 py-0.5 text-dim hover:text-amber"
+                    aria-label={p.username}
+                  >
                     <ArrowRightIcon className="h-3 w-3" aria-hidden />
                   </Link>
                 </li>
               ))}
             </ol>
           )}
-          <Link href={`/seasons/${season.slug}/leaderboard`} className="mt-3 inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline">
+          <Link
+            href={`/seasons/${season.slug}/leaderboard`}
+            className="mt-3 inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline"
+          >
             {t.seasons.overview.viewLeaderboard}
             <ArrowRightIcon className="h-3 w-3" aria-hidden />
           </Link>
@@ -167,12 +224,15 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
       </div>
 
       {/* Board preview */}
-      <section className="mt-6 hud-card p-5">
+      <section className="mt-6 hud-card animate-hud-rise p-5" style={{ animationDelay: "60ms" }}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">
             {t.seasons.overview.boardPreviewTitle}
           </h2>
-          <Link href={`/seasons/${season.slug}/board`} className="inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline">
+          <Link
+            href={`/seasons/${season.slug}/board`}
+            className="inline-flex items-center gap-1 font-mono text-xs text-amber hover:underline"
+          >
             {t.seasons.overview.viewBoard}
             <ArrowRightIcon className="h-3 w-3" aria-hidden />
           </Link>
@@ -194,7 +254,9 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
               );
             })}
             {cells.length > 48 ? (
-              <div className="col-span-full text-center font-mono text-xs text-dim">+{cells.length - 48} more</div>
+              <div className="col-span-full text-center font-mono text-xs text-dim">
+                +{cells.length - 48} more
+              </div>
             ) : null}
           </div>
         )}
@@ -202,20 +264,48 @@ export default async function SeasonOverviewPage({ params }: { params: Promise<{
 
       {/* Quick links */}
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Link href={`/seasons/${season.slug}/feed`} className="hud-card p-4 hover:brightness-110">
-          <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.feed}</div>
+        <Link
+          href={`/seasons/${season.slug}/feed`}
+          className="hud-card animate-hud-rise p-4 hover:brightness-110"
+        >
+          <div className="font-mono text-xs uppercase tracking-widest text-dim">
+            {t.seasons.tabs.feed}
+          </div>
           <div className="mt-1 font-display text-lg">{feed.length} events</div>
-          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewFeed}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">
+            {t.seasons.overview.viewFeed}
+            <ArrowRightIcon className="h-3 w-3" aria-hidden />
+          </div>
         </Link>
-        <Link href={`/seasons/${season.slug}/rules`} className="hud-card p-4 hover:brightness-110">
-          <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.rules}</div>
-          <div className="mt-1 line-clamp-2 text-sm text-dim">{season.rulesMd ? season.rulesMd.slice(0, 100) : "—"}</div>
-          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewRules}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
+        <Link
+          href={`/seasons/${season.slug}/rules`}
+          className="hud-card animate-hud-rise p-4 hover:brightness-110"
+          style={{ animationDelay: "60ms" }}
+        >
+          <div className="font-mono text-xs uppercase tracking-widest text-dim">
+            {t.seasons.tabs.rules}
+          </div>
+          <div className="mt-1 line-clamp-2 text-sm text-dim">
+            {season.rulesMd ? season.rulesMd.slice(0, 100) : "—"}
+          </div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">
+            {t.seasons.overview.viewRules}
+            <ArrowRightIcon className="h-3 w-3" aria-hidden />
+          </div>
         </Link>
-        <Link href={`/seasons/${season.slug}/leaderboard`} className="hud-card p-4 hover:brightness-110">
-          <div className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.tabs.leaderboard}</div>
+        <Link
+          href={`/seasons/${season.slug}/leaderboard`}
+          className="hud-card animate-hud-rise p-4 hover:brightness-110"
+          style={{ animationDelay: "120ms" }}
+        >
+          <div className="font-mono text-xs uppercase tracking-widest text-dim">
+            {t.seasons.tabs.leaderboard}
+          </div>
           <div className="mt-1 font-display text-lg">{leaderboard.length} players</div>
-          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">{t.seasons.overview.viewLeaderboard}<ArrowRightIcon className="h-3 w-3" aria-hidden /></div>
+          <div className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-amber">
+            {t.seasons.overview.viewLeaderboard}
+            <ArrowRightIcon className="h-3 w-3" aria-hidden />
+          </div>
         </Link>
       </div>
     </PageContainer>

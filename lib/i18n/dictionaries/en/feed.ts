@@ -51,6 +51,8 @@ export const feed = {
   yesterday: "Yesterday",
   noFilterResults: "No events match this filter.",
   clearFilter: "Clear filter",
+  syncing: "Syncing live events…",
+  syncFailed: "Couldn't refresh the feed — showing cached events.",
   stats: {
     events: "events",
     players: "active players",
