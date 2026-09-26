@@ -24,6 +24,7 @@ export const feed: Widen<typeof FeedEn.feed> = {
     eventRejected: " провалил ",
     rolled: " выбросил игру: «{title}»",
     rerolled: " перебросил игру → «{title}»",
+    rerollApproved: " может перебросить игру — судья одобрил",
     passed: " прошёл игру",
     dropped: " дропнул игру",
     movedFrom: ": клетка {from} → ",

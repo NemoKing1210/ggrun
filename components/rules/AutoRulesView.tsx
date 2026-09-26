@@ -225,10 +225,9 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
             <p className="mt-1 font-mono text-xs text-dim">{rt.noFilters}</p>
           )}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[11px] uppercase tracking-widest text-dim sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[11px] uppercase tracking-widest text-dim sm:grid-cols-3">
           <span className={`border px-2 py-1 text-center ${config.gamePool.filters.onlyWithCover ? "border-amber/30 bg-amber/10 text-amber" : "border-dim/15 bg-raised"}`}>cover only {config.gamePool.filters.onlyWithCover ? "yes" : "no"}</span>
           <span className={`border px-2 py-1 text-center ${config.gamePool.autoFetchOnRoll ? "border-military/30 bg-military/10 text-military" : "border-dim/15 bg-raised"}`}>auto-fetch {config.gamePool.autoFetchOnRoll ? "on" : "off"}</span>
-          <span className="border border-dim/15 bg-raised px-2 py-1 text-center">fallback {config.gamePool.catalog.fallbackToCatalog ? "yes" : "no"}</span>
           <span className="border border-dim/15 bg-raised px-2 py-1 text-center">manual add {config.gamePool.catalog.allowManualAdd ? "yes" : "no"}</span>
         </div>
       </div>

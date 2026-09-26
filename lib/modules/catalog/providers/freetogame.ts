@@ -1,56 +1,20 @@
 import type { ExternalGame, GameProvider } from "./provider";
 import { fetchExternal } from "@/lib/infrastructure/http/external-fetch";
+import { sampleUniform } from "@/lib/engine";
+import { f2gMainGenre, mergeF2gResults, planF2gQueries } from "@/lib/modules/catalog/pool/freetogame-taxonomy";
 
 /**
  * FreeToGame — free-to-play PC/browser games database.
  * No API key, no registration; 10 req/s rate limit (https://www.freetogame.com/api-doc).
- * Covers ~1000 titles; deliberately small surface so it works out of the box.
+ * Covers ~400 titles, and answers each request with its whole matching list.
  */
 
 const F2G_BASE = "https://www.freetogame.com/api";
-
-/** Our genre slugs that FreeToGame exposes as its `category` filter. */
-const F2G_CATEGORIES = new Set([
-  "action",
-  "shooter",
-  "strategy",
-  "racing",
-  "sports",
-  "fighting",
-  "card",
-]);
-
-/** Our tag slugs that map 1:1 to FreeToGame tags. */
-const F2G_TAGS = new Set([
-  "horror",
-  "survival",
-  "open-world",
-  "zombie",
-  "fantasy",
-  "sci-fi",
-  "space",
-  "sandbox",
-  "pixel",
-  "pvp",
-  "pve",
-  "anime",
-  "2d",
-  "3d",
-  "battle-royale",
-  "tower-defense",
-  "side-scroller",
-  "turn-based",
-]);
 
 function sortBy(ordering: string): string {
   if (ordering === "-released" || ordering === "released") return "release-date";
   if (ordering === "name" || ordering === "-name") return "alphabetical";
   return "popularity";
-}
-
-function normalizeLabel(label: string | null | undefined): string | null {
-  if (!label) return null;
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 /** F2G `platform` field ("PC (Windows)" / "Web Browser") -> our platform slugs. */
@@ -72,20 +36,27 @@ interface F2GListItem {
   game_url?: string | null;
 }
 
-function mapGame(g: F2GListItem): ExternalGame {
-  const genre = normalizeLabel(g.genre);
+/**
+ * `known` is what the requests that returned this game establish about it, in
+ * our vocabulary (see `mergeF2gResults`); the main genre is translated too. The
+ * season's filter is applied to these stored values, so they must be ours — the
+ * rows used to carry FreeToGame's own labels ("shooter", "mmorpg") in both
+ * columns, which no season filter could ever match.
+ */
+function mapGame(g: F2GListItem, known: { genres: readonly string[]; tags: readonly string[] } = { genres: [], tags: [] }): ExternalGame {
+  const main = f2gMainGenre(g.genre);
   const platforms = toPlatforms(g.platform);
   return {
     externalId: `freetogame:${g.id}`,
     title: g.title,
-    genres: genre ? [genre] : [],
+    genres: [...new Set([...main.genres, ...known.genres])],
     platforms,
     coverUrl: g.thumbnail ?? null,
     metacritic: null,
     rating: null,
     releasedAt: g.release_date || null,
     esrb: null,
-    tags: genre ? [genre] : [],
+    tags: [...new Set([...main.tags, ...known.tags])],
     description: g.short_description ?? null,
     playtimeHours: null,
     stores: g.game_url ? [{ store: "FreeToGame", url: g.game_url }] : [],
@@ -95,37 +66,37 @@ function mapGame(g: F2GListItem): ExternalGame {
 export const freetogameProvider: GameProvider = {
   id: "freetogame",
   async search({ filters, pageSize = 20 }): Promise<ExternalGame[]> {
-    const params = new URLSearchParams();
+    // The season's genres and tags, in FreeToGame's categories: one request per
+    // (genre, tag) pair, unioned — see freetogame-taxonomy.ts for why. `null`
+    // means FreeToGame cannot answer this filter at all, so nothing is fetched.
+    const plan = planF2gQueries(filters, Math.random);
+    if (!plan) return [];
 
-    // Platform: FreeToGame speaks pc | browser — honor only when unambiguous.
-    const wantsPc = filters.platforms.includes("pc");
-    const wantsWeb = filters.platforms.includes("web");
-    if (wantsPc && !wantsWeb) params.set("platform", "pc");
-    else if (wantsWeb && !wantsPc) params.set("platform", "browser");
+    const sort = sortBy(filters.ordering);
+    const results = await Promise.all(
+      plan.queries.map(async (query) => {
+        const params = new URLSearchParams();
+        if (query.categories.length > 0) params.set("tag", query.categories.join("."));
+        if (plan.platform) params.set("platform", plan.platform);
+        params.set("sort-by", sort);
+        const endpoint = query.categories.length > 0 ? "filter" : "games";
+        const res = await fetchExternal(`${F2G_BASE}/${endpoint}?${params.toString()}`);
+        if (!res.ok) {
+          console.warn(`[freetogame] ${endpoint} failed ${res.status}`);
+          return { query, games: [] as F2GListItem[] };
+        }
+        // "Nothing matches" is a 201 carrying an object, not an empty array.
+        const data = (await res.json()) as unknown;
+        return { query, games: Array.isArray(data) ? (data as F2GListItem[]) : [] };
+      }),
+    );
 
-    // Genres -> exactly the category filter (FreeToGame accepts one).
-    const genreHit = filters.genres.find((g) => F2G_CATEGORIES.has(g));
-    if (genreHit) params.set("category", genreHit);
+    let games = mergeF2gResults(results).map(({ game, genres, tags }) => mapGame(game, { genres, tags }));
 
-    // Tags -> comma-separated tag filter.
-    const tagHits = filters.tags.filter((t) => F2G_TAGS.has(t)).slice(0, 5);
-    if (tagHits.length > 0) params.set("tag", tagHits.join(","));
-
-    params.set("sort-by", sortBy(filters.ordering));
-
-    const res = await fetchExternal(`${F2G_BASE}/games?${params.toString()}`);
-    if (!res.ok) {
-      console.warn(`[freetogame] list failed ${res.status}`);
-      return [];
-    }
-    const data = (await res.json()) as F2GListItem[];
-    if (!Array.isArray(data)) return [];
-
-    const query = filters.searchQuery?.trim().toLowerCase();
-    let games = data.map(mapGame);
+    const nameQuery = filters.searchQuery?.trim().toLowerCase();
 
     // The API has no name search — post-filter titles locally.
-    if (query) games = games.filter((g) => g.title.toLowerCase().includes(query));
+    if (nameQuery) games = games.filter((g) => g.title.toLowerCase().includes(nameQuery));
     if (filters.yearMin !== null) {
       games = games.filter((g) => {
         const y = g.releasedAt ? new Date(g.releasedAt).getUTCFullYear() : NaN;
@@ -139,7 +110,11 @@ export const freetogameProvider: GameProvider = {
       });
     }
 
-    return games.slice(0, pageSize);
+    // Each endpoint returns its entire matching list (up to ~400 titles) in one
+    // response. Taking the first `pageSize` of a popularity-sorted list meant
+    // every roll saw the same twenty games; a random window lets a season
+    // reach the whole catalogue. Server-side randomness, per the house rule.
+    return sampleUniform(games, pageSize, Math.random);
   },
   async getById(id: string): Promise<ExternalGame | null> {
     const rawId = id.replace(/^freetogame:/, "");

@@ -14,6 +14,7 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useI18n } from "@/lib/i18n/client";
+import { GameCategoryChips } from "@/components/game/GameCategoryChips";
 import { buildStoreLinks, type StoreLink } from "@/lib/modules/catalog/store-links";
 import { format } from "@/lib/i18n/format";
 
@@ -176,16 +177,7 @@ export function GameDetailsModal({ game, onClose }: { game: GameDetails | null; 
           </div>
 
           {/* Genres & tags */}
-          {(g.genres.length > 0 || g.tags.length > 0) && (
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {g.genres.slice(0, 6).map((x) => (
-                <Badge key={`g-${x}`} variant="sky" size="sm">{x}</Badge>
-              ))}
-              {g.tags.slice(0, 8).map((x) => (
-                <Badge key={`t-${x}`} variant="neutral" size="sm">{x}</Badge>
-              ))}
-            </div>
-          )}
+          <GameCategoryChips genres={g.genres} tags={g.tags} limit={8} className="mt-4" />
 
           {/* Store links */}
           <div className="mt-5">

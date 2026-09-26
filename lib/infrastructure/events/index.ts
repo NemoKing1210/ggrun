@@ -38,7 +38,11 @@ export type EventType =
   // check below pass while two of them had no filter tab.
   | "completion_requested"
   | "completion_approved"
-  | "completion_rejected";
+  | "completion_rejected"
+  // --- moderation of a reroll request --- same story, same direct inserts.
+  | "reroll_requested"
+  | "reroll_approved"
+  | "reroll_rejected";
 
 /**
  * Every event type must belong to a feed filter tab.

@@ -152,6 +152,12 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   markPassedConfirm: "Отметить игру пройденной?",
   dropConfirm: "Дропнуть игру? Серия дропов растёт.",
   rerollConfirm: "Запросить реролл? Админ должен подтвердить.",
+  rerollConfirmInstant: "Заменить игру на новую? Кубики не бросаются — вы остаётесь на своей клетке.",
+  rerollApprovedBanner: "Реролл одобрен",
+  rerollApprovedHint: "Судья разрешил заменить эту игру. Нажмите «Реролл», когда будете готовы, — новая игра выпадет в этот момент.",
+  rerollApprovedButton: "Сделать реролл",
+  rerollConfirmApproved: "Судья одобрил реролл. Заменить игру на новую? Кубики не бросаются — вы остаётесь на своей клетке.",
+  rerollModalTitleNow: "Реролл игры",
   rerollButton: "Реролл",
   rerollLockedTitle: "Лимит рероллов исчерпан",
   rerollPending: "Реролл на рассмотрении",
@@ -228,6 +234,8 @@ export const gameInfo: Widen<typeof CoreEn.gameInfo> = {
   website: "Официальный сайт",
   storesHint: "Кнопки — прямые ссылки провайдера или поиск в магазине",
   year: "{year}",
+  genre: "Жанр",
+  tag: "Тег",
 };
 
 /**
@@ -274,6 +282,7 @@ export const errors: Widen<typeof CoreEn.errors> = {
   catalogAllPlayed: "Вам уже выдали все игры из пула этого сезона",
   catalogFiltersExcludeAll: "Ни одна непройденная игра не подходит под фильтры пула сезона",
   catalogProviderEmpty: "Провайдер игр ничего не вернул — проверьте его API-ключ и фильтры пула",
+  catalogProviderUnavailable: "Провайдер игр сейчас недоступен — попробуйте сделать ролл позже",
   formReasonRequired: "Укажите причину (минимум 5 символов)",
   formRatingInvalid: "Оценка должна быть целым числом от 1 до 10",
 

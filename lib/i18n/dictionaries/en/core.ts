@@ -150,6 +150,12 @@ export const dashboard = {
   markPassedConfirm: "Mark the game as passed?",
   dropConfirm: "Drop the game? Your drop streak grows.",
   rerollConfirm: "Request a reroll? An admin must approve it.",
+  rerollConfirmInstant: "Swap this game for a new one? No dice are thrown — you stay on your cell.",
+  rerollApprovedBanner: "Reroll approved",
+  rerollApprovedHint: "A judge allowed you to swap this game. Press Reroll when you are ready — the new game is drawn then.",
+  rerollApprovedButton: "Reroll now",
+  rerollConfirmApproved: "A judge approved your reroll. Swap this game for a new one? No dice are thrown — you stay on your cell.",
+  rerollModalTitleNow: "Reroll the game",
   rerollButton: "Reroll",
   rerollLockedTitle: "Reroll limit reached",
   rerollPending: "Reroll pending approval",
@@ -225,6 +231,8 @@ export const gameInfo = {
   website: "Official website",
   storesHint: "Store buttons are direct provider links or search pages in the store front",
   year: "{year}",
+  genre: "Genre",
+  tag: "Tag",
 } as const;
 
 /**
@@ -274,6 +282,7 @@ export const errors = {
   catalogAllPlayed: "You have already been given every game in this season's pool",
   catalogFiltersExcludeAll: "No unplayed game matches this season's pool filters",
   catalogProviderEmpty: "The game provider returned nothing — check its API key and the pool filters",
+  catalogProviderUnavailable: "The game provider is unavailable right now — try the roll again later",
   formReasonRequired: "Please provide a reason (at least 5 characters)",
   formRatingInvalid: "Rating must be an integer from 1 to 10",
 

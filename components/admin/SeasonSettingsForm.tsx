@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -52,6 +52,7 @@ import {
   PLATFORMS,
   TAGS,
 } from "@/lib/modules/catalog/pool/constants";
+import { f2gFilterSupport } from "@/lib/modules/catalog/pool/freetogame-taxonomy";
 import { DEFAULT_SEASON_CONFIG } from "@/lib/engine";
 import { IeeStage, type EventOption } from "@/components/admin/IeeStage";
 import {
@@ -116,8 +117,26 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   // picked, so deselecting restores them instead of stranding the preset.
   const [tplSnapshot, setTplSnapshot] = useState<TemplateSnapshot | null>(null);
   const confirmRef = useRef<SeasonStage | null>(null);
-  // True while the submit in flight is the one that completes the wizard.
-  const finishRef = useRef(false);
+  // What the submit in flight will commit once the server accepts it: the
+  // stage it confirms, the tab to open next (null = the wizard is done) and the
+  // config that becomes the new baseline. The wizard used to do all of that the
+  // moment the button was pressed, so a save the server refused — an API source
+  // with no provider, say — looked successful: the stage ticked, the next tab
+  // opened, and nothing had been written. A reload then showed the old config
+  // as if the form had switched it back by itself.
+  const pendingSaveRef = useRef<{
+    stage: SeasonStage | null;
+    next: SeasonStage | null;
+    snapshot: { config: SeasonConfig; rulesMd: string };
+  } | null>(null);
+  // The external provider last chosen, so flipping the source to "catalog" and
+  // back does not throw the admin's explicit choice away.
+  const [lastProvider, setLastProvider] = useState<SeasonConfig["gamePool"]["provider"] | null>(
+    initialConfig.gamePool.provider !== "internal" ? initialConfig.gamePool.provider : null,
+  );
+  // Set when a save was stopped for want of a provider, so the pool tab can
+  // say so loudly rather than as a passing note.
+  const [providerMissing, setProviderMissing] = useState(false);
   const router = useRouter();
   // What the season looked like when loaded, refreshed on every save. Stages
   // are "changed" relative to this, so the bar goes quiet again once saved.
@@ -167,16 +186,23 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   }, [storageKey, confirmedStages]);
 
   const dirtyStages = isNewSeason ? [] : editedStages(baseline, { config: cfg, rulesMd }, touchedStages);
+  // Commit the wizard's progress only once the server has accepted the save.
+  // A refused save leaves the admin on the stage they were on, with the toast
+  // saying why.
   useEffect(() => {
-    if (!finishRef.current) return;
-    if (state?.error) {
-      finishRef.current = false;
-      return;
-    }
-    if (state?.ok) {
-      finishRef.current = false;
-      router.push("/admin/seasons");
-    }
+    const pendingSave = pendingSaveRef.current;
+    if (!pendingSave) return;
+    if (!state?.ok && !state?.error) return;
+    pendingSaveRef.current = null;
+    if (state.error) return;
+    setBaseline(pendingSave.snapshot);
+    setTouchedStages([]);
+    const { stage, next } = pendingSave;
+    if (!stage) return;
+    setConfirmedStages((prev) => (prev.includes(stage) ? prev : [...prev, stage]));
+    setResetArmed(null);
+    if (next) setActiveTab(next);
+    else router.push("/admin/seasons");
   }, [state, router]);
 
   const stageConfirmed = confirmedStages.includes(activeTab);
@@ -243,16 +269,20 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     // Set by the stage-confirm button just before it submits the form.
     const stage = confirmRef.current;
     confirmRef.current = null;
-    if (stage) {
-      const next = nextPendingStage(stage, confirmedStages);
-      setConfirmedStages((prev) => (prev.includes(stage) ? prev : [...prev, stage]));
-      if (next) setActiveTab(next);
-      else finishRef.current = true;
+    // The server refuses an API or hybrid source with no provider, and every
+    // stage saves the whole config — so say so here, on the tab where it is
+    // fixed, instead of letting any stage's save bounce off the server.
+    if (cfg.gamePool.source !== "catalog" && cfg.gamePool.provider === "internal") {
+      setProviderMissing(true);
+      setActiveTab("pool");
       setResetArmed(null);
+      return;
     }
-    // Saving makes the submitted config the new "unchanged" state.
-    setBaseline({ config: cfg, rulesMd });
-    setTouchedStages([]);
+    pendingSaveRef.current = {
+      stage,
+      next: stage ? nextPendingStage(stage, confirmedStages) : null,
+      snapshot: { config: cfg, rulesMd },
+    };
     formData.set("structured", "1");
     formData.set("seasonId", seasonId);
     formData.set("rulesMd", rulesMd);
@@ -284,7 +314,6 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     formData.set("gamePool_cacheTtlHours", String(cfg.gamePool.cacheTtlHours));
     formData.set("gamePool_autoFetchOnRoll", cfg.gamePool.autoFetchOnRoll ? "true" : "false");
     formData.set("catalog_allowManualAdd", cfg.gamePool.catalog.allowManualAdd ? "true" : "false");
-    formData.set("catalog_fallbackToCatalog", cfg.gamePool.catalog.fallbackToCatalog ? "true" : "false");
     formData.set("genres", JSON.stringify(cfg.gamePool.filters.genres));
     formData.set("platforms", JSON.stringify(cfg.gamePool.filters.platforms));
     formData.set("tags", JSON.stringify(cfg.gamePool.filters.tags));
@@ -304,7 +333,23 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     // inputs at compile time. The controls above are all visual; this is only
     // the wire format.
     formData.set("iee", JSON.stringify(cfg.iee));
-    return formAction(formData);
+    formAction(formData);
+  };
+
+  /**
+   * Submitted through onSubmit rather than `<form action>` on purpose. React 19
+   * resets a form after an action passed as `action` completes, and a reset
+   * puts every <select> back on its first option in the DOM while the state
+   * behind it is unchanged. Here that first option used to be "Internal
+   * (catalog)": save an API season and the provider dropdown visibly jumped
+   * back to Internal, even though FreeToGame was what had been saved. Every
+   * control in this form is controlled, so there is nothing a reset could
+   * usefully clear.
+   */
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(() => handleSubmit(formData));
   };
 
   const TabButton = ({ id, label }: { id: typeof activeTab; label: string }) => (
@@ -323,7 +368,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   );
 
   return (
-    <form action={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={onFormSubmit} className="flex flex-col gap-6">
       <div className="hud-card overflow-hidden p-0">
         <div className="flex flex-wrap border-b border-zinc-800 bg-[#0f0f0f]">
           <TabButton id="templates" label={t.admin.settings.tabs.templates} />
@@ -704,26 +749,39 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
           {activeTab === "pool" && (() => {
             const providerConfiguredIds = new Set(availableProviders.map((p) => p.id));
             const hasAnyProvider = availableProviders.length > 0;
-            const selectedProviderConfigured = cfg.gamePool.provider === "internal" || providerConfiguredIds.has(cfg.gamePool.provider);
             const needsProvider = cfg.gamePool.source !== "catalog";
-            const showProviderWarning = needsProvider && !selectedProviderConfigured;
+            // "internal" is how the config spells "no provider". It used to count
+            // as configured here, so an API source with nothing chosen showed
+            // "Internal (catalog) ✓" and a green "provider ready — internal".
+            const providerChosen = cfg.gamePool.provider !== "internal";
+            const selectedProviderConfigured = providerConfiguredIds.has(cfg.gamePool.provider);
+            const showProviderMissing = needsProvider && !providerChosen;
+            const showProviderWarning = needsProvider && providerChosen && !selectedProviderConfigured;
             const sourceOptions: Array<{ value: SeasonConfig["gamePool"]["source"]; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
               { value: "catalog", label: t.admin.settings.sourceCatalogLabel, desc: t.admin.settings.sourceCatalogDesc, icon: CircleStackIcon },
               { value: "api", label: t.admin.settings.sourceApiLabel, desc: t.admin.settings.sourceApiDesc, icon: GlobeAltIcon },
               { value: "hybrid", label: t.admin.settings.sourceHybridLabel, desc: t.admin.settings.sourceHybridDesc, icon: SquaresPlusIcon },
             ];
+            // The provider is the admin's explicit choice and is never picked on
+            // their behalf. This used to auto-pick one — but only from a
+            // hard-coded rawg/igdb/steam list, while FreeToGame is always first
+            // among the available ones, so the pick never happened and the
+            // source quietly stayed on "internal". Switching back restores the
+            // last choice; with none, the select waits for one.
             const handleSource = (src: SeasonConfig["gamePool"]["source"]) => {
               if (src === "catalog") {
+                if (providerChosen) setLastProvider(cfg.gamePool.provider);
                 setGamePool({ source: src, provider: "internal" });
               } else {
-                // when switching to api/hybrid, auto-pick first configured provider if current is internal and we have one
-                let nextProvider: SeasonConfig["gamePool"]["provider"] = cfg.gamePool.provider;
-                if (cfg.gamePool.provider === "internal" && hasAnyProvider) {
-                  const first = availableProviders[0]!.id as SeasonConfig["gamePool"]["provider"];
-                  if (["rawg", "igdb", "steam"].includes(first)) nextProvider = first;
-                }
-                setGamePool({ source: src, provider: nextProvider });
+                setGamePool({ source: src, provider: providerChosen ? cfg.gamePool.provider : (lastProvider ?? "internal") });
               }
+            };
+            const handleProvider = (provider: SeasonConfig["gamePool"]["provider"]) => {
+              if (provider !== "internal") {
+                setLastProvider(provider);
+                setProviderMissing(false);
+              }
+              setGamePool({ provider });
             };
             return (
             <div className="flex flex-col gap-6">
@@ -731,7 +789,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-display text-[11px] uppercase tracking-widest text-amber">{t.admin.settings.sourceLabel} · game source</span>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{cfg.gamePool.source} → {cfg.gamePool.provider}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{cfg.gamePool.source} → {showProviderMissing ? "—" : cfg.gamePool.provider}</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {sourceOptions.map((opt) => {
@@ -763,21 +821,32 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
               <div className={`hud-card p-4 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)] ${needsProvider ? "bg-[#0f0f0f] border-zinc-800" : "bg-[#0f0f0f]/60 border-zinc-800 opacity-80"}`}>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
                   <Field label={t.admin.settings.providerLabel} hint={t.admin.settings.providerHint}>
-                    <Select value={cfg.gamePool.provider} onChange={(e) => setGamePool({ provider: e.target.value as SeasonConfig["gamePool"]["provider"] })} disabled={!needsProvider}>
-                      {GAME_PROVIDERS.map((o) => {
-                        const configured = o.value === "internal" || providerConfiguredIds.has(o.value);
-                        return (
-                          <option key={o.value} value={o.value}>
-                            {o.label}{configured ? " ✓" : needsProvider ? " · not configured" : ""}
-                          </option>
-                        );
-                      })}
+                    <Select value={cfg.gamePool.provider} onChange={(e) => handleProvider(e.target.value as SeasonConfig["gamePool"]["provider"])} disabled={!needsProvider}>
+                      {needsProvider ? (
+                        <>
+                          {/* Not a provider: the empty state an API source starts in until one is chosen. */}
+                          <option value="internal" disabled>{t.admin.settings.providerPlaceholder}</option>
+                          {GAME_PROVIDERS.filter((o) => o.value !== "internal").map((o) => {
+                            const configured = providerConfiguredIds.has(o.value);
+                            return (
+                              <option key={o.value} value={o.value}>
+                                {o.label}{configured ? " ✓" : " · not configured"}
+                              </option>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        GAME_PROVIDERS.filter((o) => o.value === "internal").map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))
+                      )}
                     </Select>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {GAME_PROVIDERS.map((o) => {
+                        // Catalog mode shows only "internal"; API/hybrid shows only real providers.
+                        if (needsProvider === (o.value === "internal")) return null;
                         const configured = o.value === "internal" || providerConfiguredIds.has(o.value);
                         const isSelected = cfg.gamePool.provider === o.value;
-                        if (!needsProvider && o.value !== "internal") return null;
                         return (
                           <span key={o.value} className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${isSelected ? "border-amber bg-amber/10 text-amber" : configured ? "border-emerald-800 bg-emerald-950/30 text-emerald-300" : "border-red-900 bg-red-950/30 text-red-300"}`}>
                             <span className={`size-1.5 rounded-full ${configured ? "bg-emerald-500" : "bg-red-500"}`} aria-hidden />{o.label}
@@ -800,18 +869,57 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                 {!needsProvider && (
                   <p className="mt-3 flex items-center gap-1.5 border border-dim/15 bg-raised px-3 py-2 font-mono text-xs text-dim [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"><CircleStackIcon className="size-3.5 text-amber" aria-hidden /> {t.admin.settings.catalogOnlyNote}</p>
                 )}
+                {showProviderMissing && (
+                  <div role={providerMissing ? "alert" : undefined} className={`mt-3 flex items-start gap-2 border p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)] ${providerMissing ? "border-danger/40 bg-danger/10" : "border-amber/30 bg-amber/10"}`}>
+                    <ExclamationTriangleIcon className={`size-4 shrink-0 ${providerMissing ? "text-red-300" : "text-amber"}`} aria-hidden />
+                    <p className={`text-sm font-medium ${providerMissing ? "text-red-300" : "text-amber"}`}>{t.admin.settings.providerRequired}</p>
+                  </div>
+                )}
                 {showProviderWarning && (
                   <div className="mt-3 flex items-start gap-2 border border-amber/30 bg-amber/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
                     <ExclamationTriangleIcon className="size-4 shrink-0 text-amber" aria-hidden />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-amber">{format(t.admin.settings.providerNotConfiguredShort, { provider: cfg.gamePool.provider })}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{t.admin.settings.providerFallbackNote} {cfg.gamePool.catalog.fallbackToCatalog ? t.admin.settings.providerFallbackYes : t.admin.settings.providerFallbackNo} · <Link href="/admin/settings" className="underline decoration-amber/50 underline-offset-4 hover:text-amber">Settings → Integrations</Link></p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{t.admin.settings.providerKeyNote} · <Link href="/admin/settings" className="underline decoration-amber/50 underline-offset-4 hover:text-amber">Settings → Integrations</Link></p>
                     </div>
                   </div>
                 )}
-                {needsProvider && hasAnyProvider && selectedProviderConfigured && (
+                {needsProvider && providerChosen && selectedProviderConfigured && (
                   <p className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-emerald-300"><CheckCircleIcon className="size-3.5" aria-hidden /> {t.admin.settings.providerReady} — {availableProviders.find((p) => p.id === cfg.gamePool.provider)?.label ?? cfg.gamePool.provider}</p>
                 )}
+                {needsProvider && cfg.gamePool.provider === "freetogame" && (() => {
+                  // FreeToGame has its own category vocabulary; say which of the
+                  // season's filter values it cannot tell apart, and when no game
+                  // can match at all, before a player finds out from a failed roll.
+                  const support = f2gFilterSupport(cfg.gamePool.filters);
+                  const labelOf = (list: ReadonlyArray<{ value: string; label: string }>, v: string) => list.find((o) => o.value === v)?.label ?? v;
+                  const ignored = [
+                    ...support.ignoredGenres.map((g) => labelOf(GENRES, g)),
+                    ...support.ignoredTags.map((tg) => labelOf(TAGS, tg)),
+                  ];
+                  const blockedText =
+                    support.blocked === "genres" ? t.admin.settings.f2gBlockedGenres
+                    : support.blocked === "tags" ? t.admin.settings.f2gBlockedTags
+                    : support.blocked === "platforms" ? t.admin.settings.f2gBlockedPlatforms
+                    : null;
+                  if (!blockedText && ignored.length === 0) return null;
+                  return (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {blockedText && (
+                        <div role="alert" className="flex items-start gap-2 border border-danger/40 bg-danger/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                          <ExclamationTriangleIcon className="size-4 shrink-0 text-red-300" aria-hidden />
+                          <p className="text-sm font-medium text-red-300">{blockedText}</p>
+                        </div>
+                      )}
+                      {!blockedText && ignored.length > 0 && (
+                        <div className="flex items-start gap-2 border border-amber/30 bg-amber/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                          <ExclamationTriangleIcon className="size-4 shrink-0 text-amber" aria-hidden />
+                          <p className="text-sm text-amber">{format(t.admin.settings.f2gIgnored, { list: ignored.join(", ") })}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {needsProvider && !hasAnyProvider && (
                   <div className="mt-3 border border-danger/30 bg-danger/10 p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
                     <p className="text-sm font-medium text-red-300">{t.admin.settings.noProvidersConfiguredShort}</p>
@@ -959,7 +1067,6 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                 <Switch checked={cfg.gamePool.filters.onlyWithCover} onChange={(v) => setFilters({ onlyWithCover: v })} label={t.admin.settings.onlyWithCoverLabel} description={t.admin.settings.onlyWithCoverDescription} />
                 <Switch checked={cfg.gamePool.autoFetchOnRoll} onChange={(v) => setGamePool({ autoFetchOnRoll: v })} label={t.admin.settings.autoFetchLabel} description={t.admin.settings.autoFetchDescription} />
                 <Switch checked={cfg.gamePool.catalog.allowManualAdd} onChange={(v) => setCatalog({ allowManualAdd: v })} label={t.admin.settings.manualAddLabel} description={t.admin.settings.manualAddDescription} />
-                <Switch checked={cfg.gamePool.catalog.fallbackToCatalog} onChange={(v) => setCatalog({ fallbackToCatalog: v })} label={t.admin.settings.fallbackLabel} description={t.admin.settings.fallbackDescription} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -14,7 +14,7 @@
 
 /** Which event types each tab collects. "all" is the absence of a filter. */
 export const FEED_FILTER_TYPES = {
-  rolled: ["game_rolled", "game_rerolled", "reroll_requested", "reroll_rejected"],
+  rolled: ["game_rolled", "game_rerolled", "reroll_requested", "reroll_approved", "reroll_rejected"],
   passed: ["game_passed"],
   dropped: ["game_dropped"],
   // Reaching the finish is the last thing a move can do, so it files here

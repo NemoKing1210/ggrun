@@ -22,6 +22,7 @@ export const feed = {
     eventRejected: " failed ",
     rolled: " rolled a game: “{title}”",
     rerolled: " rerolled → “{title}”",
+    rerollApproved: " may reroll — a judge approved it",
     passed: " passed the game",
     dropped: " dropped the game",
     movedFrom: ": cell {from} → ",

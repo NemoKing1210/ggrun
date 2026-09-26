@@ -61,6 +61,43 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   gaps: `season_reset` and `player_left` were reachable only under "All".
 
 ### Fixed
+- **An API-sourced season handed out games from the local catalog.** Three
+  defects stacked up:
+  - picking the API source never selected a provider — the auto-pick only
+    considered RAWG, IGDB and Steam while FreeToGame is always listed first —
+    so the provider stayed "Internal", the server refused the save, and the
+    wizard moved on as if it had succeeded;
+  - after every save React reset the form, which put the provider dropdown
+    back on its first option, "Internal (catalog)", although FreeToGame had
+    been saved;
+  - even a correctly configured season drew from the whole shared catalog,
+    where locally rated games outranked FreeToGame's unrated ones — about four
+    rolls in ten came from the demo catalog.
+  The provider is now an explicit choice with no "Internal" option in API
+  mode, a save without one is stopped on the pool tab, the wizard advances
+  only once the server accepts, and an API season draws only from games its
+  provider supplied.
+- **The game card showed genres only.** A game picked because of a tag looked
+  like it did not match the season. Tags are now shown beside the genres, in their
+  own colour, on the dashboard card and in the game details.
+- **Approving a reroll performed it.** The judge's click drew the new game,
+  from the pool as it was at that moment, and the player found it already
+  swapped. Approval now grants the reroll: the dashboard says so and offers
+  "Reroll now", and the new game is drawn when the player presses it. The feed
+  records the approval.
+- **Reroll on the dashboard looked like a dice throw.** It shared its form
+  state with pass and drop, so it played the dice animation and showed the
+  previous move's dice. It now shows what actually happens: a pending banner
+  when a judge must approve, or the game carousel landing on the new game.
+- **A FreeToGame season restricted by genre or tag rolled nothing.** The
+  season's categories were not translated into FreeToGame's, and imported games
+  were stored under FreeToGame's own labels, which no season filter matched.
+  Genres and tags are now mapped both ways, FreeToGame is asked per
+  (genre, tag) pair, and the pool tab says which selected values FreeToGame
+  cannot filter by.
+- **FreeToGame offered the same twenty games on every roll.** The provider kept
+  the head of a popularity-sorted list; it now samples the whole list.
+
 - **"No games available in the catalog" was said when the catalog was full.**
   A participant who had been handed every game in the season's pool got the
   message meant for an empty catalog, telling them to check filters that were
@@ -397,6 +434,13 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   (`drizzle/0002_board-default-name.sql`).
 - Admin form success responses moved into the `admin.feedback` dictionary
   namespace.
+
+### Removed
+- **"Fallback to catalog if API empty"** (`gamePool.catalog.fallbackToCatalog`).
+  An API season no longer falls back to a random local game when its provider
+  fails or returns nothing — it says so (`catalogProviderUnavailable`,
+  `catalogProviderEmpty`). Stored configs that still carry the key keep
+  parsing.
 
 ## [0.5.0] — 2026-08-26
 

@@ -32,6 +32,7 @@ import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import {
   getCatalogPreview,
   getOpenRoll,
+  getApprovedRerollForRoll,
   getPendingRerollForPlayer,
   getPendingCompletionForPlayer,
   getRecentRolls,
@@ -153,6 +154,8 @@ export default async function DashboardPage() {
     getMainBoard(season.id),
     getCatalogPreview(20),
   ]);
+  // A judge's approval of a reroll is a permission the player uses from here.
+  const approvedReroll = openRoll ? await getApprovedRerollForRoll(openRoll.id) : null;
 
   // --- items, statuses and who they may be aimed at -------------------------
   const seasonConfig = SeasonConfigSchema.safeParse(season.config);
@@ -508,6 +511,8 @@ export default async function DashboardPage() {
             : null
         }
         rerollsUsed={seasonPlayer.rerollsUsed}
+        rerollApproved={!!approvedReroll}
+        rerollNeedsApproval={seasonConfig.success ? seasonConfig.data.rerolls.requireApproval : true}
         lastDice={lastMoves[0]?.diceResults ?? null}
         catalogGames={catalogPreview.map((g) => ({ title: g.title, coverUrl: g.coverUrl, platform: g.platform }))}
       />

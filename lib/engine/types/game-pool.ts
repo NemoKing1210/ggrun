@@ -31,7 +31,6 @@ export interface GamePoolFilters {
 
 export interface GamePoolCatalogOptions {
   allowManualAdd: boolean;
-  fallbackToCatalog: boolean;
 }
 
 export interface GamePoolConfig {

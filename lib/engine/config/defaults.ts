@@ -48,7 +48,6 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     },
     catalog: {
       allowManualAdd: true,
-      fallbackToCatalog: true,
     },
     maxCandidates: 20,
     cacheTtlHours: 24,
