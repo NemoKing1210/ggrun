@@ -27,6 +27,22 @@ export async function getPendingRerollForRoll(gameRollId: string): Promise<Rerol
   return rows[0] ?? null;
 }
 
+/**
+ * A judge's approval that the player has not used yet. Approving a reroll
+ * grants permission; the player performs it from the dashboard, under the
+ * season's pool as it is at that moment. The approval is spent by the reroll
+ * itself — once the roll it names is no longer open, nothing matches it.
+ */
+export async function getApprovedRerollForRoll(gameRollId: string): Promise<RerollRequest | null> {
+  const rows = await db
+    .select()
+    .from(rerollRequests)
+    .where(and(eq(rerollRequests.gameRollId, gameRollId), eq(rerollRequests.status, "approved")))
+    .orderBy(desc(rerollRequests.resolvedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getPendingRerollForPlayer(seasonPlayerId: string): Promise<RerollRequest | null> {
   const rows = await db
     .select()

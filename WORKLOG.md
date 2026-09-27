@@ -48,6 +48,225 @@
 
 ---
 
+## 2026-09-27 — Session 24e · The card shows the tags too
+
+The dashboard card showed a game's genres only, so a game that matched a season
+on a *tag* looked unmatched: *Naraka: Bladepoint* read "shooter · action" in a
+horror/survival season while its row carried `survival`.
+
+`components/game/GameCategoryChips.tsx` renders both, told apart — genres in
+the card's quiet chip, tags in a sky tint (colour only, no prefix — the host's
+call; not amber: in the season
+editor amber means "selected in the filter"), each with a `title` (Жанр/Тег,
+en/ru/uk), labels from the editor's own lists, and a tag that repeats a genre
+shown once (older FreeToGame rows stored the provider label in both columns).
+Used on the dashboard card and in the game details modal, which had drawn
+genres and tags as two undifferentiated badge colours.
+
+Verified on the live dev server: the card reads `Shooter · Action · Survival`, the last in the tag colour.
+6 render tests; **619 tests / 38 files**, `tsc`, `eslint` 0 errors.
+
+---
+
+## 2026-09-26 — Session 24d · Approving a reroll did the reroll
+
+Reported: the judge approved a reroll request and the player's game was already
+swapped — and not for a horror game, "although the season was changed to only
+horror after it started".
+
+**Approval is now permission.** `approveRerollRequest` drew the new game and
+swapped it at the judge's click, under the pool as it was at that moment. It
+now only checks the limits, marks the request `approved` and writes a
+`reroll_approved` feed event (new type: union, feed tab, row, en/ru/uk). The
+player sees "Reroll approved" on the dashboard and a "Reroll now" button;
+`resolveGameRoll` accepts an approved request in place of a new one — no reason
+asked again, the carousel plays, the game is drawn *then*, from the pool as it
+is then, and the reroll allowance is spent then. An approval for a roll that is
+no longer open is refused.
+
+**"Not horror" was the filter, not the draw.** The audit log shows one settings
+save after the season started (16:39 UTC): the Horror *template* — genres
+action/adventure, tags horror/survival/atmospheric/zombie, OR inside each group.
+The rerolled *Naraka: Bladepoint* is action + survival at FreeToGame, which that
+filter admits (verified against the API). No "horror only" save exists. The
+template is broader than its name; changing it is the host's call.
+
+**The `frame.join is not a function` overlay** comes from React's dev tooling
+(`buildFakeCallStack` in the Flight client, rebuilding server call stacks for
+the dev overlay), not from app code. Not reproduced in a clean `next dev` run of
+the same flow — including a provider failure that logs an Error from a server
+action. Likely a dev-only artefact; the user's dashboard had been open across
+several hot reloads of files changed in this session. A fresh load shows no
+issues.
+
+**Verified.** Browser against the built app, 13 checks: approval marks the
+request, does not swap the game, spends nothing, posts to the feed; after the
+pool is retuned the dashboard shows the approval, rerolls without asking for a
+reason, draws from the *new* pool, plays the carousel without dice, spends the
+allowance; no page errors. `tsc` · `eslint` 0 errors · **613 tests / 37 files**
+· `next build` · two mutations caught.
+
+---
+
+## 2026-09-26 — Session 24c · "Reroll rerolls the move's dice, not the game"
+
+It never touched the dice. `resolveGameRoll` with `outcome: "rerolled"` moves
+nobody: with `rerolls.requireApproval` (the default, and `newone`'s setting) it
+files a request for a judge; without it, it swaps the game on the spot. But the
+reroll form in `RollCard` shared `resolveAction`'s action state with pass and
+drop, and `resolvePending` is what opens the dice overlay — so a reroll played
+the throw animation and then showed the *previous* move's dice ("rolled 5 = 5 —
+movement applied") as its result.
+
+**Fix.** The reroll has its own `useActionState`; the dice overlay still opens
+only for pass/drop. An instant reroll spins the game carousel to the new game
+(it starts from "revealed", not "idle", since a game is already on screen); a
+refused one stops the carousel and shows the reason in the dialog. The dialog
+text depends on the mode (`rerollConfirmInstant`, en/ru/uk) — it used to say
+"an admin must approve it" even when no admin would. The page passes
+`rerollNeedsApproval` from the season config.
+
+**Verified.** Reproduced first in a real browser on the built app: the dice
+overlay appeared on both kinds of reroll. After the fix, 14 checks: approval
+mode — no dice, pending banner, same game, request filed, dialog closes;
+instant mode — no dice, carousel spins, a different game on the card, nobody
+moved; a refused instant reroll — carousel stops, reason shown, game unchanged;
+a pass still throws the dice. `tsc` · `eslint` 0 errors · **610 tests / 36
+files** · `next build`. The guard test fails if the form goes back to the shared
+state.
+
+**Found, not changed — needs a decision.** `canReroll(sp.rerollsUsed, config)`
+compares a *season-wide* counter (`season_players.rerolls_used`, never reset
+between games) with `rerolls.limitPerGame`, and `RollCard` locks the button at
+`rerollsUsed >= 1` whatever the setting says. So "1 reroll per game" is in
+practice one reroll per season. The true per-game check (`countRerollsForGame`)
+exists beside it.
+
+---
+
+## 2026-09-26 — Session 24b · A FreeToGame season restricted by category rolled nothing
+
+Reported right after 24: season `newone` (API · FreeToGame · horror template —
+genres action/adventure, tags horror/survival/atmospheric/zombie) failed every
+roll with `catalogFiltersExcludeAll`.
+
+**Cause — two vocabularies.** The season filters in ours (RAWG slugs); FreeToGame
+has its own categories. The provider sent one category (the first genre it
+recognised) plus a `tag` parameter that `/games` ignores (verified: `?tag=horror`
+returns all 417 games), and stored each game under FreeToGame's own label in
+both `genres` and `tags` (`shooter`, `mmorpg`). The season's filter, applied to
+those rows, could never match.
+
+**Fix.** `lib/modules/catalog/pool/freetogame-taxonomy.ts` — pure, client-safe:
+
+- maps our genres and tags to FreeToGame categories, pinned by a test against
+  the 45 categories the live API accepted (`/filter` silently ignores unknown
+  ones, so a typo would widen requests without failing);
+- plans requests as (genre category, tag category) pairs on `/filter` — AND
+  across groups, OR by union — capped at 6 per roll, sampled beyond that;
+- credits each returned game with the season values its request stood for, and
+  translates FreeToGame's main genre into ours;
+- reports which selected values FreeToGame cannot tell apart, and when no game
+  can match at all. The pool tab now shows that for a FreeToGame season
+  (`newone`: "Adventure, Atmospheric" are ignored; the rest applies).
+
+`importExternalGames` also adds newly learned genres/tags to rows imported
+earlier, so FreeToGame games already in the catalog become reachable by a
+filtered season.
+
+Not mappable (FreeToGame has no such category): genres adventure, puzzle,
+arcade, family, board-games, indie, educational; tags atmospheric, story-rich,
+singleplayer, difficult, stealth, crafting, farming, cyberpunk, retro.
+
+**Verified.** `tsc` · `eslint` 0 errors · **607 tests / 35 files** · `next build`
+· six mutations caught. A DB probe with a fake FreeToGame (categories per game)
+reproduces the report on the old code (12/12 rolls `filters_exclude_all`) and
+passes on the new one (12/12 rolled, every game action AND
+horror|survival|zombie at FreeToGame; 26 older rows enriched). Live on the dev
+server: the pool-tab note renders, and a roll in `newone` handed out *Totally
+Accurate Battlegrounds* — `action.survival` at FreeToGame (checked against the
+API). That roll is still open on the admin's dashboard.
+
+---
+
+## 2026-09-26 — Session 24 · "I pick API and it switches back to Internal"
+
+Reported: in a season's settings the source is set to API, it comes back as
+Internal, and rolls hand out games already in the database. A season
+**API FreeToGame** was created for it (active; `dev33` paused, since only one
+season can run). Analysis: project doc `GAME_POOL_API_BUG.md`.
+
+**Four defects, one symptom.**
+
+1. **No provider was ever picked.** `handleSource` auto-picked
+   `availableProviders[0]` only if it was rawg/igdb/steam, and
+   `listAvailableProviders()` always lists FreeToGame first. The provider stayed
+   `internal`, which the form displayed as "Internal (catalog) ✓" and a green
+   "provider ready — internal". Decision (host): **the provider is an explicit
+   choice** — no auto-pick, no "Internal" option in API/hybrid mode, a
+   placeholder until one is chosen, the last choice restored when flipping the
+   source back.
+2. **The wizard advanced on a refused save.** The server rejects `api + internal`
+   (`adminGamePoolProviderRequired`), but `handleSubmit` ticked the stage and
+   opened the next tab before the answer arrived. Progress is now committed in
+   an effect on `state.ok`; a save with no provider is stopped client-side on the
+   pool tab.
+3. **React 19 reset the form after every save.** `<form action>` resets the form
+   when the action settles; a reset puts each `<select>` on its first option in
+   the DOM while React state is unchanged. First option: "Internal (catalog)".
+   So a *successful* save of FreeToGame showed Internal. Found only by looking
+   at the page after a save. The form submits through `onSubmit` +
+   `startTransition` now.
+4. **The roll drew from the whole catalog.** After importing provider results
+   the draw ran over every row with the season's ordering; FreeToGame has no
+   Metacritic score and `-metacritic` sorts NULLS LAST, so the rated demo games
+   came first. An API season now draws only `external_source = provider`.
+   Decision (host): **no fallback to the local catalog at all** — the
+   `fallbackToCatalog` setting is removed; a dead provider with nothing
+   imported yields a new reason, `provider_unavailable`. A dead provider with
+   earlier imports still rolls from those (they are the provider's games).
+
+Also: FreeToGame kept `slice(0, pageSize)` of a popularity-sorted ~400-title
+list — the same twenty games forever. It samples now (`sampleUniform`, engine,
+rng injected). The import loop did two queries per game per roll; it does two
+per batch. A branch that re-inserted an already-imported game as a new row —
+so a played game could come back — is gone.
+
+**Verified.** `tsc` clean · `eslint` 0 errors (same 5 warnings) ·
+**590 tests / 34 files** (was 571 / 31) · `next build` succeeds · nine
+mutations, all caught.
+
+Live, against a scratch Postgres with the provider faked at the fetch layer
+(harness only, not in the repo) — the same probe run against the old code
+fails 9 of 11:
+
+```
+probe api-pool (8 rated local games, FreeToGame faked with 400 titles)
+  S1 provider down, nothing imported → no game, reason provider_unavailable   PASS
+  S2 ten API rolls → 10/10 FreeToGame                     (old code: 4/10 local)
+     170 distinct titles imported after 10 rolls          (old code: always 20)
+  S3 provider down after imports → only FreeToGame games  PASS
+  S4 everything played → no game, reason all_played        PASS
+  S5/S6 catalog and hybrid seasons still roll             PASS
+  S7 legacy api+internal season → no local game           PASS
+```
+
+And the form in a real browser against the built app — 21 checks: API starts
+as `api → —`, no Internal option, confirm sends nothing and raises an alert,
+FreeToGame saves, the wizard advances only after the server accepts, catalog
+and back restores the choice, a save refused by the database (trigger) leaves
+the stage unticked; plus: after a plain save the dropdown still reads
+FreeToGame (before the `onSubmit` change it read the first option).
+
+**Not done.** The user's dev server was not running, so nothing was checked
+against the real database this time. `package.json` has no `db:seed` script
+although `db:setup` and this log call it — run `pnpm exec tsx
+scripts/seed-demo.ts` directly. Catalog-sourced seasons draw from the shared
+catalog, which now includes whatever API seasons imported — pre-existing
+semantics, worth a decision.
+
+---
+
 ## 2026-09-10 — Session 23 · The IEE audit, and five stages of fixes
 
 Asked for an audit of the items-and-effects subsystem: describe the project,

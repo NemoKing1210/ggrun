@@ -1,12 +1,19 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/infrastructure/db";
 import { eventLog, gameRolls, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
-import { countRerollsForGame, getRerollRequestById, pickGameForRoll, POOL_EMPTY_ERROR } from "@/lib/modules/catalog/repository";
+import { countRerollsForGame, getRerollRequestById } from "@/lib/modules/catalog/repository";
 import { canReroll } from "@/lib/engine";
 import { GameLoopError } from "../service/errors";
 import { parseSeasonConfig, requireStaffActor } from "../service/helpers";
 
+/**
+ * Grants the player a reroll of the roll the request names. It does not draw
+ * the new game: the player does, from the dashboard, when they press Reroll
+ * (see `resolveGameRoll`). This used to swap the game here, at the judge's
+ * click — the player never saw it happen, and the draw used the pool as it was
+ * at approval time rather than when they chose to reroll.
+ */
 export async function approveRerollRequest(requestId: string): Promise<void> {
   const actor = await requireStaffActor();
   const req = await getRerollRequestById(requestId);
@@ -15,6 +22,8 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
   const rollRows = await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1);
   const roll = rollRows[0];
   if (!roll) throw new GameLoopError("gameRollNotFound");
+  // Permission for a roll that is no longer open would be permission for nothing.
+  if (roll.status !== "rolled" && roll.status !== "in_progress") throw new GameLoopError("gameRollAlreadyResolved");
 
   const spRows = await db.select().from(seasonPlayers).where(eq(seasonPlayers.id, req.seasonPlayerId)).limit(1);
   const sp = spRows[0];
@@ -23,11 +32,12 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
   const season = await getSeasonById(sp.seasonId);
   if (!season) throw new GameLoopError("gameSeasonNotFound");
   // Staff verdicts apply whenever the request was filed — including after the
-  // season (or the participant) stopped being active. A late approval writes
-  // onto a closed run by design; that is the judge's call, and the trail
-  // (resolvedBy + event log) records who made it. Only player-facing paths
-  // refuse a season that is not running.
+  // season (or the participant) stopped being active. That is the judge's call,
+  // and the trail (resolvedBy) records who made it. Using the permission is a
+  // player action, and that path refuses a season that is not running.
 
+  // The limits are checked here so a judge cannot approve what the player could
+  // never use, and again when the player uses it.
   const config = parseSeasonConfig(season.config);
   if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
     throw new GameLoopError("gameRerollLimit");
@@ -37,24 +47,16 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
     throw new GameLoopError("gameRerollLimitForGame");
   }
 
-  // Same as the instant path: no game means no reroll. Throwing leaves the
-  // request pending, which is the honest state — the judge can reject it and
-  // tell the player why, rather than approving them into an unresolvable roll.
-  const { game, reason } = await pickGameForRoll(sp.id);
-  if (!game) throw new GameLoopError(POOL_EMPTY_ERROR[reason]);
   await db.transaction(async (tx) => {
-    await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
-    await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game.id, status: "rolled" });
-    await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
     await tx
       .update(rerollRequests)
       .set({ status: "approved", resolvedAt: new Date(), resolvedBy: actor.id })
-      .where(eq(rerollRequests.id, req.id));
+      .where(and(eq(rerollRequests.id, req.id), eq(rerollRequests.status, "pending")));
     await tx.insert(eventLog).values({
       seasonId: sp.seasonId,
       seasonPlayerId: sp.id,
-      eventType: "game_rerolled",
-      payload: { oldGameId: roll.gameId, newGameId: game.id, title: game.title, requestId: req.id },
+      eventType: "reroll_approved",
+      payload: { gameId: roll.gameId, requestId: req.id },
     });
   });
 }

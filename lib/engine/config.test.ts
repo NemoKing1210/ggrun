@@ -29,6 +29,18 @@ describe("SeasonConfigSchema", () => {
     expect(SeasonConfigSchema.parse({})).toEqual(DEFAULT_SEASON_CONFIG);
   });
 
+  // `gamePool.catalog.fallbackToCatalog` was removed: an API season no longer
+  // falls back to the local catalog. Every season saved before that still
+  // carries the key in its jsonb config, and must keep parsing.
+  it("still parses a stored config that carries the removed fallbackToCatalog key", () => {
+    const parsed = SeasonConfigSchema.parse({
+      gamePool: { source: "api", provider: "freetogame", catalog: { allowManualAdd: false, fallbackToCatalog: true } },
+    });
+    expect(parsed.gamePool.source).toBe("api");
+    expect(parsed.gamePool.provider).toBe("freetogame");
+    expect(parsed.gamePool.catalog).toEqual({ allowManualAdd: false });
+  });
+
   it("overrides only provided fields", () => {
     expect(
       SeasonConfigSchema.parse({ dice: { sides: 20 }, board: { loop: true } }),

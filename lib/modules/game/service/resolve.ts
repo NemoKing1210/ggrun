@@ -8,6 +8,7 @@ import {
   countRerollsForGame,
   createCompletionRequest,
   createRerollRequest,
+  getApprovedRerollForRoll,
   getPendingCompletionForRoll,
   getPendingRerollForRoll,
   pickGameForRoll,
@@ -92,10 +93,17 @@ export async function resolveGameRoll(
   const rerollRequireApproval = (config.rerolls as { requireApproval?: boolean }).requireApproval ?? true;
   const completionRequireApproval = (config.moderation as { completionRequireApproval?: boolean })?.completionRequireApproval ?? false;
 
-  // --- rerolled: pending or instant ----------------------------------------
+  // --- rerolled: pending, approved or instant -------------------------------
+  //
+  // A judge's approval is permission, not the reroll itself. It used to be the
+  // reroll: approving drew the new game on the spot, from the judge's click,
+  // under whatever the pool was at that moment, and the player found it already
+  // swapped. Now an approved request lets the player reroll this roll once,
+  // without asking again — the draw happens when they press the button.
   if (params.outcome === "rerolled") {
+    const approved = await getApprovedRerollForRoll(roll.id);
     const reason = params.reason?.trim() ?? "";
-    if (reason.length < 5) throw new GameLoopError("formReasonRequired");
+    if (!approved && reason.length < 5) throw new GameLoopError("formReasonRequired");
     if (!config.rerolls.allowed || !canReroll(sp.rerollsUsed, config)) {
       throw new GameLoopError("gameRerollLimit");
     }
@@ -103,12 +111,12 @@ export async function resolveGameRoll(
     if (rerollsThisGame >= config.rerolls.limitPerGame) {
       throw new GameLoopError("gameRerollLimitForGame");
     }
-    // Instant reroll when season allows without approval
-    if (!rerollRequireApproval) {
+    if (approved || !rerollRequireApproval) {
       // A reroll with nothing to reroll into used to insert a roll row with a
       // null game: the player was left holding an open roll that named no game
       // and could not be resolved, and their reroll count had been spent on it.
-      // Refusing costs them nothing and says why.
+      // Refusing costs them nothing and says why — and an approval stays
+      // usable, so they can try again once the pool has games.
       const picked = await pickGameForRoll(sp.id);
       if (!picked.game) throw new GameLoopError(POOL_EMPTY_ERROR[picked.reason]);
       const game = picked.game;
@@ -120,7 +128,9 @@ export async function resolveGameRoll(
           seasonId: sp.seasonId,
           seasonPlayerId: sp.id,
           eventType: "game_rerolled",
-          payload: { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
+          payload: approved
+            ? { oldGameId: roll.gameId, newGameId: game.id, title: game.title, requestId: approved.id }
+            : { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
         });
       });
       return {

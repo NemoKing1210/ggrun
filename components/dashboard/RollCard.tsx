@@ -20,6 +20,7 @@ import { InlineGameCarousel, GameRollReveal } from "@/components/dashboard/GameR
 import type { WheelOutcome } from "@/lib/engine";
 import { WheelOverlay } from "@/components/game/WheelOverlay";
 import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsModal";
+import { GameCategoryChips } from "@/components/game/GameCategoryChips";
 import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
@@ -72,6 +73,18 @@ interface RollCardProps {
   pendingReroll: PendingRerollView | null;
   pendingCompletion: PendingCompletionView | null;
   rerollsUsed: number;
+  /**
+   * Whether a reroll waits for a judge (`rerolls.requireApproval`). Decides what
+   * the reroll shows: nothing moves either way, but an instant reroll swaps the
+   * game on the spot and gets the game carousel, a requested one gets a banner.
+   */
+  rerollNeedsApproval: boolean;
+  /**
+   * A judge approved a reroll of the open roll and the player has not used it
+   * yet. Approval grants the reroll; pressing Reroll performs it — the new game
+   * is drawn then, not at the judge's click.
+   */
+  rerollApproved: boolean;
   lastDice: number[] | null;
   catalogGames?: PreviewGame[];
 }
@@ -110,6 +123,8 @@ export default function RollCard({
   pendingReroll,
   pendingCompletion,
   rerollsUsed,
+  rerollNeedsApproval,
+  rerollApproved,
   lastDice,
   catalogGames = [],
 }: RollCardProps) {
@@ -117,8 +132,15 @@ export default function RollCard({
   const d = t.core.dashboard;
   const [rollState, rollFormAction, rollPending] = useActionState(rollAction, initialState);
   const [resolveState, resolveFormAction, resolvePending] = useActionState(resolveAction, initialState);
+  // The reroll goes through the same server action as pass and drop, but not
+  // through the same action state. It used to: `resolvePending` is what opens
+  // the dice overlay, so a reroll played the throw and then showed the previous
+  // move's dice as "the result" — while the server moved nobody and only
+  // swapped the game (or filed a request for a judge).
+  const [rerollState, rerollFormAction, rerollPending] = useActionState(resolveAction, initialState);
   useActionToast(rollState);
   useActionToast(resolveState);
+  useActionToast(rerollState);
   const [modal, setModal] = useState<"drop" | "pass" | "reroll" | "details" | null>(null);
   const [now, setNow] = useState<number | null>(null);
 
@@ -150,14 +172,38 @@ export default function RollCard({
 
   const handleDecelerateEnd = useCallback(() => setCarouselPhase("revealed"), []);
 
-  // start spinning when rollPending becomes true
+  // start spinning when rollPending becomes true — or when an instant reroll
+  // is on its way, which also hands the player a new game
+  // Instant: the season needs no approval, or a judge has already given it.
+  const rerollIsInstant = !rerollNeedsApproval || rerollApproved;
+  const instantRerollPending = rerollPending && rerollIsInstant;
+  const rerollFromId = useRef<string | null>(null);
   useEffect(() => {
-    if (rollPending && carouselPhase === "idle") {
+    // A reroll starts from a game already on screen, so the carousel is usually
+    // still "revealed" from the roll that produced it, not "idle".
+    const canStart = carouselPhase === "idle" || (instantRerollPending && carouselPhase === "revealed");
+    if ((rollPending || instantRerollPending) && canStart) {
+      if (instantRerollPending) rerollFromId.current = openRoll?.id ?? null;
       setCarouselGames(catalogGames.length ? catalogGames : []);
       setTargetIdx(null);
       setCarouselPhase("spinning");
     }
-  }, [rollPending, carouselPhase, catalogGames]);
+  }, [rollPending, instantRerollPending, carouselPhase, catalogGames, openRoll]);
+
+  // An instant reroll that did not produce a new game (refused, or the pool ran
+  // out) must not leave the carousel spinning over the old one.
+  useEffect(() => {
+    if (rerollPending || carouselPhase !== "spinning" || rerollFromId.current === null) return;
+    if ((openRoll?.id ?? null) !== rerollFromId.current) {
+      rerollFromId.current = null;
+      return;
+    }
+    const t = setTimeout(() => {
+      rerollFromId.current = null;
+      setCarouselPhase("idle");
+    }, rerollState.error ? 0 : 3500);
+    return () => clearTimeout(t);
+  }, [rerollPending, carouselPhase, openRoll, rerollState.error]);
 
   // when a new openRoll appears while spinning, find target and decelerate
   useEffect(() => {
@@ -248,6 +294,12 @@ export default function RollCard({
     prevResolvePending.current = resolvePending;
   }, [resolvePending, resolveState.error]);
 
+  const prevRerollPending = useRef(false);
+  useEffect(() => {
+    if (prevRerollPending.current && !rerollPending && !rerollState.error) setModal(null);
+    prevRerollPending.current = rerollPending;
+  }, [rerollPending, rerollState.error]);
+
   // A landing cell that produced nothing at all (fallback: the subsystem is off
   // or the pool was empty) has nothing to show, so the overlay stays closed.
   useEffect(() => {
@@ -256,8 +308,8 @@ export default function RollCard({
     setWheel(spun);
   }, [resolveState.wheel]);
 
-  const busy = rollPending || resolvePending;
-  const rerollLocked = rerollsUsed >= 1;
+  const busy = rollPending || resolvePending || rerollPending;
+  const rerollLocked = rerollsUsed >= 1 && !rerollApproved;
   const error = openRoll ? resolveState.error : rollState.error;
   const showPendingBanner = !!pendingReroll && !!openRoll;
   const showCompletionPending = !!pendingCompletion && !!openRoll;
@@ -391,6 +443,15 @@ export default function RollCard({
             <p className="mt-1 font-mono text-[11px] leading-snug text-dim">{d.rerollPendingHint}</p>
           </div>
         ) : null}
+        {rerollApproved && openRoll ? (
+          <div className="mb-4 border border-military/50 bg-military/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+            <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-military">
+              <CheckCircleIcon className="size-4" aria-hidden />
+              {d.rerollApprovedBanner}
+            </div>
+            <p className="mt-1 text-sm leading-snug text-zinc-300">{d.rerollApprovedHint}</p>
+          </div>
+        ) : null}
         {showCompletionPending ? (
           <div className="mb-4 border border-emerald-500/50 bg-emerald-500/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
             <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-emerald-400">
@@ -439,11 +500,11 @@ export default function RollCard({
                 type="button"
                 className="hud-btn inline-flex items-center gap-1.5"
                 disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
-                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : d.rerollButton}
+                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                 onClick={() => setModal("reroll")}
               >
                 <ArrowPathIcon className="size-4" aria-hidden />
-                {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : d.rerollButton}
+                {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
               </button>
             </div>
           </div>
@@ -489,18 +550,7 @@ export default function RollCard({
                       </span>
                     </div>
                     <GameMetaBadges game={openRoll.game} />
-                    {openRoll.game.genres.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {openRoll.game.genres.slice(0, 4).map((g) => (
-                          <span
-                            key={g}
-                            className="border border-dim/25 bg-background/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-                          >
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <GameCategoryChips genres={openRoll.game.genres} tags={openRoll.game.tags} className="mt-2" />
                     {openRoll.game.description ? (
                       <p className="mt-3 line-clamp-3 max-w-prose text-sm leading-relaxed text-zinc-300">
                         {openRoll.game.description}
@@ -539,11 +589,11 @@ export default function RollCard({
                   type="button"
                   className="hud-btn inline-flex items-center gap-1.5"
                   disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
-                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : d.rerollButton}
+                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                   onClick={() => setModal("reroll")}
                 >
                   <ArrowPathIcon className="size-4" aria-hidden />
-                  {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : d.rerollButton}
+                  {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
                 </button>
               </div>
             ) : (
@@ -680,23 +730,27 @@ export default function RollCard({
       </Modal>
 
       <Modal open={modal === "reroll" && !!openRoll} onClose={() => setModal(null)}>
-        <ModalHeader title={d.rerollModalTitle} subtitle={openRoll?.game?.title ?? null} />
-        <form action={resolveFormAction} className="mt-4 flex flex-col gap-3">
+        <ModalHeader title={rerollIsInstant ? d.rerollModalTitleNow : d.rerollModalTitle} subtitle={openRoll?.game?.title ?? null} />
+        <form action={rerollFormAction} className="mt-4 flex flex-col gap-3">
           <input type="hidden" name="seasonPlayerId" value={seasonPlayerId} />
           <input type="hidden" name="rollId" value={openRoll?.id ?? ""} />
           <input type="hidden" name="outcome" value="rerolled" />
-          <label className="text-sm">
-            <span className="font-mono text-xs uppercase tracking-widest text-dim">{d.rerollReasonLabel} *</span>
-            <textarea name="reason" required minLength={5} rows={3} placeholder={d.rerollReasonPlaceholder} className="mt-1" disabled={resolvePending} />
-          </label>
+          {/* An approved reroll was argued for already; the request carries the reason. */}
+          {rerollApproved ? null : (
+            <label className="text-sm">
+              <span className="font-mono text-xs uppercase tracking-widest text-dim">{d.rerollReasonLabel} *</span>
+              <textarea name="reason" required minLength={5} rows={3} placeholder={d.rerollReasonPlaceholder} className="mt-1" disabled={rerollPending} />
+            </label>
+          )}
           <p className="border border-dim/20 bg-background/40 px-2 py-2 font-mono text-xs leading-relaxed text-dim [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-            {d.rerollConfirm}
+            {rerollApproved ? d.rerollConfirmApproved : rerollNeedsApproval ? d.rerollConfirm : d.rerollConfirmInstant}
           </p>
+          {rerollState.error ? <p className="text-sm text-danger">{rerollState.error}</p> : null}
           <div className="flex gap-2 pt-2">
-            <button type="submit" className="hud-btn inline-flex items-center gap-1.5" disabled={resolvePending}>
+            <button type="submit" className="hud-btn inline-flex items-center gap-1.5" disabled={rerollPending}>
               <ArrowPathIcon className="size-4" aria-hidden /> {d.submit}
             </button>
-            <button type="button" className="hud-btn" onClick={() => setModal(null)} disabled={resolvePending}>
+            <button type="button" className="hud-btn" onClick={() => setModal(null)} disabled={rerollPending}>
               {d.cancel}
             </button>
           </div>

@@ -40,6 +40,7 @@ describe("every empty-pool reason can be told to the player", () => {
     "all_played",
     "filters_exclude_all",
     "provider_empty",
+    "provider_unavailable",
   ];
 
   it.each(REASONS)("%s maps to an error code", (reason) => {
@@ -145,10 +146,12 @@ describe("a game already played is never handed out again", () => {
  * cannot be resolved, and their reroll allowance had been spent on it.
  */
 describe("no roll is created without a game", () => {
+  // The judge's approval (`moderation/reroll.ts`) used to draw the new game
+  // itself and was on this list. It grants permission now and draws nothing;
+  // the reroll happens in `resolve.ts`, which is.
   const CALLERS = [
     "lib/modules/game/service/roll.ts",
     "lib/modules/game/service/resolve.ts",
-    "lib/modules/game/moderation/reroll.ts",
   ];
 
   it.each(CALLERS)("%s never inserts a null gameId", (rel) => {

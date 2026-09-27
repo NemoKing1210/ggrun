@@ -141,7 +141,6 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
         },
         catalog: {
           allowManualAdd: parseBool("catalog_allowManualAdd", true),
-          fallbackToCatalog: parseBool("catalog_fallbackToCatalog", true),
         },
         maxCandidates: parseIntOr("gamePool_maxCandidates", 20),
         cacheTtlHours: parseIntOr("gamePool_cacheTtlHours", 24),

@@ -20,7 +20,14 @@ export type PoolEmptyReason =
   /** Unplayed games exist; the season's pool filters exclude every one of them. */
   | "filters_exclude_all"
   /** An API-sourced season whose provider returned nothing. */
-  | "provider_empty";
+  | "provider_empty"
+  /**
+   * An API-sourced season whose provider could not be reached, with nothing
+   * from it imported earlier to draw on. An API season never falls back to the
+   * local catalog — it used to, silently, which made a broken key look like a
+   * working season that happened to hand out the wrong games.
+   */
+  | "provider_unavailable";
 
 /**
  * Error code per reason. Each is a separate dictionary entry on purpose — the
@@ -32,4 +39,7 @@ export const POOL_EMPTY_ERROR: Record<PoolEmptyReason, string> = {
   all_played: "catalogAllPlayed",
   filters_exclude_all: "catalogFiltersExcludeAll",
   provider_empty: "catalogProviderEmpty",
+  provider_unavailable: "catalogProviderUnavailable",
 };
+
+export { sampleUniform } from "./sample";

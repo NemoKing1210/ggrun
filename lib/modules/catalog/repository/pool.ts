@@ -1,9 +1,10 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
 import { DEFAULT_SEASON_CONFIG, POOL_EMPTY_ERROR, SeasonConfigSchema, type PoolEmptyReason } from "@/lib/engine";
 import type { SeasonConfig } from "@/lib/engine/types";
+import type { ExternalGame } from "@/lib/modules/catalog/providers/provider";
 
 function parseSeasonConfig(raw: unknown): SeasonConfig {
   const parsed = SeasonConfigSchema.safeParse(raw);
@@ -49,33 +50,107 @@ export type PoolPick =
 /**
  * Runs only when the pick has already failed, so two extra counts cost nothing
  * on the path that matters.
+ *
+ * An API season's pool is what its provider has supplied, not the shared
+ * catalog, so that is what is counted for it: a catalog full of demo games says
+ * nothing about why the provider's games ran out.
  */
 async function explainEmptyPool(
   playedIds: readonly string[],
   pool: SeasonConfig["gamePool"],
 ): Promise<PoolEmptyReason> {
+  const apiOnly = pool.source === "api";
+  const inPool = apiOnly
+    ? and(eq(gamesCatalog.isBlacklisted, false), eq(gamesCatalog.externalSource, pool.provider))
+    : eq(gamesCatalog.isBlacklisted, false);
+
   const totalRows = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(gamesCatalog)
-    .where(eq(gamesCatalog.isBlacklisted, false));
-  if ((totalRows[0]?.n ?? 0) === 0) return "catalog_empty";
+    .where(inPool as never);
+  if ((totalRows[0]?.n ?? 0) === 0) return apiOnly ? "provider_empty" : "catalog_empty";
 
   if (playedIds.length > 0) {
     const unplayedRows = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(gamesCatalog)
-      .where(
-        and(
-          eq(gamesCatalog.isBlacklisted, false),
-          notInArray(gamesCatalog.id, [...playedIds]),
-        ) as never,
-      );
+      .where(and(inPool, notInArray(gamesCatalog.id, [...playedIds])) as never);
     if ((unplayedRows[0]?.n ?? 0) === 0) return "all_played";
   }
 
-  return pool.source !== "catalog" && pool.provider !== "internal"
-    ? "provider_empty"
-    : "filters_exclude_all";
+  return "filters_exclude_all";
+}
+
+/**
+ * Adds what a provider returned to the catalog, skipping anything already
+ * there: the same provider id, or a game of the same title from anywhere else.
+ * Two lookups for the whole batch rather than two per game — this runs on every
+ * roll of an API season.
+ *
+ * A game that is already there still learns from the answer: a request made
+ * for a season's filter establishes genres and tags the stored row may not
+ * carry yet (FreeToGame names only a game's main genre, and its categories are
+ * known only from which request returned it). Those are added, never removed,
+ * so a row imported earlier for another season becomes reachable by this one's
+ * filter instead of sitting in the catalog unmatched.
+ */
+async function importExternalGames(external: readonly ExternalGame[], provider: string): Promise<void> {
+  if (external.length === 0) return;
+  const known = await db
+    .select({ id: gamesCatalog.id, rawId: gamesCatalog.externalRawId, genres: gamesCatalog.genres, tags: gamesCatalog.tags })
+    .from(gamesCatalog)
+    .where(
+      and(
+        eq(gamesCatalog.externalSource, provider),
+        inArray(gamesCatalog.externalRawId, external.map((g) => g.externalId)),
+      ) as never,
+    );
+  const titled = await db
+    .select({ title: gamesCatalog.title })
+    .from(gamesCatalog)
+    .where(inArray(gamesCatalog.title, external.map((g) => g.title)) as never);
+  const knownIds = new Set(known.map((r) => r.rawId));
+  const knownTitles = new Set(titled.map((r) => r.title));
+
+  const byRawId = new Map(external.map((g) => [g.externalId, g] as const));
+  for (const row of known) {
+    const ext = row.rawId ? byRawId.get(row.rawId) : undefined;
+    if (!ext) continue;
+    const genres = [...new Set([...row.genres, ...ext.genres])];
+    const tags = [...new Set([...row.tags, ...ext.tags])];
+    if (genres.length === row.genres.length && tags.length === row.tags.length) continue;
+    await db.update(gamesCatalog).set({ genres, tags }).where(eq(gamesCatalog.id, row.id));
+  }
+
+  const fresh: ExternalGame[] = [];
+  for (const g of external) {
+    if (knownIds.has(g.externalId) || knownTitles.has(g.title)) continue;
+    knownIds.add(g.externalId);
+    knownTitles.add(g.title);
+    fresh.push(g);
+  }
+  if (fresh.length === 0) return;
+
+  await db.insert(gamesCatalog).values(
+    fresh.map((g) => ({
+      title: g.title,
+      genres: g.genres,
+      tags: g.tags,
+      platform: g.platforms[0] ?? null,
+      coverUrl: g.coverUrl,
+      metacritic: g.metacritic,
+      rating: g.rating != null ? String(g.rating) : null,
+      releasedAt: g.releasedAt ? new Date(g.releasedAt) : null,
+      esrb: g.esrb,
+      externalSource: provider,
+      externalRawId: g.externalId,
+      externalIds: { provider, raw: g.externalId },
+      description: g.description ?? null,
+      playtimeHours: g.playtimeHours ?? null,
+      stores: g.stores ?? [],
+      website: g.website ?? null,
+    })) as never,
+  );
 }
 
 /**
@@ -83,6 +158,13 @@ async function explainEmptyPool(
  * already rolled for this player in the current season.
  * Respects SeasonConfig.gamePool filters and optionally fetches from external provider.
  * When board.perCellGenre is enabled, overrides genres filter with the current cell's genres.
+ *
+ * Per source:
+ *   - catalog — the local catalog only;
+ *   - api     — only games its provider has supplied, and never anything else:
+ *               a provider that fails or comes up empty is reported, not
+ *               papered over with a local game;
+ *   - hybrid  — the local catalog, topped up from the provider.
  *
  * Returns *why* it found nothing rather than a bare null. It also no longer
  * quietly hands back a game the participant has already played: the catalog
@@ -186,110 +268,56 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
     }
   }
 
-  if (pool.source === "api" || pool.source === "hybrid") {
-    if (pool.provider !== "internal") {
-      try {
-        const { getProvider } = await import("@/lib/modules/catalog/providers");
-        const provider = getProvider(pool.provider);
-        const external = await provider.search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
-        if (external.length > 0) {
-          for (const ext of external) {
-            const exists = await db
-              .select({ id: gamesCatalog.id })
-              .from(gamesCatalog)
-              .where(and(eq(gamesCatalog.externalRawId, ext.externalId), eq(gamesCatalog.externalSource, pool.provider)) as never)
-              .limit(1);
-            // `playedIds` holds catalog UUIDs and `ext.externalId` is the
-            // provider's own id, so the second half of this condition was
-            // always true. Dropped rather than "fixed": an external result the
-            // player has already had is filtered by the catalog query below,
-            // once the row exists.
-            if (exists.length === 0) {
-              const titleDup = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(eq(gamesCatalog.title, ext.title)).limit(1);
-              if (titleDup.length === 0) {
-                await db.insert(gamesCatalog).values({
-                  title: ext.title,
-                  genres: ext.genres,
-                  tags: ext.tags,
-                  platform: ext.platforms[0] ?? null,
-                  coverUrl: ext.coverUrl,
-                  metacritic: ext.metacritic,
-                  rating: ext.rating != null ? String(ext.rating) : null,
-                  releasedAt: ext.releasedAt ? new Date(ext.releasedAt) : null,
-                  esrb: ext.esrb,
-                  externalSource: pool.provider,
-                  externalRawId: ext.externalId,
-                  externalIds: { provider: pool.provider, raw: ext.externalId },
-                  description: ext.description ?? null,
-                  playtimeHours: ext.playtimeHours ?? null,
-                  stores: ext.stores ?? [],
-                  website: ext.website ?? null,
-                } as never);
-              }
-            }
-          }
-          const refreshed = await db.select().from(gamesCatalog).where(whereClause as never).orderBy(orderExpr as never).limit(pool.maxCandidates);
-          if (refreshed.length > 0) {
-            return { game: refreshed[Math.floor(Math.random() * refreshed.length)]!, reason: null };
-          }
-          // Was `external.filter(() => true)` under the name `unplayedExternal`
-          // — a filter that filtered nothing, which is worse than none because
-          // the name claims otherwise. Nothing here can be "unplayed" or not:
-          // these rows are not in the catalog yet.
-          if (external.length > 0) {
-            const chosen = external[Math.floor(Math.random() * external.length)]!;
-            const [inserted] = await db
-              .insert(gamesCatalog)
-              .values({
-                title: chosen.title,
-                genres: chosen.genres,
-                tags: chosen.tags,
-                platform: chosen.platforms[0] ?? null,
-                coverUrl: chosen.coverUrl,
-                metacritic: chosen.metacritic,
-                rating: chosen.rating != null ? String(chosen.rating) : null,
-                releasedAt: chosen.releasedAt ? new Date(chosen.releasedAt) : null,
-                esrb: chosen.esrb,
-                externalSource: pool.provider,
-                externalRawId: chosen.externalId,
-                externalIds: { provider: pool.provider, raw: chosen.externalId },
-                description: chosen.description ?? null,
-                playtimeHours: chosen.playtimeHours ?? null,
-                stores: chosen.stores ?? [],
-                website: chosen.website ?? null,
-              } as never)
-              .returning();
-            return { game: inserted as CatalogGame, reason: null };
-          }
-        }
-      } catch (e) {
-        console.warn("[rollRandomGame] provider fetch failed", e);
-        if (pool.catalog.fallbackToCatalog && candidates.length > 0) {
-          return { game: candidates[Math.floor(Math.random() * candidates.length)]!, reason: null };
-        }
-      }
+  // ---- api + hybrid: ask the provider ----
+  if ((pool.source === "api" || pool.source === "hybrid") && pool.provider !== "internal") {
+    let providerFailed = false;
+    try {
+      const { getProvider } = await import("@/lib/modules/catalog/providers");
+      const external = await getProvider(pool.provider).search({ filters, pageSize: pool.maxCandidates, cacheTtlHours: pool.cacheTtlHours });
+      await importExternalGames(external, pool.provider);
+    } catch (e) {
+      providerFailed = true;
+      console.warn("[pickGameForRoll] provider fetch failed", e);
     }
-    if (pool.source === "api" && pool.catalog.fallbackToCatalog) {
-      const fallback = await db
-        .select()
-        .from(gamesCatalog)
-        .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
-        .orderBy(sql`random()`)
-        .limit(1);
-      if (fallback[0]) return { game: fallback[0], reason: null };
-      return { game: null, reason: await explainEmptyPool(playedIds, pool) };
+
+    // An API season draws only from what its provider supplied. The draw used
+    // to run over the whole shared catalog with the season's ordering, and
+    // FreeToGame has no Metacritic score — so under the default "-metacritic"
+    // ordering, NULLS LAST put every locally rated game ahead of the provider's
+    // and an "API" season handed out the demo catalog. Rows imported by earlier
+    // rolls still count: they came from this provider, which is what keeps a
+    // season playable through a brief provider outage. A hybrid season mixes
+    // both by definition, so its draw stays unscoped.
+    const drawScope =
+      pool.source === "api"
+        ? and(whereClause as never, eq(gamesCatalog.externalSource, pool.provider) as never)
+        : whereClause;
+    const drawn = await db
+      .select()
+      .from(gamesCatalog)
+      .where(drawScope as never)
+      .orderBy(orderExpr as never)
+      .limit(pool.maxCandidates);
+    if (drawn.length > 0) {
+      return { game: drawn[Math.floor(Math.random() * drawn.length)]!, reason: null };
+    }
+    if (pool.source === "api") {
+      return { game: null, reason: providerFailed ? "provider_unavailable" : await explainEmptyPool(playedIds, pool) };
     }
   }
 
-  const allowCatalogFallback = pool.catalog.fallbackToCatalog || pool.source === "catalog" || pool.source === "hybrid";
+  // An API season stops here, always. It used to fall back to a random game
+  // from the local catalog whenever its provider failed or came up empty
+  // (the `fallbackToCatalog` setting, on by default) — so a dead key or a bad filter
+  // looked like a working season that happened to hand out the wrong games.
+  // Reaching this line with source "api" means no provider was chosen at all.
+  if (pool.source === "api") {
+    return { game: null, reason: await explainEmptyPool(playedIds, pool) };
+  }
+
+  // ---- catalog + hybrid only from here on ----
   if (candidates.length > 0) {
     return { game: candidates[Math.floor(Math.random() * candidates.length)]!, reason: null };
-  }
-  if (pool.source === "api" && !pool.catalog.fallbackToCatalog) {
-    return { game: null, reason: await explainEmptyPool(playedIds, pool) };
-  }
-  if (!allowCatalogFallback) {
-    return { game: null, reason: await explainEmptyPool(playedIds, pool) };
   }
 
   // Last resort: ignore the season's filters, but never the two rules that are

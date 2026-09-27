@@ -152,6 +152,12 @@ export const dashboard: Widen<typeof CoreEn.dashboard> = {
   markPassedConfirm: "Позначити гру пройденою?",
   dropConfirm: "Дропнути гру? Серія дропів зростає.",
   rerollConfirm: "Запросити рерол? Адмін має підтвердити.",
+  rerollConfirmInstant: "Замінити гру на нову? Кубики не кидаються — ви залишаєтеся на своїй клітинці.",
+  rerollApprovedBanner: "Рерол схвалено",
+  rerollApprovedHint: "Суддя дозволив замінити цю гру. Натисніть «Рерол», коли будете готові, — нова гра випаде в цей момент.",
+  rerollApprovedButton: "Зробити рерол",
+  rerollConfirmApproved: "Суддя схвалив рерол. Замінити гру на нову? Кубики не кидаються — ви залишаєтеся на своїй клітинці.",
+  rerollModalTitleNow: "Рерол гри",
   rerollButton: "Рерол",
   rerollLockedTitle: "Ліміт реролів вичерпано",
   rerollPending: "Рерол на розгляді",
@@ -228,6 +234,8 @@ export const gameInfo: Widen<typeof CoreEn.gameInfo> = {
   website: "Офіційний сайт",
   storesHint: "Кнопки — прямі посилання провайдера або пошук у магазині",
   year: "{year}",
+  genre: "Жанр",
+  tag: "Тег",
 };
 
 /** Server use-case error texts (keys are error codes). */
@@ -272,6 +280,7 @@ export const errors: Widen<typeof CoreEn.errors> = {
   catalogAllPlayed: "Вам уже видали всі ігри з пулу цього сезону",
   catalogFiltersExcludeAll: "Жодна непройдена гра не підходить під фільтри пулу сезону",
   catalogProviderEmpty: "Провайдер ігор нічого не повернув — перевірте його API-ключ і фільтри пулу",
+  catalogProviderUnavailable: "Провайдер ігор зараз недоступний — спробуйте зробити рол пізніше",
   formReasonRequired: "Вкажіть причину (мінімум 5 символів)",
   formRatingInvalid: "Оцінка має бути цілим числом від 1 до 10",
 
