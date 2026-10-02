@@ -47,6 +47,7 @@ export async function searchExternalGamesAction(
       onlyWithCover: false,
       ordering,
       searchQuery: query || null,
+      primaryTag: null,
     };
     const results = await provider.search({ filters, pageSize: 12 });
     log.debug("catalog.external_search", {

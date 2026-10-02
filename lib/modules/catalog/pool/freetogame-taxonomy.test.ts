@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { GENRES, TAGS } from "./constants";
-import { getTemplate } from "./templates";
+import { GAME_POOL_TEMPLATES, getTemplate } from "./templates";
 import {
   F2G_GENRE_CATEGORIES,
   F2G_KNOWN_CATEGORIES,
@@ -14,6 +14,7 @@ import {
 } from "./freetogame-taxonomy";
 
 const rng = () => 0.42;
+const TEMPLATE_IDS = GAME_POOL_TEMPLATES.map((t) => t.id);
 const filters = (genres: string[], tags: string[], platforms: string[] = []) => ({ genres, tags, platforms });
 
 describe("the FreeToGame category map", () => {
@@ -140,5 +141,107 @@ describe("f2gFilterSupport", () => {
     expect(f2gFilterSupport(filters(["puzzle"], [])).blocked).toBe("genres");
     expect(f2gFilterSupport(filters([], ["story-rich"])).blocked).toBe("tags");
     expect(f2gFilterSupport(filters([], [], ["ios"])).blocked).toBe("platforms");
+  });
+});
+
+describe("planF2gQueries under a primary tag", () => {
+  const withPrimary = (primaryTag: string | null, genres: string[], tags: string[], platforms: string[] = []) => ({
+    genres,
+    tags,
+    platforms,
+    primaryTag,
+  });
+
+  /**
+   * The report: a Horror season on FreeToGame handed out Naraka: Bladepoint,
+   * which FreeToGame files under action and survival. Every request now
+   * carries the horror category, so nothing outside it can come back.
+   */
+  it("asks only for games in the primary category", () => {
+    const tpl = getTemplate("horror")!;
+    const plan = planF2gQueries(withPrimary("horror", tpl.filters.genres ?? [], tpl.filters.tags ?? []), rng)!;
+    expect(plan.queries.length).toBeGreaterThan(0);
+    for (const q of plan.queries) expect(q.categories, q.categories.join(".")).toContain("horror");
+    for (const q of plan.queries) expect(q.tags).toContain("horror");
+  });
+
+  // The bare category request is what makes a horror game without any of the
+  // season's other values reachable at all; the pairs only add what each
+  // returned game is known to carry, for ranking.
+  it("always asks for the primary category on its own, and pairs it with the rest", () => {
+    const plan = planF2gQueries(withPrimary("horror", ["action"], ["zombie", "atmospheric"]), rng)!;
+    expect(plan.queries.map((q) => q.categories.join("."))).toEqual(["horror", "horror.action", "horror.zombie"]);
+    expect(plan.queries[1]).toEqual({ categories: ["horror", "action"], genres: ["action"], tags: ["horror"] });
+  });
+
+  it("credits a genre-like primary tag as a genre", () => {
+    const plan = planF2gQueries(withPrimary("strategy", [], []), rng)!;
+    expect(plan.queries.map((q) => q.categories)).toEqual([["strategy"], ["moba"], ["tower-defense"], ["mmorts"]]);
+    for (const q of plan.queries) expect(q).toMatchObject({ genres: ["strategy"], tags: [] });
+  });
+
+  it("never lets the other genres and tags block the pool", () => {
+    // puzzle and story-rich are unknown to FreeToGame; without a primary tag
+    // this season could not be served at all
+    expect(planF2gQueries(withPrimary(null, ["puzzle"], ["story-rich"]), rng)).toBeNull();
+    expect(planF2gQueries(withPrimary("horror", ["puzzle"], ["story-rich"]), rng)!.queries).toEqual([
+      { categories: ["horror"], genres: [], tags: ["horror"] },
+    ]);
+  });
+
+  it("refuses a primary tag FreeToGame cannot tell apart", () => {
+    expect(planF2gQueries(withPrimary("indie", [], []), rng)).toBeNull();
+    expect(planF2gQueries(withPrimary("retro", ["action"], ["horror"]), rng)).toBeNull();
+  });
+
+  it("stays within the request cap and keeps the bare request", () => {
+    const tpl = getTemplate("esports")!;
+    for (let i = 0; i < 20; i++) {
+      const plan = planF2gQueries(withPrimary("multiplayer", tpl.filters.genres ?? [], tpl.filters.tags ?? []), Math.random)!;
+      expect(plan.queries.length).toBeLessThanOrEqual(F2G_MAX_QUERIES);
+      const keys = plan.queries.map((q) => q.categories.join("."));
+      expect(keys).toEqual(expect.arrayContaining(["pvp", "pve"]));
+      expect(new Set(keys).size).toBe(keys.length);
+    }
+  });
+});
+
+describe("f2gFilterSupport under a primary tag", () => {
+  const withPrimary = (primaryTag: string, genres: string[], tags: string[], platforms: string[] = []) => ({
+    genres,
+    tags,
+    platforms,
+    primaryTag,
+  });
+
+  it("blocks on the primary tag alone, and agrees with the planner", () => {
+    for (const primary of ["indie", "retro", "adventure", "atmospheric"]) {
+      expect(f2gFilterSupport(withPrimary(primary, [], [])).blocked, primary).toBe("primary");
+      expect(planF2gQueries(withPrimary(primary, [], []), rng), primary).toBeNull();
+    }
+  });
+
+  it("does not block on the other groups, only names what it ignores", () => {
+    expect(f2gFilterSupport(withPrimary("horror", ["puzzle"], ["story-rich"]))).toEqual({
+      ignoredGenres: ["puzzle"],
+      ignoredTags: ["story-rich"],
+      blocked: null,
+    });
+  });
+
+  it("does not list the primary tag among what it ignores", () => {
+    expect(f2gFilterSupport(withPrimary("horror", [], ["horror", "atmospheric"])).ignoredTags).toEqual(["atmospheric"]);
+  });
+
+  it("still blocks on a platform FreeToGame does not have", () => {
+    expect(f2gFilterSupport(withPrimary("horror", [], [], ["ios"])).blocked).toBe("platforms");
+  });
+
+  it("serves every template's primary tag but indie and retro", () => {
+    const blocked = TEMPLATE_IDS.filter((id) => {
+      const tpl = getTemplate(id)!;
+      return f2gFilterSupport(withPrimary(tpl.filters.primaryTag!, tpl.filters.genres ?? [], tpl.filters.tags ?? [], tpl.filters.platforms ?? [])).blocked !== null;
+    });
+    expect(blocked.sort()).toEqual(["indie", "retro"]);
   });
 });

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { format } from "@/lib/i18n/format";
 import { getEffect, getItem, RARITY_WEIGHT, type Rarity } from "@/lib/engine";
 import { dictText } from "@/lib/i18n/dict-text";
+import { GENRES, TAGS } from "@/lib/modules/catalog/pool/constants";
 
 type Props = {
   season: Season;
@@ -23,6 +24,7 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
   const loopHint = config.board.loop ? rt.loopHintActive : rt.loopHintLinear;
   const diceStreak = config.dice.dropStreakMultiplier ? rt.streakOn : rt.streakOff;
 
+  const primaryTag = config.gamePool.filters.primaryTag;
   const filterChips: string[] = [];
   if (config.gamePool.filters.genres.length) filterChips.push(...config.gamePool.filters.genres);
   if (config.gamePool.filters.tags.length) filterChips.push(...config.gamePool.filters.tags);
@@ -196,6 +198,13 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
           <Badge variant="dim">{config.gamePool.filters.ordering}</Badge>
           {config.gamePool.templateId ? <Badge variant="amber">template {config.gamePool.templateId}</Badge> : null}
         </div>
+        {primaryTag ? (
+          <p className="mt-3 font-mono text-xs leading-relaxed text-amber">
+            {format(rt.primaryTagRule, { tag: [...GENRES, ...TAGS].find((o) => o.value === primaryTag)?.label ?? primaryTag })}
+          </p>
+        ) : null}
+        {/* "No filters — full catalog" would be untrue under a primary tag, which the line above already states. */}
+        {filterChips.length > 0 || !primaryTag ? (
         <div className="mt-3">
           <p className="font-mono text-[11px] uppercase tracking-widest text-dim">{rt.filtersLabel}</p>
           {filterChips.length ? (
@@ -225,6 +234,7 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
             <p className="mt-1 font-mono text-xs text-dim">{rt.noFilters}</p>
           )}
         </div>
+        ) : null}
         <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[11px] uppercase tracking-widest text-dim sm:grid-cols-3">
           <span className={`border px-2 py-1 text-center ${config.gamePool.filters.onlyWithCover ? "border-amber/30 bg-amber/10 text-amber" : "border-dim/15 bg-raised"}`}>cover only {config.gamePool.filters.onlyWithCover ? "yes" : "no"}</span>
           <span className={`border px-2 py-1 text-center ${config.gamePool.autoFetchOnRoll ? "border-military/30 bg-military/10 text-military" : "border-dim/15 bg-raised"}`}>auto-fetch {config.gamePool.autoFetchOnRoll ? "on" : "off"}</span>

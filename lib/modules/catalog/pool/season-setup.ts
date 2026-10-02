@@ -24,6 +24,7 @@ export const TEMPLATE_FILTER_KEYS = [
   "yearMin",
   "yearMax",
   "ordering",
+  "primaryTag",
 ] as const;
 
 /** Board keys a template's `boardHint` is allowed to overwrite. */
@@ -54,6 +55,7 @@ export function captureTemplateSnapshot(cfg: SeasonConfig): TemplateSnapshot {
       yearMin: f.yearMin,
       yearMax: f.yearMax,
       ordering: f.ordering,
+      primaryTag: f.primaryTag,
     },
     board: {
       bonusCount: b.bonusCount,
@@ -84,6 +86,9 @@ export function applyTemplate(cfg: SeasonConfig, tpl: GamePoolTemplate): SeasonC
         yearMin: tpl.filters.yearMin ?? cfg.gamePool.filters.yearMin,
         yearMax: tpl.filters.yearMax ?? cfg.gamePool.filters.yearMax,
         ordering: tpl.filters.ordering ?? cfg.gamePool.filters.ordering,
+        // Every template names one (tested); a template without one leaves the
+        // field alone rather than clearing a value the host chose.
+        primaryTag: tpl.filters.primaryTag ?? cfg.gamePool.filters.primaryTag,
       },
     },
     board: tpl.boardHint
@@ -122,6 +127,7 @@ export function revertTemplate(cfg: SeasonConfig, snapshot?: TemplateSnapshot | 
         yearMin: base.filters.yearMin,
         yearMax: base.filters.yearMax,
         ordering: base.filters.ordering,
+        primaryTag: base.filters.primaryTag,
       },
     },
     board: {

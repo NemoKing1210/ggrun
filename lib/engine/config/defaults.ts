@@ -45,6 +45,7 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
       onlyWithCover: false,
       ordering: "-metacritic",
       searchQuery: null,
+      primaryTag: null,
     },
     catalog: {
       allowManualAdd: true,

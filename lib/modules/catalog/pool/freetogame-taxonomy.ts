@@ -29,6 +29,7 @@
  */
 import type { GamePoolFilters } from "@/lib/engine/types";
 import { sampleUniform } from "@/lib/engine/pool/sample";
+import { primaryTagSlugs } from "@/lib/engine/pool/primary";
 
 /** Every category FreeToGame accepted on 2026-09-26. A category outside this list is a typo. */
 export const F2G_KNOWN_CATEGORIES = [
@@ -169,12 +170,13 @@ function platformFor(platforms: readonly string[]): F2gPlan["platform"] | "none"
  * are reported by `f2gFilterSupport` so the host can see it.
  */
 export function planF2gQueries(
-  filters: Pick<GamePoolFilters, "genres" | "tags" | "platforms">,
+  filters: Pick<GamePoolFilters, "genres" | "tags" | "platforms"> & { primaryTag?: string | null },
   rng: () => number,
   max: number = F2G_MAX_QUERIES,
 ): F2gPlan | null {
   const platform = platformFor(filters.platforms);
   if (platform === "none") return null;
+  if (filters.primaryTag) return planWithPrimary({ ...filters, primaryTag: filters.primaryTag }, platform, rng, max);
 
   const genreOpts = optionsFor(filters.genres, F2G_GENRE_CATEGORIES);
   const tagOpts = optionsFor(filters.tags, F2G_TAG_CATEGORIES);
@@ -205,6 +207,56 @@ export function planF2gQueries(
   return { queries, platform };
 }
 
+/** Which of our two vocabularies a value belongs to, as far as FreeToGame is concerned. */
+function creditFor(value: string): { genres: string[]; tags: string[] } {
+  return F2G_GENRE_CATEGORIES[value] ? { genres: [value], tags: [] } : { genres: [], tags: [value] };
+}
+
+/**
+ * Under a primary tag only that tag is required, so every request asks for
+ * it: one request per FreeToGame category that means it, alone — that is the
+ * pool. The season's other genres and tags only rank, and FreeToGame names no
+ * game's tags in a list answer, so the remaining request budget asks for the
+ * primary *together with* each of them: a game that comes back for "horror +
+ * survival" is credited with survival and is drawn ahead of one that is only
+ * horror. Those pair requests are sampled when they do not all fit.
+ */
+function planWithPrimary(
+  filters: Pick<GamePoolFilters, "genres" | "tags"> & { primaryTag: string },
+  platform: F2gPlan["platform"],
+  rng: () => number,
+  max: number,
+): F2gPlan | null {
+  const slugs = primaryTagSlugs(filters.primaryTag);
+  const primaryCats = [...new Set(slugs.flatMap((v) => [...(F2G_GENRE_CATEGORIES[v] ?? []), ...(F2G_TAG_CATEGORIES[v] ?? [])]))];
+  // FreeToGame cannot tell the primary tag apart: no game could be shown to have it.
+  if (primaryCats.length === 0) return null;
+  const credit = creditFor(filters.primaryTag);
+
+  let base: F2gQuery[] = primaryCats.map((c) => ({ categories: [c], ...credit }));
+  if (base.length > max) base = sampleUniform(base, max, rng);
+
+  const softGenres = filters.genres.filter((g) => !slugs.includes(g));
+  const softTags = filters.tags.filter((t) => !slugs.includes(t));
+  const softOpts = [
+    ...optionsFor(softGenres, F2G_GENRE_CATEGORIES).map((o) => ({ ...o, kind: "genres" as const })),
+    ...optionsFor(softTags, F2G_TAG_CATEGORIES).map((o) => ({ ...o, kind: "tags" as const })),
+  ];
+  const pairs: F2gQuery[] = [];
+  for (const p of primaryCats) {
+    for (const o of softOpts) {
+      if (o.category === p) continue;
+      pairs.push({
+        categories: [p, o.category],
+        genres: [...credit.genres, ...(o.kind === "genres" ? o.ours : [])],
+        tags: [...credit.tags, ...(o.kind === "tags" ? o.ours : [])],
+      });
+    }
+  }
+  const room = Math.max(0, max - base.length);
+  return { queries: [...base, ...sampleUniform(pairs, room, rng)], platform };
+}
+
 /**
  * Unions the answers of several requests. A game that came back for more than
  * one request is known to carry every season value those requests stood for.
@@ -231,15 +283,23 @@ export interface F2gFilterSupport {
   /** Selected tags FreeToGame cannot tell apart — ignored when choosing games. */
   ignoredTags: string[];
   /** Set when no game can match at all, and which part of the filter makes it so. */
-  blocked: null | "genres" | "tags" | "platforms";
+  blocked: null | "primary" | "genres" | "tags" | "platforms";
 }
 
-export function f2gFilterSupport(filters: Pick<GamePoolFilters, "genres" | "tags" | "platforms">): F2gFilterSupport {
-  const ignoredGenres = filters.genres.filter((g) => !F2G_GENRE_CATEGORIES[g]);
-  const ignoredTags = filters.tags.filter((t) => !F2G_TAG_CATEGORIES[t]);
+export function f2gFilterSupport(
+  filters: Pick<GamePoolFilters, "genres" | "tags" | "platforms"> & { primaryTag?: string | null },
+): F2gFilterSupport {
+  const primary = primaryTagSlugs(filters.primaryTag);
+  const ignoredGenres = filters.genres.filter((g) => !F2G_GENRE_CATEGORIES[g] && !primary.includes(g));
+  const ignoredTags = filters.tags.filter((t) => !F2G_TAG_CATEGORIES[t] && !primary.includes(t));
   let blocked: F2gFilterSupport["blocked"] = null;
   if (platformFor(filters.platforms) === "none") blocked = "platforms";
-  else if (filters.genres.length > 0 && ignoredGenres.length === filters.genres.length) blocked = "genres";
+  else if (primary.length > 0) {
+    // Under a primary tag the other genres and tags only rank, so they can
+    // never block the pool; the primary tag itself can.
+    const known = primary.some((v) => F2G_GENRE_CATEGORIES[v] || F2G_TAG_CATEGORIES[v]);
+    if (!known) blocked = "primary";
+  } else if (filters.genres.length > 0 && ignoredGenres.length === filters.genres.length) blocked = "genres";
   else if (filters.tags.length > 0 && ignoredTags.length === filters.tags.length) blocked = "tags";
   return { ignoredGenres, ignoredTags, blocked };
 }

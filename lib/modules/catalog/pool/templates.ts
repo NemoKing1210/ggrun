@@ -18,6 +18,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "👻",
     heroIcon: "EyeIcon",
     filters: {
+      primaryTag: "horror",
       genres: ["action", "adventure"],
       tags: ["horror", "survival", "atmospheric", "zombie"],
       ordering: "-rating",
@@ -31,6 +32,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "♟️",
     heroIcon: "PuzzlePieceIcon",
     filters: {
+      primaryTag: "strategy",
       genres: ["strategy", "simulation"],
       tags: ["difficult", "crafting"],
       ordering: "-metacritic",
@@ -44,6 +46,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "⚔️",
     heroIcon: "ShieldCheckIcon",
     filters: {
+      primaryTag: "rpg",
       genres: ["rpg", "adventure"],
       tags: ["story-rich", "fantasy", "open-world"],
       ordering: "-metacritic",
@@ -57,6 +60,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "💥",
     heroIcon: "BoltIcon",
     filters: {
+      primaryTag: "action",
       genres: ["action", "shooter", "arcade"],
       tags: ["difficult", "co-op"],
       ordering: "-added",
@@ -70,6 +74,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "✨",
     heroIcon: "SparklesIcon",
     filters: {
+      primaryTag: "indie",
       genres: ["indie", "casual", "arcade"],
       tags: ["pixel-graphics", "roguelike", "roguelite"],
       ordering: "-rating",
@@ -83,6 +88,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "📼",
     heroIcon: "TvIcon",
     filters: {
+      primaryTag: "retro",
       genres: ["arcade", "platformer"],
       tags: ["retro", "pixel-graphics"],
       yearMin: 1980,
@@ -98,6 +104,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "🌲",
     heroIcon: "MapIcon",
     filters: {
+      primaryTag: "survival",
       genres: ["simulation", "adventure"],
       tags: ["survival", "crafting", "open-world"],
       ordering: "-rating",
@@ -111,6 +118,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "🚀",
     heroIcon: "RocketLaunchIcon",
     filters: {
+      primaryTag: "sci-fi",
       genres: ["action", "adventure", "strategy"],
       tags: ["sci-fi", "cyberpunk", "open-world"],
       ordering: "-metacritic",
@@ -124,6 +132,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "🧚",
     heroIcon: "StarIcon",
     filters: {
+      primaryTag: "fantasy",
       genres: ["rpg", "adventure"],
       tags: ["fantasy", "story-rich", "open-world"],
       ordering: "-metacritic",
@@ -137,6 +146,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "💀",
     heroIcon: "FireIcon",
     filters: {
+      primaryTag: "roguelike",
       genres: ["indie", "action"],
       tags: ["roguelike", "roguelite", "difficult"],
       ordering: "-rating",
@@ -150,6 +160,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "🌸",
     heroIcon: "HeartIcon",
     filters: {
+      primaryTag: "casual",
       genres: ["family", "casual", "simulation"],
       tags: ["singleplayer"],
       esrb: ["everyone", "everyone-10-plus"],
@@ -164,6 +175,7 @@ export const GAME_POOL_TEMPLATES: GamePoolTemplate[] = [
     icon: "🏆",
     heroIcon: "TrophyIcon",
     filters: {
+      primaryTag: "multiplayer",
       genres: ["sports", "fighting", "racing", "shooter"],
       tags: ["multiplayer", "co-op"],
       players: "multi",

@@ -1,4 +1,5 @@
 import type { ExternalGame, GameProvider } from "./provider";
+import { hardProviderFilters } from "@/lib/modules/catalog/pool/primary-filters";
 import { getEffectiveProviderKeys } from "./keys";
 import { fetchExternal } from "@/lib/infrastructure/http/external-fetch";
 
@@ -122,11 +123,13 @@ export const gamespotProvider: GameProvider = {
     const data = (await res.json()) as { results?: GSResult[] };
     const results = data.results ?? [];
 
+    // Under a primary tag only it is a requirement (see primary-filters.ts).
+    const hard = hardProviderFilters(filters);
     const games = results
       .map((r) => mapGame(r))
       .filter((g) => {
-        if (filters.genres.length) {
-          if (!filters.genres.some((gen) => g.genres.includes(gen))) return false;
+        if (hard.genres.length) {
+          if (!hard.genres.some((gen) => g.genres.includes(gen))) return false;
         }
         if (filters.platforms.length) {
           if (!filters.platforms.some((p) => g.platforms.includes(p))) return false;

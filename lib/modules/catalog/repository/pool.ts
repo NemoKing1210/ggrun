@@ -2,7 +2,7 @@ import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
-import { DEFAULT_SEASON_CONFIG, POOL_EMPTY_ERROR, SeasonConfigSchema, type PoolEmptyReason } from "@/lib/engine";
+import { DEFAULT_SEASON_CONFIG, POOL_EMPTY_ERROR, SeasonConfigSchema, splitPoolFilters, type PoolEmptyReason } from "@/lib/engine";
 import type { SeasonConfig } from "@/lib/engine/types";
 import type { ExternalGame } from "@/lib/modules/catalog/providers/provider";
 
@@ -22,25 +22,35 @@ async function fetchSeasonConfig(seasonPlayerId: string): Promise<SeasonConfig |
   return parseSeasonConfig(row[0].config);
 }
 
-async function resolveEffectiveFilters(seasonPlayerId: string, config: SeasonConfig) {
+/**
+ * The season's filters for this participant's roll. `cellLocked` says the
+ * genres come from the board cell they stand on (per-cell genre locking) —
+ * those stay a requirement even under a primary tag, where the season's own
+ * genres only rank.
+ */
+async function resolveEffectiveFilters(
+  seasonPlayerId: string,
+  config: SeasonConfig,
+): Promise<{ filters: SeasonConfig["gamePool"]["filters"]; cellLocked: boolean }> {
   const base = config.gamePool.filters;
-  if (!config.board.perCellGenre) return base;
+  const unlocked = { filters: base, cellLocked: false };
+  if (!config.board.perCellGenre) return unlocked;
   try {
     const spRows = await db.select({ position: seasonPlayers.position, seasonId: seasonPlayers.seasonId }).from(seasonPlayers).where(eq(seasonPlayers.id, seasonPlayerId)).limit(1);
     const sp = spRows[0];
-    if (!sp) return base;
+    if (!sp) return unlocked;
     const boardRows = await db.select({ id: boards.id }).from(boards).where(eq(boards.seasonId, sp.seasonId)).limit(1);
     const board = boardRows[0];
-    if (!board) return base;
+    if (!board) return unlocked;
     const cellRows = await db.select({ config: boardCells.config }).from(boardCells).where(and(eq(boardCells.boardId, board.id), eq(boardCells.position, sp.position))).limit(1);
     const cfg = cellRows[0]?.config as Record<string, unknown> | undefined;
     const g = cfg?.genres;
     if (Array.isArray(g) && g.length > 0) {
       const clean = [...new Set(g.map((x) => String(x).trim().toLowerCase()).filter(Boolean))];
-      if (clean.length > 0) return { ...base, genres: clean };
+      if (clean.length > 0) return { filters: { ...base, genres: clean }, cellLocked: true };
     }
   } catch {}
-  return base;
+  return unlocked;
 }
 
 export type PoolPick =
@@ -180,7 +190,20 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
 
   const config = (await fetchSeasonConfig(seasonPlayerId)) ?? DEFAULT_SEASON_CONFIG;
   const pool = config.gamePool;
-  const filters = await resolveEffectiveFilters(seasonPlayerId, config);
+  const { filters, cellLocked } = await resolveEffectiveFilters(seasonPlayerId, config);
+  // Under a primary tag, only it is required; the season's other genres and
+  // tags rank instead of filtering (see lib/engine/pool/primary.ts).
+  const split = splitPoolFilters(filters, { cellLocked });
+  const textArray = (values: readonly string[]) =>
+    sql`ARRAY[${sql.join(
+      values.map((v) => sql`${v}`),
+      sql`, `,
+    )}]::text[]`;
+  // As a genre or as a tag: providers disagree on which is which.
+  const primaryCond =
+    split.primary.length > 0
+      ? sql`(${gamesCatalog.genres} && ${textArray(split.primary)} OR ${gamesCatalog.tags} && ${textArray(split.primary)})`
+      : null;
 
   const conditions: unknown[] = [];
   conditions.push(eq(gamesCatalog.isBlacklisted, false) as never);
@@ -189,17 +212,12 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   }
 
   const extraSql: unknown[] = [];
-  if (filters.genres.length) {
-    extraSql.push(sql`${gamesCatalog.genres} && ARRAY[${sql.join(
-      filters.genres.map((g) => sql`${g}`),
-      sql`, `,
-    )}]::text[]` as never);
+  if (primaryCond) extraSql.push(primaryCond as never);
+  if (split.hardGenres.length) {
+    extraSql.push(sql`${gamesCatalog.genres} && ${textArray(split.hardGenres)}` as never);
   }
-  if (filters.tags.length) {
-    extraSql.push(sql`${gamesCatalog.tags} && ARRAY[${sql.join(
-      filters.tags.map((t) => sql`${t}`),
-      sql`, `,
-    )}]::text[]` as never);
+  if (split.hardTags.length) {
+    extraSql.push(sql`${gamesCatalog.tags} && ${textArray(split.hardTags)}` as never);
   }
   if (filters.platforms.length) {
     extraSql.push(sql`${gamesCatalog.platform} = ANY(ARRAY[${sql.join(
@@ -241,13 +259,22 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
 
   const whereClause = extraSql.length > 0 ? and(...(conditions as never[]), ...extraSql as never[]) : and(...(conditions as never[]));
 
-  let orderExpr: unknown = sql`random()`;
-  if (filters.ordering === "-metacritic") orderExpr = sql`${gamesCatalog.metacritic} DESC NULLS LAST, random()`;
-  else if (filters.ordering === "metacritic") orderExpr = sql`${gamesCatalog.metacritic} ASC NULLS LAST, random()`;
-  else if (filters.ordering === "-rating") orderExpr = sql`${gamesCatalog.rating}::numeric DESC NULLS LAST, random()`;
-  else if (filters.ordering === "-released") orderExpr = sql`${gamesCatalog.releasedAt} DESC NULLS LAST, random()`;
-  else if (filters.ordering === "name") orderExpr = sql`lower(${gamesCatalog.title}) ASC`;
-  else if (filters.ordering === "-name") orderExpr = sql`lower(${gamesCatalog.title}) DESC`;
+  let baseOrder = sql`random()`;
+  if (filters.ordering === "-metacritic") baseOrder = sql`${gamesCatalog.metacritic} DESC NULLS LAST, random()`;
+  else if (filters.ordering === "metacritic") baseOrder = sql`${gamesCatalog.metacritic} ASC NULLS LAST, random()`;
+  else if (filters.ordering === "-rating") baseOrder = sql`${gamesCatalog.rating}::numeric DESC NULLS LAST, random()`;
+  else if (filters.ordering === "-released") baseOrder = sql`${gamesCatalog.releasedAt} DESC NULLS LAST, random()`;
+  else if (filters.ordering === "name") baseOrder = sql`lower(${gamesCatalog.title}) ASC`;
+  else if (filters.ordering === "-name") baseOrder = sql`lower(${gamesCatalog.title}) DESC`;
+  // The preferences come first: how many of the season's other genres and tags
+  // a game carries (`secondaryScore` in the engine says the same in TS). The
+  // draw picks among the first `maxCandidates`, so a horror game that is also
+  // survival and action comes up more often than a horror game that is neither
+  // — but every game drawn is a horror game.
+  const orderExpr: unknown =
+    split.soft.length > 0
+      ? sql`cardinality(ARRAY(SELECT unnest(${gamesCatalog.genres} || ${gamesCatalog.tags}) INTERSECT SELECT unnest(${textArray(split.soft)}))) DESC, ${baseOrder}`
+      : baseOrder;
 
   // ---- catalog + hybrid: local filtered pool first ----
   let candidates: CatalogGame[] = [];
@@ -326,10 +353,20 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   // non-blacklisted game at all, played or not. That is what made "already
   // played games never come up" untrue, and it was invisible: the player was
   // simply handed something familiar and nobody was told the pool had run dry.
+  //
+  // Nor the primary tag: it is not a filter either — it is what the season
+  // is. A Horror season that has run out of horror games says so; it does not
+  // start handing out whatever is left.
   const anyFallback = await db
     .select()
     .from(gamesCatalog)
-    .where(and(eq(gamesCatalog.isBlacklisted, false) as never, ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : [])))
+    .where(
+      and(
+        eq(gamesCatalog.isBlacklisted, false) as never,
+        ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : []),
+        ...(primaryCond ? [primaryCond as never] : []),
+      ),
+    )
     .orderBy(sql`random()`)
     .limit(1);
   if (anyFallback[0]) return { game: anyFallback[0], reason: null };

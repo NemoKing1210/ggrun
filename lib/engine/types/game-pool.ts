@@ -27,6 +27,13 @@ export interface GamePoolFilters {
   onlyWithCover: boolean;
   ordering: string;
   searchQuery: string | null;
+  /**
+   * The one genre or tag a game must carry to be drawn (see
+   * `lib/engine/pool/primary.ts`). Set by a template from its name, editable on
+   * its own. When set, `genres` and `tags` only rank; `null` keeps them as
+   * requirements, as they always were.
+   */
+  primaryTag: string | null;
 }
 
 export interface GamePoolCatalogOptions {

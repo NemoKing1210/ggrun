@@ -65,3 +65,41 @@ describe("SeasonConfigSchema", () => {
     ).toThrow();
   });
 });
+
+describe("the primary tag of a season saved before it existed", () => {
+  // "newone" was set up from the Horror template before primary tags existed:
+  // its stored config has no `primaryTag` key. It should start handing out
+  // horror games without anyone re-saving it.
+  it("comes from the template the season was set up from", () => {
+    const parsed = SeasonConfigSchema.parse({
+      gamePool: { templateId: "horror", filters: { genres: ["action", "adventure"], tags: ["horror", "survival"] } },
+    });
+    expect(parsed.gamePool.filters.primaryTag).toBe("horror");
+    expect(
+      SeasonConfigSchema.parse({ gamePool: { templateId: "cozy", filters: {} } }).gamePool.filters.primaryTag,
+    ).toBe("casual");
+  });
+
+  it("is left empty for a season with no template, or an unknown one", () => {
+    expect(SeasonConfigSchema.parse({ gamePool: { filters: { tags: ["horror"] } } }).gamePool.filters.primaryTag).toBeNull();
+    expect(
+      SeasonConfigSchema.parse({ gamePool: { templateId: "gone", filters: {} } }).gamePool.filters.primaryTag,
+    ).toBeNull();
+  });
+
+  // The form always sends the key; a host who cleared the primary tag of a
+  // Horror season meant it, and the template must not put it back.
+  it("is never overridden once the key is stored, null included", () => {
+    expect(
+      SeasonConfigSchema.parse({ gamePool: { templateId: "horror", filters: { primaryTag: null } } }).gamePool.filters.primaryTag,
+    ).toBeNull();
+    expect(
+      SeasonConfigSchema.parse({ gamePool: { templateId: "horror", filters: { primaryTag: "zombie" } } }).gamePool.filters.primaryTag,
+    ).toBe("zombie");
+  });
+
+  it("survives a round trip through the schema", () => {
+    const once = SeasonConfigSchema.parse({ gamePool: { templateId: "rpg", filters: {} } });
+    expect(SeasonConfigSchema.parse(once)).toEqual(once);
+  });
+});

@@ -138,6 +138,13 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
             const s = v ? String(v).trim() : "";
             return s ? s : null;
           })(),
+          // Always sent, `null` included: an absent key is how the schema
+          // recognises a season saved before primary tags existed.
+          primaryTag: (() => {
+            const v = formData.get("filters_primaryTag");
+            const s = v ? String(v).trim() : "";
+            return s ? s : null;
+          })(),
         },
         catalog: {
           allowManualAdd: parseBool("catalog_allowManualAdd", true),

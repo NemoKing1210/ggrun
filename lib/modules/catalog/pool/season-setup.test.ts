@@ -110,6 +110,36 @@ describe("revertTemplate", () => {
   });
 });
 
+describe("the primary tag through apply and revert", () => {
+  it("is set by the template", () => {
+    expect(applyTemplate(freshConfig(), HORROR).gamePool.filters.primaryTag).toBe("horror");
+    expect(applyTemplate(applyTemplate(freshConfig(), HORROR), STRATEGY).gamePool.filters.primaryTag).toBe("strategy");
+  });
+
+  it("goes back to what the host had when the template is cleared", () => {
+    const base = freshConfig();
+    base.gamePool.filters.primaryTag = "zombie";
+    const snapshot = captureTemplateSnapshot(base);
+    expect(revertTemplate(applyTemplate(base, HORROR), snapshot).gamePool.filters.primaryTag).toBe("zombie");
+    expect(revertTemplate(applyTemplate(freshConfig(), HORROR), null).gamePool.filters.primaryTag).toBeNull();
+  });
+
+  it("counts as a change to the pool stage on its own", () => {
+    const cfg = applyTemplate(freshConfig(), HORROR);
+    const edited: SeasonConfig = {
+      ...cfg,
+      gamePool: { ...cfg.gamePool, filters: { ...cfg.gamePool.filters, primaryTag: null } },
+    };
+    expect(changedStages({ config: cfg }, { config: edited })).toEqual(["pool"]);
+  });
+
+  it("is cleared by resetting the pool stage, with the template", () => {
+    const reset = resetStage(applyTemplate(freshConfig(), HORROR), "pool");
+    expect(reset.gamePool.filters.primaryTag).toBeNull();
+    expect(reset.gamePool.templateId).toBeNull();
+  });
+});
+
 describe("toggleTemplate", () => {
   it("selects on first click and deselects on second", () => {
     const snapshot = captureTemplateSnapshot(freshConfig());

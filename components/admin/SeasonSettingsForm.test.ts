@@ -53,3 +53,32 @@ describe("the season settings form keeps the provider the admin chose", () => {
     expect(text).toMatch(/if \(state\.error\) return;/);
   });
 });
+
+/**
+ * "Completed stages glow bright yellow and the selected one is pale — swap
+ * them." Amber means "selected" across this editor (DESIGN.md §1.2), so the
+ * stage you are on is the bright one, in the tab row and in the progress bar
+ * alike, and stages already confirmed are pale.
+ */
+describe("the season wizard marks the current stage, not the finished ones, in bright amber", () => {
+  // The segment's class expression, after its `data-stage-state` attribute.
+  const start = text.indexOf("className=", text.indexOf("data-stage-state="));
+  const segment = text.slice(start, start + 1500);
+
+  it("fills the selected tab with solid amber", () => {
+    expect(text).toMatch(/activeTab === id \? "border-amber bg-amber text-black"/);
+  });
+
+  it("paints the current segment solid and confirmed ones pale", () => {
+    expect(segment.length).toBeGreaterThan(500);
+    const current = segment.match(/current\s*\?\s*changed\s*\?\s*"[^"]*"\s*:\s*"([^"]*)"/);
+    expect(current?.[1], "current, no unsaved edits").toBe("bg-amber");
+    const done = segment.match(/:\s*done\s*\?\s*"([^"]*)"/);
+    expect(done?.[1], "confirmed stage").toMatch(/^bg-amber\/\d+\b/);
+  });
+
+  it("keeps unsaved edits visible on the current stage too", () => {
+    const currentChanged = segment.match(/current\s*\?\s*changed\s*\?\s*"([^"]*)"/);
+    expect(currentChanged?.[1]).toMatch(/repeating-linear-gradient/);
+  });
+});

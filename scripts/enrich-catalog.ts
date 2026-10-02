@@ -49,6 +49,7 @@ async function main() {
             onlyWithCover: false,
             ordering: "-metacritic",
             searchQuery: row.title,
+            primaryTag: null,
           },
           pageSize: 3,
         });

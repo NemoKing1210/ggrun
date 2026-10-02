@@ -1,11 +1,13 @@
 import type { ExternalGame, GameProvider, ProviderSearchParams } from "./provider";
 import { PLATFORMS } from "@/lib/modules/catalog/pool/constants";
+import { hardProviderFilters } from "@/lib/modules/catalog/pool/primary-filters";
 import { getEffectiveProviderKeys } from "./keys";
 import { fetchExternal } from "@/lib/infrastructure/http/external-fetch";
 
 const RAWG_BASE = "https://api.rawg.io/api";
 
-async function buildQuery(filters: ProviderSearchParams["filters"], pageSize: number, page: number): Promise<string> {
+async function buildQuery(seasonFilters: ProviderSearchParams["filters"], pageSize: number, page: number): Promise<string> {
+  const filters = hardProviderFilters(seasonFilters);
   const p = new URLSearchParams();
   const { rawgApiKey } = await getEffectiveProviderKeys();
   if (rawgApiKey) p.set("key", rawgApiKey);

@@ -58,6 +58,7 @@ export const rules = {
   boardDetails: "{size} cells · {distribution} · {special} specials ({bonus} bonus, {penalty} penalty, {teleport} teleports, {event} events) + {normal} normals",
   poolDetails: "Source {source} via {provider} · ordering {ordering} · {candidates} candidates · cache {cache}h",
   filtersLabel: "Active filters",
+  primaryTagRule: "Every game in the pool is {tag}; the season's other genres and tags only decide which come up first.",
   noFilters: "No filters — full catalog.",
   flowSteps: ["Roll a game from the pool", "Play and mark passed / dropped / reroll", "Dice is rolled on server with streak + balance", "Landing cell effect applies", "Position and balance update, event logged"],
   cellsText: "Start → Normal loop → Finish. Special cells shift position, balance or trigger events.",

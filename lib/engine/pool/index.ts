@@ -43,3 +43,10 @@ export const POOL_EMPTY_ERROR: Record<PoolEmptyReason, string> = {
 };
 
 export { sampleUniform } from "./sample";
+export {
+  TEMPLATE_PRIMARY_TAG,
+  matchesPrimaryTag,
+  primaryTagSlugs,
+  secondaryScore,
+  splitPoolFilters,
+} from "./primary";

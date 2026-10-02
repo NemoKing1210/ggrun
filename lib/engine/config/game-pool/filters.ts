@@ -16,4 +16,8 @@ export const GamePoolFiltersSchema = z.object({
   onlyWithCover: z.boolean().default(false),
   ordering: z.string().default("-metacritic"),
   searchQuery: z.union([z.string(), z.null()]).default(null),
+  // Optional on input on purpose: a stored config without the key predates
+  // primary tags, and GamePoolConfigSchema fills it from the season's template.
+  // An explicit null means "no primary tag" and is kept.
+  primaryTag: z.union([z.string().min(1), z.null()]).optional(),
 });

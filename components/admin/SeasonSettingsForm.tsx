@@ -68,6 +68,10 @@ import {
   type TemplateSnapshot,
 } from "@/lib/modules/catalog/pool/season-setup";
 
+/** A genre or tag value as the editor labels it; the value itself when unknown. */
+const CATEGORY_LABEL = new Map<string, string>([...GENRES, ...TAGS].map((o) => [o.value, o.label]));
+const categoryLabel = (value: string) => CATEGORY_LABEL.get(value) ?? value;
+
 const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   EyeIcon,
   PuzzlePieceIcon,
@@ -328,6 +332,9 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     formData.set("filters_onlyWithCover", cfg.gamePool.filters.onlyWithCover ? "true" : "false");
     formData.set("filters_ordering", cfg.gamePool.filters.ordering);
     formData.set("filters_searchQuery", cfg.gamePool.filters.searchQuery ?? "");
+    // Always sent, "" for none: a missing field would let the server derive one
+    // from the template, undoing a host who cleared it on purpose.
+    formData.set("filters_primaryTag", cfg.gamePool.filters.primaryTag ?? "");
     formData.set("filters_ordering", cfg.gamePool.filters.ordering);
     // `entries` is keyed by catalog key, so it cannot be flattened into named
     // inputs at compile time. The controls above are all visual; this is only
@@ -359,8 +366,11 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
         setActiveTab(id);
         setResetArmed(null);
       }}
+      aria-current={activeTab === id ? "page" : undefined}
       className={`px-4 py-2 text-sm font-display uppercase tracking-wider border-b-2 transition ${
-        activeTab === id ? "border-amber text-amber bg-amber/10" : "border-transparent text-zinc-400 hover:text-amber"
+        // Bright amber is the selection — the tab you are on. Stages already
+        // passed are the pale ones, in the progress bar below.
+        activeTab === id ? "border-amber bg-amber text-black" : "border-transparent text-zinc-400 hover:text-amber"
       }`}
     >
       {label}
@@ -411,13 +421,20 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   aria-label={t.admin.settings.tabs[s]}
                   aria-current={current ? "step" : undefined}
                   title={`${t.admin.settings.tabs[s]} — ${stateLabel}`}
+                  data-stage-state={current ? (changed ? "current-changed" : "current") : changed ? "changed" : done ? "done" : "pending"}
                   className={`h-2 flex-1 transition [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${
-                    changed
-                      ? "bg-amber brightness-125 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
-                      : current
-                        ? "bg-amber/40"
+                    // Bright amber marks the stage you are on, as it does the
+                    // tab above; stages already confirmed are pale. Unsaved
+                    // edits are hazard-striped — bright on the current stage,
+                    // pale elsewhere — so they stay visible in both.
+                    current
+                      ? changed
+                        ? "bg-[repeating-linear-gradient(-45deg,var(--hud-amber)_0_6px,#8a6000_6px_12px)]"
+                        : "bg-amber"
+                      : changed
+                        ? "bg-[repeating-linear-gradient(-45deg,rgba(242,169,0,0.55)_0_6px,#27261f_6px_12px)] hover:brightness-125"
                         : done
-                          ? "bg-amber shadow-[0_0_8px_rgba(251,191,36,0.35)]"
+                          ? "bg-amber/35 hover:bg-amber/50"
                           : "bg-zinc-800 hover:bg-zinc-700"
                   }`}
                 />
@@ -460,6 +477,11 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                       {cfg.gamePool.templateId === tpl.id && <Badge variant="amber" size="sm" className="ml-auto">{t.admin.settings.activeBadge}</Badge>}
                     </div>
                     <p className="text-xs text-zinc-400 leading-relaxed">{tpl.description}</p>
+                    {tpl.filters.primaryTag ? (
+                      <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-amber">
+                        {format(t.admin.settings.templatePrimaryLabel, { tag: categoryLabel(tpl.filters.primaryTag) })}
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex gap-1.5 flex-wrap">
                       {(tpl.filters.genres ?? []).slice(0, 3).map((g) => (
                         <Badge key={g} variant="neutral" size="sm">{g}</Badge>
@@ -898,7 +920,8 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     ...support.ignoredTags.map((tg) => labelOf(TAGS, tg)),
                   ];
                   const blockedText =
-                    support.blocked === "genres" ? t.admin.settings.f2gBlockedGenres
+                    support.blocked === "primary" ? format(t.admin.settings.f2gBlockedPrimary, { tag: categoryLabel(cfg.gamePool.filters.primaryTag ?? "") })
+                    : support.blocked === "genres" ? t.admin.settings.f2gBlockedGenres
                     : support.blocked === "tags" ? t.admin.settings.f2gBlockedTags
                     : support.blocked === "platforms" ? t.admin.settings.f2gBlockedPlatforms
                     : null;
@@ -927,6 +950,31 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                     <Link href="/admin/settings" className="hud-btn hud-btn-primary mt-2 inline-flex !py-1.5 !px-3 text-xs">Go to Settings</Link>
                   </div>
                 )}
+              </div>
+
+              {/* Primary tag — the one requirement; everything below only ranks while it is set */}
+              <div className="hud-card bg-[#0f0f0f] border-zinc-800 p-4 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+                <Field label={t.admin.settings.primaryTagLabel} hint={t.admin.settings.primaryTagHint}>
+                  <Select
+                    value={cfg.gamePool.filters.primaryTag ?? ""}
+                    onChange={(e) => setFilters({ primaryTag: e.target.value || null })}
+                  >
+                    <option value="">{t.admin.settings.primaryTagNone}</option>
+                    <optgroup label={t.admin.settings.primaryTagGenres}>
+                      {GENRES.map((g) => (
+                        <option key={g.value} value={g.value}>{g.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={t.admin.settings.primaryTagTags}>
+                      {TAGS.map((tg) => (
+                        <option key={tg.value} value={tg.value}>{tg.label}</option>
+                      ))}
+                    </optgroup>
+                  </Select>
+                </Field>
+                <p className="mt-2 font-mono text-xs leading-relaxed text-dim">
+                  {cfg.gamePool.filters.primaryTag ? t.admin.settings.primaryTagSoftNote : t.admin.settings.primaryTagOffNote}
+                </p>
               </div>
 
               {/* Advanced filters — collapsible (less important) */}

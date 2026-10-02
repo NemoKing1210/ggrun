@@ -23,7 +23,7 @@
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
-| Tests | **570 unit tests** (330 engine + 240 added in sessions 16–23) + 103 live assertions from session 15; tsc, eslint, `next build` and a browser pass against the live app all green |
+| Tests | **686 unit tests / 41 files** (as of session 24f) + the harness probes recorded per session; tsc, eslint, `next build` and a browser pass against the live app all green |
 | Uncommitted | Yes — everything below lives in the working tree only, by request |
 | **Action needed** | Run `pnpm db:push` then `pnpm db:seed` — and note migration `0017` (`season_players.finished_at`) is new as of session 23. Verified end-to-end against a scratch Postgres, **not applied to your database** |
 | Next step | **Yours**: run `pnpm db:push` + `pnpm db:seed`, then play a season through. Nothing is committed — see below. |
@@ -45,6 +45,87 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-02 — Session 24g · Bright amber is where you are
+
+Asked: in the season wizard, confirmed stages glowed bright and the selected
+one was pale — swap them, bright amber for what is selected.
+
+The tab row and the progress bar under it now agree: the selected tab is
+solid amber with dark text (it was a 10% tint), and its segment is solid
+amber; confirmed stages are `bg-amber/35`; pending stays `zinc-800`. The
+"changed, not saved" state used to be a brighter copy of "confirmed", which
+read the same; it is hazard-striped now — bright on the current stage, pale
+elsewhere — so it is still visible on the stage being edited, where bright
+amber alone would have hidden it. Each segment carries `data-stage-state`.
+`DESIGN.md` §6 updated.
+
+**Verified.** Built app in a browser (7 checks: states on open, solid current,
+pale confirmed, solid tab with dark text, an edit marks the current stage
+striped, moving on leaves it pale-striped, no page errors; screenshots
+looked at). Live dev server: `newone` shows the same. Guard test in
+`SeasonSettingsForm.test.ts`, two mutations caught (old segment colours, old
+tab tint). `tsc` · `eslint` 0 errors · **689 tests / 41 files** · `next build`.
+
+---
+
+## 2026-10-02 — Session 24f · A template has a primary tag
+
+Asked: "if we picked Horror, the player expects horror games" — a template
+should be checked against one main tag taken from its name (Indie Gems →
+indie), not against its whole genre/tag list. The host's calls: the template's
+other genres and tags **rank** rather than filter; Cozy & Family → `casual`;
+editing genres and tags by hand **keeps** the primary tag.
+
+**Model.** `lib/engine/pool/primary.ts` (pure): `TEMPLATE_PRIMARY_TAG` for all
+12 templates (Competitive / Multiplayer → `multiplayer`), matched as a genre
+*or* a tag because providers disagree on which is which, `roguelike ≈
+roguelite`. `GamePoolFilters.primaryTag: string | null`; `splitPoolFilters`
+says what is required and what only ranks.
+
+**The draw** (`pickGameForRoll`). The primary tag is required in every query,
+the last-resort catalog fallback included — a Horror season that has run out
+of horror games says so instead of handing out anything. The other genres and
+tags become the first `ORDER BY` key (how many of them a game carries), ahead
+of the season's ordering; the pick is still random among the first
+`maxCandidates`. Genres a board cell locks (`perCellGenre`) stay required.
+
+**Providers.** FreeToGame: every request carries the primary category — the
+category on its own (so a horror game with none of the other values is
+reachable) plus pairs with the other values, which only credit tags for
+ranking; ≤ 6 per roll. A primary tag FreeToGame has no category for (indie,
+retro, adventure, atmospheric…) fetches nothing and the pool tab shows it in
+red; the other values can no longer block a season. RAWG and GameSpot are
+asked for the primary tag alone (`hardProviderFilters`).
+
+**Old seasons.** A stored config with a `templateId` and no `primaryTag` key
+reads as that template's primary tag — `newone` became a horror-only season
+without being re-saved (checked on the live dev server). The form always sends
+the key, so a host who clears it keeps it cleared.
+
+**UI.** Pool tab: "Primary tag" select (genres / tags), a hint, and a line that
+says what the genres and tags below do in either mode; template cards read
+"Primary: Horror"; the rules page states it. en/ru/uk.
+
+**Verified.** `tsc` · `eslint` 0 errors · **686 tests / 41 files** ·
+`next build` · ten mutations, all caught. DB probe with a fake FreeToGame
+(9 checks): the legacy Horror season — 15/15 rolls horror at FreeToGame, the
+Naraka stand-in never; primary cleared → the old broad filter again; catalog
+season → only horror rows, the one with most other values first;
+horror exhausted → no game. Built app in a browser: 12 checks (legacy season
+opens on Horror, Indie under FreeToGame blocked, clearing saves `null` and
+survives a reload, a new value saves without touching genres/tags, rules
+page). Live dev server: `newone`'s pool tab shows Horror, no console errors.
+No roll was made against your database.
+
+**Worth knowing.** Under FreeToGame a horror season can only hand out what
+FreeToGame files under *horror*, which is a small category; when a player has
+had them all the roll says the filters exclude every unplayed game. The open
+roll on the admin dashboard from 24b was drawn under the old rules.
+
+**Still open.** The reroll limit: per game or per season (see 24c).
 
 ---
 

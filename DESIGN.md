@@ -210,7 +210,7 @@ Cells `w-8 h-8 border [clip-path:polygon(4px_0,…)]` with `typeBg` (`bonus emer
 
 ## 6. Navigation
 
-Headers `SiteHeader.tsx` / `AdminHeader.tsx`: `sticky top-0 z-40 border-b bg-[#151514]/95 backdrop-blur-sm`, nav links `font-display uppercase`, active amber. Tabs in `SeasonSettingsForm`: `border-b-2` `border-amber text-amber bg-amber/10` when active, else `text-zinc-400 hover:text-amber`.
+Headers `SiteHeader.tsx` / `AdminHeader.tsx`: `sticky top-0 z-40 border-b bg-[#151514]/95 backdrop-blur-sm`, nav links `font-display uppercase`, active amber. Tabs in `SeasonSettingsForm`: `border-b-2`, solid `border-amber bg-amber text-black` when active (bright amber = the current selection), else `text-zinc-400 hover:text-amber`. The wizard progress bar below follows the same rule: the current stage is solid amber, confirmed stages pale (`bg-amber/35`), unsaved edits hazard-striped, pending `zinc-800`.
 
 ---
 

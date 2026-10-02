@@ -60,6 +60,14 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   that every `EventType` is filed under a tab. This closed two pre-existing
   gaps: `season_reset` and `player_left` were reachable only under "All".
 
+### Changed
+- **The season wizard marks where you are in bright amber.** Stages already
+  confirmed glowed bright and the one being edited was pale, the reverse of
+  what amber means everywhere else in the editor. The selected tab is now
+  solid amber and so is its segment in the progress bar; confirmed stages are
+  pale; unsaved edits are hazard-striped, so they still show on the stage
+  being edited.
+
 ### Fixed
 - **An API-sourced season handed out games from the local catalog.** Three
   defects stacked up:
@@ -77,6 +85,18 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   mode, a save without one is stopped on the pool tab, the wizard advances
   only once the server accepts, and an API season draws only from games its
   provider supplied.
+- **A Horror season handed out games that were not horror.** A template was
+  a broad filter — Horror meant "(action or adventure) and (horror, survival,
+  atmospheric or zombie)" — so a survival battle royale qualified. Each
+  template now has a primary tag taken from its name (Horror → horror,
+  Indie Gems → indie, Cozy & Family → casual, Competitive → multiplayer), and a
+  game without it, as a genre or a tag, never comes up. The template's other
+  genres and tags only decide which games come up first. The primary tag has
+  its own field on the pool tab, editing genres and tags does not change it,
+  and it can be cleared to get the old behaviour back. Seasons set up from a
+  template before this change pick it up automatically. Under FreeToGame,
+  Indie Gems and Retro cannot be served (no such category) and the pool tab
+  says so.
 - **The game card showed genres only.** A game picked because of a tag looked
   like it did not match the season. Tags are now shown beside the genres, in their
   own colour, on the dashboard card and in the game details.
