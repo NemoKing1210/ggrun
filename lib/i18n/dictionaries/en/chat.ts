@@ -18,5 +18,8 @@ export const chat = {
   reconnecting: "reconnecting…",
   typingOne: "{name} is typing…",
   typingMany: "{names} are typing…",
+  you: "you",
+  messageCount: "{count} msgs",
+  newlineHint: "Shift+Enter — new line",
   close: "Close",
 } as const;

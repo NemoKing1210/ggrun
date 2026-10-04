@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownIcon, ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
+import { cn } from "@/lib/shared/utils/cn";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { useRealtime, useRealtimeConnects, useRealtimeEvent } from "@/components/realtime/realtime-provider";
 import { CHAT_ROOM, type ChatMessageBroadcast } from "@/lib/realtime/protocol";
@@ -23,6 +24,8 @@ type ChatMsg = {
 
 const PAGE_SIZE = 30;
 const POLL_MS = 5000;
+/** Two messages by one author closer than this form a "run" — later packets drop the repeated identity. */
+const RUN_MS = 7 * 60 * 1000;
 
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -55,6 +58,132 @@ function timeLabel(iso: string, locale: string | null): string {
   } catch {
     return d.toLocaleTimeString();
   }
+}
+
+/** Deterministic 4-hex callsign for a packet — the same message id always stamps the same tag. */
+function txTag(id: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).toUpperCase().padStart(4, "0").slice(0, 4);
+}
+
+/** Role → name ink + origin-rail colour. Danger red for admin is deliberate (DESIGN.md §2). */
+const ROLE_ACCENT: Record<string, { text: string; rail: string }> = {
+  admin: { text: "text-red-400", rail: "bg-red-400" },
+  judge: { text: "text-violet-400", rail: "bg-violet-400" },
+};
+const PLAYER_ACCENT = { text: "text-amber", rail: "bg-amber" };
+
+/** Three ascending bars — the packet's signal-strength mark, inked for TX / faded for RX. */
+function SignalBars({ own }: { own: boolean }) {
+  return (
+    <span aria-hidden className="flex h-2.5 items-end gap-[2px]">
+      <span className={cn("w-[2px]", own ? "h-1.5 bg-black/60" : "h-1.5 bg-amber/40")} />
+      <span className={cn("w-[2px]", own ? "h-[7px] bg-black/60" : "h-[7px] bg-amber/30")} />
+      <span className={cn("w-[2px]", own ? "h-2.5 bg-black/60" : "h-2.5 bg-amber/20")} />
+    </span>
+  );
+}
+
+/** Log-tape break between days — hairline rule, diamond nodes, stamped date chip. */
+function DayDivider({ iso, locale }: { iso: string; locale: string | null }) {
+  const labelText = formatDayLabel(iso, locale);
+  return (
+    <div className="my-4 flex items-center gap-2.5" role="separator" aria-label={labelText}>
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#242420]" aria-hidden />
+      <span className="size-1.5 rotate-45 border border-amber/40 bg-[#0a0a08]" aria-hidden />
+      <span className="border border-[#2a2a21] bg-[#121210] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-dim/70 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+        {labelText}
+      </span>
+      <span className="size-1.5 rotate-45 border border-amber/40 bg-[#0a0a08]" aria-hidden />
+      <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#242420]" aria-hidden />
+    </div>
+  );
+}
+
+type ChatPacketProps = {
+  msg: ChatMsg;
+  /** First packet of an author run — carries avatar + name; later packets drop the repeat. */
+  first: boolean;
+  own: boolean;
+  locale: string | null;
+  youLabel: string;
+  onNavigate: () => void;
+};
+
+/**
+ * One transmission = one framed packet. The class strip carries the direction
+ * code, the packet tag and the time; own packets invert it to amber ink and
+ * mirror to the right — the channel's single signature move.
+ */
+function ChatPacket({ msg, first, own, locale, youLabel, onNavigate }: ChatPacketProps) {
+  const label = msg.displayName ?? msg.username;
+  const accent = ROLE_ACCENT[msg.role] ?? PLAYER_ACCENT;
+
+  return (
+    <article
+      className={cn(
+        "relative w-fit max-w-[86%] border transition-colors duration-150",
+        "[clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]",
+        own
+          ? "ml-auto border-amber/35 bg-[#171208] hover:border-amber/55"
+          : "mr-auto border-[#20201a] bg-[#121210] hover:border-amber/20 hover:bg-[#16160f]",
+      )}
+    >
+      {/* origin rail — mirrors from the left edge to the right for own packets */}
+      <span aria-hidden className={cn("absolute inset-y-0 w-[2px]", own ? "right-0 bg-amber" : "left-0 " + accent.rail)} />
+
+      {/* class strip: direction · callsign · time */}
+      <div className={cn("flex items-center gap-2 px-2.5 py-1", own ? "bg-amber" : "border-b border-[#1e1e18] bg-black/25")}>
+        <SignalBars own={own} />
+        <span className={cn("font-mono text-[9px] uppercase tracking-[0.22em]", own ? "font-semibold text-black/80" : "text-dim/45")}>
+          {own ? "TX" : "RX"}
+        </span>
+        <span className={cn("font-mono text-[9px] tracking-[0.18em]", own ? "text-black/45" : "text-dim/25")}>#{txTag(msg.id)}</span>
+        <span className={cn("ml-auto font-mono text-[10px] tracking-widest tabular-nums", own ? "text-black/60" : "text-dim/45")}>
+          {timeLabel(msg.createdAt, locale)}
+        </span>
+      </div>
+
+      <div className="px-3 py-2">
+        {first && (
+          <div className={cn("mb-1.5 flex items-center gap-2", own && "flex-row-reverse")}>
+            <Link href={`/players/${msg.username}`} onClick={onNavigate} className="shrink-0">
+              {msg.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={msg.avatarUrl}
+                  alt={label}
+                  className="size-7 object-cover ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                />
+              ) : (
+                <AvatarFallback
+                  seed={msg.userId ?? msg.username}
+                  name={label}
+                  className="size-7 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                  emojiClassName="text-sm"
+                />
+              )}
+            </Link>
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <Link
+                href={`/players/${msg.username}`}
+                onClick={onNavigate}
+                className={cn("truncate font-display text-[12px] uppercase tracking-wide hover:underline", own ? "text-amber" : accent.text)}
+              >
+                {own ? youLabel : label}
+              </Link>
+              <span className="truncate font-mono text-[10px] tracking-widest text-dim/50">@{msg.username}</span>
+            </span>
+          </div>
+        )}
+        <p className="break-words whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-zinc-200">{msg.content}</p>
+      </div>
+    </article>
+  );
 }
 
 export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { isAuthenticated?: boolean; currentUserId?: string | null }) {
@@ -302,6 +431,26 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     [typists],
   );
 
+  /** Each message is its own packet; a run of same-author packets only marks the first. */
+  const items = useMemo(() => {
+    const out: Array<{ msg: ChatMsg; dayIso: string | null; first: boolean }> = [];
+    let lastDay = "";
+    let lastAuthor: string | null = null;
+    let lastTime = 0;
+    for (const m of msgs) {
+      const t = +new Date(m.createdAt);
+      const d = new Date(m.createdAt);
+      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const newDay = dayKey !== lastDay;
+      const first = newDay || lastAuthor !== m.userId || t - lastTime > RUN_MS;
+      out.push({ msg: m, dayIso: newDay ? m.createdAt : null, first });
+      lastDay = dayKey;
+      lastAuthor = m.userId;
+      lastTime = t;
+    }
+    return out;
+  }, [msgs]);
+
   const canSend = isAuthenticated && input.trim().length > 0 && input.trim().length <= 1000 && !sending;
 
   const handleSend = async () => {
@@ -342,6 +491,8 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
       const msg = data.message as ChatMsg;
       const normalized = { ...msg, createdAt: new Date(msg.createdAt).toISOString() };
       setMsgs((prev) => {
+        // The socket echo can land before this response — never render the same id twice.
+        if (prev.some((p) => p.id === normalized.id)) return prev;
         const next = [...prev, normalized].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
         return next.length > 300 ? next.slice(-300) : next;
       });
@@ -461,7 +612,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
               <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim/80 flex items-center gap-2">
                 <span className="hidden sm:inline">{chatT.hint}</span>
                 <span className="size-1 rounded-full bg-dim/30 hidden sm:inline-block" aria-hidden />
-                <span className="text-dim/60">{msgs.length > 0 ? msgs.length + ' msgs' : '—'}</span>
+                <span className="text-dim/60">{msgs.length > 0 ? format(chatT.messageCount, { count: String(msgs.length) }) : '—'}</span>
               </p>
             </div>
           </div>
@@ -496,13 +647,22 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
 
           {loading ? (
             <div className="space-y-2 py-6">
-              {[0,1,2].map((i) => (
-                <div key={i} className="animate-pulse flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                  <div className="size-7 shrink-0 bg-[#1e1e18]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-24 bg-[#1e1e18]" />
-                    <div className="h-3 w-full bg-[#1a1a16]" />
-                    <div className="h-3 w-3/4 bg-[#1a1a16]" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "animate-pulse border border-[#1e1e18] bg-[#121210] [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]",
+                    i === 1 ? "ml-auto w-[68%]" : "w-[82%]",
+                  )}
+                >
+                  <div className="flex items-center gap-2 border-b border-[#1e1e18] bg-black/25 px-2.5 py-1">
+                    <div className="size-2 bg-[#242420]" />
+                    <div className="h-2 w-16 bg-[#242420]" />
+                    <div className="ml-auto h-2 w-8 bg-[#1e1e18]" />
+                  </div>
+                  <div className="space-y-2 px-3 py-2.5">
+                    <div className="h-2.5 w-full bg-[#1e1e18]" />
+                    <div className="h-2.5 w-3/5 bg-[#1a1a16]" />
                   </div>
                 </div>
               ))}
@@ -516,83 +676,22 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
               <p className="mt-1.5 max-w-[26ch] font-mono text-[11px] leading-relaxed text-dim/60">{chatT.hint}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {(() => {
-                const groups: Array<{ key: string; dayKey: string; dayIso: string; userId: string; username: string; displayName: string | null; avatarUrl: string | null; role: string; isNewDay: boolean; msgs: typeof msgs }> = [];
-                const GROUP_MS = 7 * 60 * 1000;
-                let cur: (typeof groups)[number] | null = null;
-                let lastDayKey: string | null = null;
-                for (const m of msgs) {
-                  const d = new Date(m.createdAt);
-                  const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-                  const isNewDay = dayKey !== lastDayKey;
-                  if (isNewDay) lastDayKey = dayKey;
-                  const lastMsg = cur?.msgs[cur.msgs.length - 1];
-                  const gap = lastMsg ? d.getTime() - new Date(lastMsg.createdAt).getTime() : Infinity;
-                  const sameAuthor = cur !== null && cur.userId === m.userId && !isNewDay && gap < GROUP_MS;
-                  if (sameAuthor && cur) {
-                    cur.msgs.push(m);
-                  } else {
-                    const g = { key: m.id, dayKey, dayIso: m.createdAt, userId: m.userId, username: m.username, displayName: m.displayName, avatarUrl: m.avatarUrl, role: m.role, isNewDay: isNewDay, msgs: [m] as typeof msgs };
-                    // mark if this group starts a new day
-
-                    groups.push(g);
-                    cur = g;
-                  }
-                }
-                return groups.map((g) => {
-                  const label = g.displayName ?? g.username;
-                  const roleColor = g.role === "admin" ? "text-red-400" : g.role === "judge" ? "text-violet-400" : "text-amber";
-                  const isNewDay = g.isNewDay;
-                  return (
-                    <div key={g.key}>
-                      {isNewDay && (
-                        <div className="flex items-center gap-2 py-3">
-                          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#1e1e18]" aria-hidden />
-                          <span className="border border-[#2a2a21] bg-[#151510] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-dim/70 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                            {formatDayLabel(g.dayIso, locale)}
-                          </span>
-                          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#1e1e18]" aria-hidden />
-                        </div>
-                      )}
-                      <div className="group/msg flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 transition-colors hover:border-amber/15 hover:bg-[#191913] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                        <Link href={`/players/${g.username}`} className="shrink-0 self-start" onClick={() => setOpen(false)}>
-                          {g.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={g.avatarUrl} alt={label} className="size-8 object-cover ring-1 ring-white/5 group-hover/msg:ring-amber/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" />
-                          ) : (
-                            <AvatarFallback
-                              seed={g.userId ?? g.username}
-                              name={label}
-                              className="size-8 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-                              emojiClassName="text-base"
-                            />
-                          )}
-                        </Link>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Link href={`/players/${g.username}`} onClick={() => setOpen(false)} className={"truncate font-display text-[12px] uppercase tracking-wide hover:underline " + roleColor}>
-                              {label}
-                            </Link>
-                            <span className="font-mono text-[10px] tracking-widest text-dim/50">@{g.username}</span>
-                            <span className="ml-auto shrink-0 font-mono text-[10px] tracking-widest text-dim/40">{timeLabel(g.msgs[g.msgs.length - 1].createdAt, locale)}</span>
-                          </div>
-                          <div className="mt-1.5 flex flex-col">
-                            {g.msgs.map((m, idx) => (
-                              <div key={m.id} className={idx === 0 ? "" : "mt-1.5 border-t border-[#1e1e18]/60 pt-1.5"}>
-                                <p className="break-words font-mono text-[12px] leading-relaxed text-zinc-200">{m.content}</p>
-                                {g.msgs.length > 1 && (
-                                  <span className="mt-0.5 block text-right font-mono text-[10px] tracking-widest text-dim/30">{timeLabel(m.createdAt, locale)}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
+            <div className="flex flex-col">
+              {items.map(({ msg, dayIso, first }) => (
+                <Fragment key={msg.id}>
+                  {dayIso && <DayDivider iso={dayIso} locale={locale} />}
+                  <div className={first ? "mt-4 first:mt-0" : "mt-1"}>
+                    <ChatPacket
+                      msg={msg}
+                      first={first}
+                      own={currentUserId !== null && msg.userId === currentUserId}
+                      locale={locale}
+                      youLabel={chatT.you}
+                      onNavigate={() => setOpen(false)}
+                    />
+                  </div>
+                </Fragment>
+              ))}
             </div>
           )}
 
@@ -603,9 +702,10 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
                 setUnread(0);
                 scrollToBottom(true);
               }}
-              className="sticky bottom-2 z-10 mx-auto mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber px-3.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-black shadow-[0_6px_20px_rgba(0,0,0,0.5)] hover:bg-amber/90 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+              className="sticky bottom-2 z-10 mx-auto mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber px-3.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-black shadow-[0_2px_0_rgba(0,0,0,0.45)] hover:bg-amber/90 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
             >
-              {format(chatT.newMessages, { count: String(unread) })} <span aria-hidden>↓</span>
+              {format(chatT.newMessages, { count: String(unread) })}
+              <ArrowDownIcon className="size-3.5" aria-hidden />
             </button>
           )}
         </div>
@@ -660,7 +760,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
             return (
               <div className="mt-2 flex items-center justify-between gap-2">
                 <p className={"font-mono text-[10px] tracking-widest transition-colors " + col}>{len}/1000</p>
-                <p className="font-mono text-[10px] tracking-widest text-dim/40 hidden sm:block">Shift+Enter — новая строка</p>
+                <p className="font-mono text-[10px] tracking-widest text-dim/40 hidden sm:block">{chatT.newlineHint}</p>
               </div>
             );
           })()}

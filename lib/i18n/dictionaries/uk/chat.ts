@@ -21,5 +21,8 @@ export const chat: Widen<typeof ChatEn.chat> = {
   reconnecting: "перепідключення…",
   typingOne: "{name} друкує…",
   typingMany: "{names} друкують…",
+  you: "ти",
+  messageCount: "{count} повід.",
+  newlineHint: "Shift+Enter — новий рядок",
   close: "Закрити",
 } as const;
