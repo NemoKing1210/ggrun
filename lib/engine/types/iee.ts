@@ -1,7 +1,7 @@
 /**
  * Items / Effects / Events — domain types.
  *
- * See ITEMS_EFFECTS_EVENTS.md. Three layers, deliberately separated:
+ * See docs/ITEMS_EFFECTS_EVENTS.md. Three layers, deliberately separated:
  *  - the catalog (ItemDef / EffectDef) is developer-authored TypeScript;
  *  - the season pool (IeeConfig) is admin-tuned JSONB on `seasons.config`;
  *  - runtime state (inventories, statuses) lives in tables and never here.

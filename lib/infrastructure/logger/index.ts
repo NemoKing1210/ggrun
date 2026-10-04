@@ -57,8 +57,9 @@ function envLevel(): LogLevel {
 }
 
 const colorEnabled = (): boolean => {
-  if (process.env.NO_COLOR) return false;
+  // Node convention: explicit `FORCE_COLOR` wins over `NO_COLOR`.
   if (process.env.FORCE_COLOR === "1" || process.env.FORCE_COLOR === "true") return true;
+  if (process.env.NO_COLOR) return false;
   return Boolean(process.stdout.isTTY || process.stderr.isTTY);
 };
 
@@ -69,8 +70,29 @@ const cyan = (s: string) => wrap(s, "36");
 const yellow = (s: string) => wrap(s, "33");
 const red = (s: string) => wrap(s, "31");
 const magenta = (s: string) => wrap(s, "35");
+const green = (s: string) => wrap(s, "32");
 const bold = (s: string) => wrap(s, "1");
 const gray = (s: string) => wrap(s, "90");
+const underline = (s: string) => wrap(s, "4");
+
+/**
+ * Shared ANSI styling for dev-process console output (`scripts/dev.ts`,
+ * `server.ts`). Same `NO_COLOR`/`FORCE_COLOR` handling as log records —
+ * import this instead of hand-rolling escape codes.
+ */
+export const colors = {
+  dim,
+  cyan,
+  yellow,
+  red,
+  magenta,
+  green,
+  bold,
+  gray,
+  underline,
+  /** Cyan + underline — the standard look for clickable URLs. */
+  link: (s: string) => wrap(s, "36;4"),
+};
 
 const LEVEL_RANK: Record<LogLevel, number> = {
   debug: 10,

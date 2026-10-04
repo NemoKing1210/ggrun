@@ -364,6 +364,20 @@ export function resumeBotRun(runId: string): Promise<BotRun> {
   return setRunStatus(runId, "running", "bot_run_resumed");
 }
 
+/**
+ * Restart a stopped run whose bots are still season members. Stopped is also
+ * the post-cleanup state (synthetic users deleted) — resuming that would tick
+ * nothing forever, so the restart is refused without live memberships.
+ */
+export async function restartBotRun(runId: string): Promise<BotRun> {
+  const run = await getBotRun(runId);
+  if (!run) throw new BotError("botRunNotFound");
+  if (run.status !== "stopped") throw new BotError("botRunNotStopped");
+  const owned = await listBotOwnedPlayers(run.id, run.seasonId);
+  if (!owned.some((o) => o.seasonPlayerId !== null)) throw new BotError("botRunNoPlayers");
+  return setRunStatus(runId, "running", "bot_run_restarted");
+}
+
 export function stopBotRun(runId: string): Promise<BotRun> {
   return setRunStatus(runId, "stopped", "bot_run_stopped");
 }

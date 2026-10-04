@@ -40,7 +40,7 @@ type Tx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 /**
  * What became of a grant.
  *
- * `blocked_unique` is a real outcome, not a failure: `ITEMS_EFFECTS_EVENTS.md`
+ * `blocked_unique` is a real outcome, not a failure: `docs/ITEMS_EFFECTS_EVENTS.md`
  * §5.3 says a `unique` status that is already active rejects the new grant.
  * The wheel never reaches it — the picker gates duplicates out before a slice
  * is drawn — but an item aimed at someone who already carries the status does,
@@ -174,7 +174,7 @@ export async function grantInventoryItem(
       itemKey: def.key,
       params: input.params ?? resolveParams(def.key, catalogDefaults(), entry),
       // `durationOverride` doubles as an item's charge count — one control with
-      // two meanings, flagged in IEE_AUDIT.md §B3. Kept as it was rather than
+      // two meanings, flagged during the IEE audit. Kept as it was rather than
       // changed quietly: splitting the field is a config decision, not a fix.
       charges: Math.max(1, entry?.durationOverride ?? def.usage.charges),
       source: input.source,

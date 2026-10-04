@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownIcon, ChatBubbleLeftRightIcon, PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
+import { cn } from "@/lib/shared/utils/cn";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
+import { useRealtime, useRealtimeConnects, useRealtimeEvent } from "@/components/realtime/realtime-provider";
+import { CHAT_ROOM, type ChatMessageBroadcast } from "@/lib/realtime/protocol";
 
 type ChatMsg = {
   id: string;
@@ -19,8 +22,16 @@ type ChatMsg = {
   role: string;
 };
 
+/** One socket-delivered new-message alert stacked above the launcher. */
+type ChatAlert = { id: string; msg: ChatMsg; ts: number };
+
 const PAGE_SIZE = 30;
 const POLL_MS = 5000;
+/** Two messages by one author closer than this form a "run" — later packets drop the repeated identity. */
+const RUN_MS = 7 * 60 * 1000;
+/** Launcher alerts: how many stack above the button, how long each lives. */
+const ALERT_MAX = 3;
+const ALERT_TTL_MS = 7000;
 
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -55,9 +66,197 @@ function timeLabel(iso: string, locale: string | null): string {
   }
 }
 
-export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+/** Deterministic 4-hex callsign for a packet — the same message id always stamps the same tag. */
+function txTag(id: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).toUpperCase().padStart(4, "0").slice(0, 4);
+}
+
+/** Role → name ink + origin-rail colour. Danger red for admin is deliberate (docs/DESIGN.md §2). */
+const ROLE_ACCENT: Record<string, { text: string; rail: string }> = {
+  admin: { text: "text-red-400", rail: "bg-red-400" },
+  judge: { text: "text-violet-400", rail: "bg-violet-400" },
+};
+const PLAYER_ACCENT = { text: "text-amber", rail: "bg-amber" };
+
+/** Three ascending bars — the packet's signal-strength mark, inked for TX / faded for RX. */
+function SignalBars({ own }: { own: boolean }) {
+  return (
+    <span aria-hidden className="flex h-2.5 items-end gap-[2px]">
+      <span className={cn("w-[2px]", own ? "h-1.5 bg-black/60" : "h-1.5 bg-amber/40")} />
+      <span className={cn("w-[2px]", own ? "h-[7px] bg-black/60" : "h-[7px] bg-amber/30")} />
+      <span className={cn("w-[2px]", own ? "h-2.5 bg-black/60" : "h-2.5 bg-amber/20")} />
+    </span>
+  );
+}
+
+/** Log-tape break between days — hairline rule, diamond nodes, stamped date chip. */
+function DayDivider({ iso, locale }: { iso: string; locale: string | null }) {
+  const labelText = formatDayLabel(iso, locale);
+  return (
+    <div className="my-4 flex items-center gap-2.5" role="separator" aria-label={labelText}>
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#242420]" aria-hidden />
+      <span className="size-1.5 rotate-45 border border-amber/40 bg-[#0a0a08]" aria-hidden />
+      <span className="border border-[#2a2a21] bg-[#121210] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-dim/70 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+        {labelText}
+      </span>
+      <span className="size-1.5 rotate-45 border border-amber/40 bg-[#0a0a08]" aria-hidden />
+      <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#242420]" aria-hidden />
+    </div>
+  );
+}
+
+type ChatPacketProps = {
+  msg: ChatMsg;
+  /** First packet of an author run — carries avatar + name; later packets drop the repeat. */
+  first: boolean;
+  own: boolean;
+  locale: string | null;
+  youLabel: string;
+  onNavigate: () => void;
+};
+
+/**
+ * One transmission = one framed packet. The class strip carries the direction
+ * code, the packet tag and the time; own packets invert it to amber ink and
+ * mirror to the right — the channel's single signature move.
+ */
+function ChatPacket({ msg, first, own, locale, youLabel, onNavigate }: ChatPacketProps) {
+  const label = msg.displayName ?? msg.username;
+  const accent = ROLE_ACCENT[msg.role] ?? PLAYER_ACCENT;
+
+  return (
+    <article
+      className={cn(
+        "relative w-fit max-w-[86%] border transition-colors duration-150",
+        "[clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]",
+        own
+          ? "ml-auto border-amber/35 bg-[#171208] hover:border-amber/55"
+          : "mr-auto border-[#20201a] bg-[#121210] hover:border-amber/20 hover:bg-[#16160f]",
+      )}
+    >
+      {/* origin rail — mirrors from the left edge to the right for own packets */}
+      <span aria-hidden className={cn("absolute inset-y-0 w-[2px]", own ? "right-0 bg-amber" : "left-0 " + accent.rail)} />
+
+      {/* class strip: direction · callsign · time */}
+      <div className={cn("flex items-center gap-2 px-2.5 py-1", own ? "bg-amber" : "border-b border-[#1e1e18] bg-black/25")}>
+        <SignalBars own={own} />
+        <span className={cn("font-mono text-[9px] uppercase tracking-[0.22em]", own ? "font-semibold text-black/80" : "text-dim/45")}>
+          {own ? "TX" : "RX"}
+        </span>
+        <span className={cn("font-mono text-[9px] tracking-[0.18em]", own ? "text-black/45" : "text-dim/25")}>#{txTag(msg.id)}</span>
+        <span className={cn("ml-auto font-mono text-[10px] tracking-widest tabular-nums", own ? "text-black/60" : "text-dim/45")}>
+          {timeLabel(msg.createdAt, locale)}
+        </span>
+      </div>
+
+      <div className="px-3 py-2">
+        {first && (
+          <div className={cn("mb-1.5 flex items-center gap-2", own && "flex-row-reverse")}>
+            <Link href={`/players/${msg.username}`} onClick={onNavigate} className="shrink-0">
+              {msg.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={msg.avatarUrl}
+                  alt={label}
+                  className="size-7 object-cover ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                />
+              ) : (
+                <AvatarFallback
+                  seed={msg.userId ?? msg.username}
+                  name={label}
+                  className="size-7 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+                  emojiClassName="text-sm"
+                />
+              )}
+            </Link>
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <Link
+                href={`/players/${msg.username}`}
+                onClick={onNavigate}
+                className={cn("truncate font-display text-[12px] uppercase tracking-wide hover:underline", own ? "text-amber" : accent.text)}
+              >
+                {own ? youLabel : label}
+              </Link>
+              <span className="truncate font-mono text-[10px] tracking-widest text-dim/50">@{msg.username}</span>
+            </span>
+          </div>
+        )}
+        <p className="break-words whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-zinc-200">{msg.content}</p>
+      </div>
+    </article>
+  );
+}
+
+type ChatAlertCardProps = {
+  msg: ChatMsg;
+  locale: string | null;
+  tag: string;
+  ariaLabel: string;
+  onOpen: () => void;
+};
+
+/**
+ * New-transmission alert — the socket `chat:message` mirror raised above the
+ * launcher while the drawer is shut. Same packet anatomy as the list, shrunk
+ * to a header strip + identity + two-line preview; the whole card is one
+ * button that opens the drawer.
+ */
+function ChatAlertCard({ msg, locale, tag, ariaLabel, onOpen }: ChatAlertCardProps) {
+  const label = msg.displayName ?? msg.username;
+  const accent = ROLE_ACCENT[msg.role] ?? PLAYER_ACCENT;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={ariaLabel}
+      className="animate-hud-rise pointer-events-auto relative w-full border border-amber/40 bg-gradient-to-br from-[#171208] to-[#0a0a08] p-2.5 text-left shadow-[0_10px_30px_rgba(0,0,0,0.7),0_0_18px_rgb(var(--hud-amber-glow)/0.16)] transition-colors hover:border-amber/75 [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]"
+    >
+      {/* origin rail — same left-edge rail as an incoming packet */}
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-amber" />
+      {/* class strip: direction · tag · time */}
+      <span className="flex items-center gap-2 border-b border-amber/15 pb-1.5">
+        <SignalBars own={false} />
+        <span className="truncate font-mono text-[9px] uppercase tracking-[0.22em] text-amber/80">{tag}</span>
+        <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums tracking-widest text-dim/50">{timeLabel(msg.createdAt, locale)}</span>
+      </span>
+      <span className="mt-2 flex items-start gap-2">
+        {msg.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={msg.avatarUrl}
+            alt=""
+            className="size-7 shrink-0 object-cover ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+          />
+        ) : (
+          <AvatarFallback
+            seed={msg.userId ?? msg.username}
+            name={label}
+            className="size-7 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+            emojiClassName="text-sm"
+          />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-1.5">
+            <span className={cn("truncate font-display text-[12px] uppercase tracking-wide", accent.text)}>{label}</span>
+            <span className="truncate font-mono text-[10px] tracking-widest text-dim/45">@{msg.username}</span>
+          </span>
+          <span className="mt-0.5 line-clamp-2 break-words font-mono text-[12px] leading-snug text-zinc-200">{msg.content}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { isAuthenticated?: boolean; currentUserId?: string | null }) {
   const { t, locale } = useI18n();
   const chatT = t.chat;
+  const { socket, connected } = useRealtime();
+  const connects = useRealtimeConnects();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -68,11 +267,24 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
-
+  /** Socket-delivered alerts raised above the launcher while the drawer is shut. */
+  const [alerts, setAlerts] = useState<ChatAlert[]>([]);
+  /** userId → who is typing right now (socket `chat:typing`, expires in 3.5s). */
+  const [typists, setTypists] = useState<Record<string, { name: string; ts: number }>>({});
+  const lastTypingSentRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const initialLoaded = useRef(false);
+  /** Ids already merged into `msgs` — the dedupe gate for socket/live arrivals. */
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  /** `open` mirrored for the socket handler, which outlives re-renders. */
+  const openRef = useRef(false);
+  /** Pointer over the alert stack holds the expiry timer (reading pause). */
+  const alertsHoverRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = listRef.current;
@@ -89,6 +301,7 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
     // API returns messages oldest->newest for the page; normalized to ChatMsg with string date
     const mapped = data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() }));
     if (append === "replace") {
+      for (const m of mapped) knownIdsRef.current.add(m.id);
       setMsgs(mapped);
       setHasMore(data.hasMore);
       setNextBefore(data.nextBefore);
@@ -99,11 +312,9 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
       const el = listRef.current;
       const prevHeight = el?.scrollHeight ?? 0;
       const prevTop = el?.scrollTop ?? 0;
-      setMsgs((prev) => {
-        const existing = new Set(prev.map((p) => p.id));
-        const toAdd = mapped.filter((m) => !existing.has(m.id));
-        return [...toAdd, ...prev];
-      });
+      const toAdd = mapped.filter((m) => !knownIdsRef.current.has(m.id));
+      for (const m of toAdd) knownIdsRef.current.add(m.id);
+      setMsgs((prev) => [...toAdd, ...prev]);
       setHasMore(data.hasMore);
       setNextBefore(data.nextBefore);
       requestAnimationFrame(() => {
@@ -154,43 +365,117 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
     return () => el.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  // poll for new messages when open (and also keep unread when closed via light poll? only when open to save)
+  // Live messages over sockets. The subscription is permanent: while the
+  // drawer is shut the same event feeds the unread badge and the launcher
+  // alerts. The HTTP poll below stays a fallback for when the socket is
+  // disconnected (custom `dev:turbo`/`dev:next` servers, reconnect storms).
+  const appendLive = useCallback((incoming: ChatMsg[]) => {
+    if (incoming.length === 0) return;
+    const fresh = incoming.filter((n) => !knownIdsRef.current.has(n.id));
+    if (fresh.length === 0) return;
+    for (const n of fresh) knownIdsRef.current.add(n.id);
+    setMsgs((prev) => {
+      // merge and keep sorted by time, cap to avoid unbounded growth (keep last 300)
+      const merged = [...prev, ...fresh].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+      return merged.length > 300 ? merged.slice(-300) : merged;
+    });
+    // Unread counts whenever the reader cannot see the arrival: drawer shut,
+    // or open but scrolled up (the sticky "N new" chip).
+    if (!openRef.current || !atBottomRef.current) {
+      setUnread((n) => n + fresh.length);
+    } else {
+      requestAnimationFrame(() => scrollToBottom(true));
+    }
+  }, [scrollToBottom]);
+
+  /** Latest page merged over the live list — closes the offline gap. */
+  const fetchLatest = useCallback(async () => {
+    const qs = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    const res = await fetch(`/api/chat?${qs.toString()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { messages: ChatMsg[] };
+    appendLive(data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() })));
+  }, [appendLive]);
+
+  // Reconnect backfill: anything published while offline never arrives over
+  // the socket, so merge the latest page on every fresh connect.
+  const lastConnectSeen = useRef(connects);
+  useEffect(() => {
+    if (lastConnectSeen.current === connects) return;
+    lastConnectSeen.current = connects;
+    if (!open || msgs.length === 0) return;
+    void fetchLatest();
+  });
+  useRealtimeEvent(CHAT_ROOM, "chat:message", (m: ChatMessageBroadcast) => {
+    // Own POST already appended optimistically — the id guard drops the echo.
+    if (knownIdsRef.current.has(m.id)) return;
+    const msg: ChatMsg = { ...m, createdAt: new Date(m.createdAt).toISOString() };
+    appendLive([msg]);
+    // Raise the launcher alert for someone else's message, and only while the
+    // drawer is shut — an open drawer shows the packet in place.
+    if (!openRef.current && m.userId !== currentUserId) {
+      setAlerts((prev) => [...prev, { id: msg.id, msg, ts: Date.now() }].slice(-ALERT_MAX));
+    }
+  });
+  useRealtimeEvent(open ? CHAT_ROOM : null, "chat:typing", (hint) => {
+    if (hint.userId === currentUserId) return;
+    setTypists((prev) => ({
+      ...prev,
+      [hint.userId]: { name: hint.displayName ?? hint.username, ts: Date.now() },
+    }));
+  });
+
+  // typing hints expire — nobody "types" for longer than 3.5s without a refresh
   useEffect(() => {
     if (!open) return;
+    const id = window.setInterval(() => {
+      const cutoff = Date.now() - 3500;
+      setTypists((prev) => {
+        const next: typeof prev = {};
+        let changed = false;
+        for (const [k, v] of Object.entries(prev)) {
+          if (v.ts >= cutoff) next[k] = v;
+          else changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [open ]);
+
+  // launcher alerts expire on their own; hovering the stack holds them (reading pause)
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    const id = window.setInterval(() => {
+      if (alertsHoverRef.current) return;
+      const cutoff = Date.now() - ALERT_TTL_MS;
+      setAlerts((prev) => {
+        const next = prev.filter((a) => a.ts >= cutoff);
+        return next.length === prev.length ? prev : next;
+      });
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [alerts.length]);
+
+  // fallback poll for new messages — only while the socket is down
+  useEffect(() => {
+    if (!open || connected) return;
     const id = window.setInterval(async () => {
       if (msgs.length === 0) {
         fetchPage(null, "replace");
         return;
       }
-      // fetch latest page
-      const qs = new URLSearchParams({ limit: String(PAGE_SIZE) });
-      const res = await fetch(`/api/chat?${qs.toString()}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { messages: ChatMsg[]; hasMore: boolean; nextBefore: string | null };
-      const latest = data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() }));
-      const existingIds = new Set(msgs.map((m) => m.id));
-      const newOnes = latest.filter((m) => !existingIds.has(m.id));
-      if (newOnes.length === 0) return;
-      setMsgs((prev) => {
-        const prevIds = new Set(prev.map((p) => p.id));
-        const filtered = newOnes.filter((n) => !prevIds.has(n.id));
-        if (filtered.length === 0) return prev;
-        // merge and keep sorted by time, cap to avoid unbounded growth (keep last 300)
-        const merged = [...prev, ...filtered].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
-        return merged.length > 300 ? merged.slice(-300) : merged;
-      });
-      if (!atBottomRef.current) {
-        setUnread((n) => n + newOnes.length);
-      } else {
-        requestAnimationFrame(() => scrollToBottom(true));
-      }
+      void fetchLatest();
     }, POLL_MS);
     return () => window.clearInterval(id);
-  }, [open, msgs, fetchPage, scrollToBottom]);
+  }, [open, connected, msgs, fetchPage, fetchLatest]);
 
-  // when opening, ensure scrolled to bottom
+  // when opening, ensure scrolled to bottom; opening also consumes the badge and the alerts
   useEffect(() => {
-    if (open) requestAnimationFrame(() => scrollToBottom());
+    if (!open) return;
+    setUnread(0);
+    setAlerts([]);
+    requestAnimationFrame(() => scrollToBottom());
   }, [open, scrollToBottom]);
 
  // block page scroll when panel open (body lock + iOS touch guard)
@@ -233,6 +518,41 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /** Announce "I am typing" — client-throttled to one emit per 2.5s (the
+  server throttles again per socket, so bursts can never spam the room). */
+  const sendTypingHint = useCallback(() => {
+    if (!isAuthenticated || !connected || !socket) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2500) return;
+    lastTypingSentRef.current = now;
+    socket.emit("chat:typing");
+  }, [isAuthenticated, connected, socket]);
+
+  const typingNames = useMemo(
+    () => Object.values(typists).map((v) => v.name).slice(0, 3),
+    [typists],
+  );
+
+  /** Each message is its own packet; a run of same-author packets only marks the first. */
+  const items = useMemo(() => {
+    const out: Array<{ msg: ChatMsg; dayIso: string | null; first: boolean }> = [];
+    let lastDay = "";
+    let lastAuthor: string | null = null;
+    let lastTime = 0;
+    for (const m of msgs) {
+      const t = +new Date(m.createdAt);
+      const d = new Date(m.createdAt);
+      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const newDay = dayKey !== lastDay;
+      const first = newDay || lastAuthor !== m.userId || t - lastTime > RUN_MS;
+      out.push({ msg: m, dayIso: newDay ? m.createdAt : null, first });
+      lastDay = dayKey;
+      lastAuthor = m.userId;
+      lastTime = t;
+    }
+    return out;
+  }, [msgs]);
+
   const canSend = isAuthenticated && input.trim().length > 0 && input.trim().length <= 1000 && !sending;
 
   const handleSend = async () => {
@@ -272,7 +592,10 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
       }
       const msg = data.message as ChatMsg;
       const normalized = { ...msg, createdAt: new Date(msg.createdAt).toISOString() };
+      knownIdsRef.current.add(normalized.id);
       setMsgs((prev) => {
+        // The socket echo can land before this response — never render the same id twice.
+        if (prev.some((p) => p.id === normalized.id)) return prev;
         const next = [...prev, normalized].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
         return next.length > 300 ? next.slice(-300) : next;
       });
@@ -300,6 +623,29 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
           {unread > 0 ? `${unread > 99 ? "99+" : unread} · ${chatT.title}` : chatT.title} <span className="opacity-60">— {chatT.hint}</span>
         </span>
 
+        {/* Socket alerts — new transmissions raised above the launcher */}
+        <div
+          className="absolute bottom-full right-0 mb-3 flex w-[min(21rem,calc(100vw-2.5rem))] flex-col gap-2"
+          aria-live="polite"
+          onMouseEnter={() => {
+            alertsHoverRef.current = true;
+          }}
+          onMouseLeave={() => {
+            alertsHoverRef.current = false;
+          }}
+        >
+          {alerts.map((a) => (
+            <ChatAlertCard
+              key={a.id}
+              msg={a.msg}
+              locale={locale}
+              tag={chatT.notifyTag}
+              ariaLabel={format(chatT.notifyAria, { name: a.msg.displayName ?? a.msg.username, text: a.msg.content })}
+              onOpen={() => setOpen(true)}
+            />
+          ))}
+        </div>
+
         <div className="relative">
           {/* ping ring when unread */}
           {unread > 0 && !open && (
@@ -315,8 +661,8 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             aria-expanded={open}
             className={[
               "relative flex size-14 items-center justify-center border-2 bg-gradient-to-br from-[#1e1e18] to-[#0a0a08] text-amber shadow-[0_8px_28px_rgba(0,0,0,0.6)] transition-all duration-200 [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]",
-              "hover:scale-[1.07] hover:from-amber hover:to-[#e8a600] hover:text-black hover:shadow-[0_10px_36px_rgba(242,169,0,0.45)] active:scale-[0.97]",
-              open ? "border-amber bg-amber text-black shadow-[0_0_24px_rgba(242,169,0,0.5)]" : "animate-chat-amber",
+              "hover:scale-[1.07] hover:from-amber hover:to-[var(--hud-amber-border)] hover:text-black hover:shadow-[0_10px_36px_rgb(var(--hud-amber-glow)/0.45)] active:scale-[0.97]",
+              open ? "border-amber bg-amber text-black shadow-[0_0_24px_rgb(var(--hud-amber-glow)/0.5)]" : "animate-chat-amber",
             ].join(" ")}
           >
             {/* corner ticks */}
@@ -331,7 +677,7 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             <span className="relative flex items-center justify-center">
               <ChatBubbleLeftRightIcon
                 className={[
-                  "size-7 drop-shadow-[0_1px_6px_rgba(242,169,0,0.35)] transition-all duration-200",
+                  "size-7 drop-shadow-[0_1px_6px_rgb(var(--hud-amber-glow)/0.35)] transition-all duration-200",
                   open ? "scale-0 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100 group-hover/btn:scale-110 group-hover/btn:-rotate-3",
                 ].join(" ")}
                 aria-hidden
@@ -346,7 +692,7 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             </span>
             {/* unread badge */}
             {unread > 0 && !open && (
-              <span className="absolute -right-1.5 -top-1.5 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-amber px-1 py-0.5 font-mono text-[11px] font-bold leading-none text-black shadow-[0_2px_12px_rgba(242,169,0,0.65)] animate-chat-badge">
+              <span className="absolute -right-1.5 -top-1.5 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-amber px-1 py-0.5 font-mono text-[11px] font-bold leading-none text-black shadow-[0_2px_12px_rgb(var(--hud-amber-glow)/0.65)] animate-chat-badge">
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
@@ -377,15 +723,22 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-display text-[13px] uppercase tracking-[0.18em] text-amber leading-none">{chatT.title}</p>
-                <span className="hidden sm:inline-flex items-center gap-1.5 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" aria-hidden />
-                  LIVE
-                </span>
+                {connected ? (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" aria-hidden />
+                    LIVE
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 border border-amber/20 bg-amber/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber">
+                    <span className="size-1.5 rounded-full bg-amber animate-pulse" aria-hidden />
+                    {chatT.reconnecting}
+                  </span>
+                )}
               </div>
               <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim/80 flex items-center gap-2">
                 <span className="hidden sm:inline">{chatT.hint}</span>
                 <span className="size-1 rounded-full bg-dim/30 hidden sm:inline-block" aria-hidden />
-                <span className="text-dim/60">{msgs.length > 0 ? msgs.length + ' msgs' : '—'}</span>
+                <span className="text-dim/60">{msgs.length > 0 ? format(chatT.messageCount, { count: String(msgs.length) }) : '—'}</span>
               </p>
             </div>
           </div>
@@ -420,13 +773,22 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
 
           {loading ? (
             <div className="space-y-2 py-6">
-              {[0,1,2].map((i) => (
-                <div key={i} className="animate-pulse flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                  <div className="size-7 shrink-0 bg-[#1e1e18]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-24 bg-[#1e1e18]" />
-                    <div className="h-3 w-full bg-[#1a1a16]" />
-                    <div className="h-3 w-3/4 bg-[#1a1a16]" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "animate-pulse border border-[#1e1e18] bg-[#121210] [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]",
+                    i === 1 ? "ml-auto w-[68%]" : "w-[82%]",
+                  )}
+                >
+                  <div className="flex items-center gap-2 border-b border-[#1e1e18] bg-black/25 px-2.5 py-1">
+                    <div className="size-2 bg-[#242420]" />
+                    <div className="h-2 w-16 bg-[#242420]" />
+                    <div className="ml-auto h-2 w-8 bg-[#1e1e18]" />
+                  </div>
+                  <div className="space-y-2 px-3 py-2.5">
+                    <div className="h-2.5 w-full bg-[#1e1e18]" />
+                    <div className="h-2.5 w-3/5 bg-[#1a1a16]" />
                   </div>
                 </div>
               ))}
@@ -440,83 +802,22 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
               <p className="mt-1.5 max-w-[26ch] font-mono text-[11px] leading-relaxed text-dim/60">{chatT.hint}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {(() => {
-                const groups: Array<{ key: string; dayKey: string; dayIso: string; userId: string; username: string; displayName: string | null; avatarUrl: string | null; role: string; isNewDay: boolean; msgs: typeof msgs }> = [];
-                const GROUP_MS = 7 * 60 * 1000;
-                let cur: (typeof groups)[number] | null = null;
-                let lastDayKey: string | null = null;
-                for (const m of msgs) {
-                  const d = new Date(m.createdAt);
-                  const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-                  const isNewDay = dayKey !== lastDayKey;
-                  if (isNewDay) lastDayKey = dayKey;
-                  const lastMsg = cur?.msgs[cur.msgs.length - 1];
-                  const gap = lastMsg ? d.getTime() - new Date(lastMsg.createdAt).getTime() : Infinity;
-                  const sameAuthor = cur !== null && cur.userId === m.userId && !isNewDay && gap < GROUP_MS;
-                  if (sameAuthor && cur) {
-                    cur.msgs.push(m);
-                  } else {
-                    const g = { key: m.id, dayKey, dayIso: m.createdAt, userId: m.userId, username: m.username, displayName: m.displayName, avatarUrl: m.avatarUrl, role: m.role, isNewDay: isNewDay, msgs: [m] as typeof msgs };
-                    // mark if this group starts a new day
-
-                    groups.push(g);
-                    cur = g;
-                  }
-                }
-                return groups.map((g) => {
-                  const label = g.displayName ?? g.username;
-                  const roleColor = g.role === "admin" ? "text-red-400" : g.role === "judge" ? "text-violet-400" : "text-amber";
-                  const isNewDay = g.isNewDay;
-                  return (
-                    <div key={g.key}>
-                      {isNewDay && (
-                        <div className="flex items-center gap-2 py-3">
-                          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#1e1e18]" aria-hidden />
-                          <span className="border border-[#2a2a21] bg-[#151510] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-dim/70 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                            {formatDayLabel(g.dayIso, locale)}
-                          </span>
-                          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#1e1e18]" aria-hidden />
-                        </div>
-                      )}
-                      <div className="group/msg flex gap-2.5 border border-[#1e1e18] bg-[#121210] p-2.5 transition-colors hover:border-amber/15 hover:bg-[#191913] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                        <Link href={`/players/${g.username}`} className="shrink-0 self-start" onClick={() => setOpen(false)}>
-                          {g.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={g.avatarUrl} alt={label} className="size-8 object-cover ring-1 ring-white/5 group-hover/msg:ring-amber/20 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]" />
-                          ) : (
-                            <AvatarFallback
-                              seed={g.userId ?? g.username}
-                              name={label}
-                              className="size-8 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
-                              emojiClassName="text-base"
-                            />
-                          )}
-                        </Link>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Link href={`/players/${g.username}`} onClick={() => setOpen(false)} className={"truncate font-display text-[12px] uppercase tracking-wide hover:underline " + roleColor}>
-                              {label}
-                            </Link>
-                            <span className="font-mono text-[10px] tracking-widest text-dim/50">@{g.username}</span>
-                            <span className="ml-auto shrink-0 font-mono text-[10px] tracking-widest text-dim/40">{timeLabel(g.msgs[g.msgs.length - 1].createdAt, locale)}</span>
-                          </div>
-                          <div className="mt-1.5 flex flex-col">
-                            {g.msgs.map((m, idx) => (
-                              <div key={m.id} className={idx === 0 ? "" : "mt-1.5 border-t border-[#1e1e18]/60 pt-1.5"}>
-                                <p className="break-words font-mono text-[12px] leading-relaxed text-zinc-200">{m.content}</p>
-                                {g.msgs.length > 1 && (
-                                  <span className="mt-0.5 block text-right font-mono text-[10px] tracking-widest text-dim/30">{timeLabel(m.createdAt, locale)}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
+            <div className="flex flex-col">
+              {items.map(({ msg, dayIso, first }) => (
+                <Fragment key={msg.id}>
+                  {dayIso && <DayDivider iso={dayIso} locale={locale} />}
+                  <div className={first ? "mt-4 first:mt-0" : "mt-1"}>
+                    <ChatPacket
+                      msg={msg}
+                      first={first}
+                      own={currentUserId !== null && msg.userId === currentUserId}
+                      locale={locale}
+                      youLabel={chatT.you}
+                      onNavigate={() => setOpen(false)}
+                    />
+                  </div>
+                </Fragment>
+              ))}
             </div>
           )}
 
@@ -527,9 +828,10 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
                 setUnread(0);
                 scrollToBottom(true);
               }}
-              className="sticky bottom-2 z-10 mx-auto mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber px-3.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-black shadow-[0_6px_20px_rgba(0,0,0,0.5)] hover:bg-amber/90 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+              className="sticky bottom-2 z-10 mx-auto mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber px-3.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-widest text-black shadow-[0_2px_0_rgba(0,0,0,0.45)] hover:bg-amber/90 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
             >
-              {format(chatT.newMessages, { count: String(unread) })} <span aria-hidden>↓</span>
+              {format(chatT.newMessages, { count: String(unread) })}
+              <ArrowDownIcon className="size-3.5" aria-hidden />
             </button>
           )}
         </div>
@@ -537,13 +839,24 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
         {/* Composer — HUD inset */}
         <div className="shrink-0 border-t border-amber/10 bg-gradient-to-b from-[#151510] to-[#10100e] p-3">
           {error && <p className="mb-2 border-l-2 border-red-500/40 bg-red-500/5 px-2.5 py-1.5 font-mono text-[11px] leading-snug text-red-300">{error}</p>}
-          {/* Composer input — button inside */}
+          {typingNames.length > 0 && (
+            <p className="mb-2 flex items-center gap-2 font-mono text-[11px] tracking-widest text-amber/80" aria-live="polite">
+              <span className="inline-flex gap-1" aria-hidden>
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:0ms]" />
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:150ms]" />
+                <span className="size-1 rounded-full bg-amber animate-bounce [animation-delay:300ms]" />
+              </span>
+              {typingNames.length === 1
+                ? format(chatT.typingOne, { name: typingNames[0]! })
+                : format(chatT.typingMany, { names: typingNames.join(", ") })}
+            </p>
+          )}
           <div className="relative">
             <textarea
               ref={composerRef}
               disabled={!isAuthenticated}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); sendTypingHint(); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -573,7 +886,7 @@ export function GlobalChat({ isAuthenticated = false }: { isAuthenticated?: bool
             return (
               <div className="mt-2 flex items-center justify-between gap-2">
                 <p className={"font-mono text-[10px] tracking-widest transition-colors " + col}>{len}/1000</p>
-                <p className="font-mono text-[10px] tracking-widest text-dim/40 hidden sm:block">Shift+Enter — новая строка</p>
+                <p className="font-mono text-[10px] tracking-widest text-dim/40 hidden sm:block">{chatT.newlineHint}</p>
               </div>
             );
           })()}

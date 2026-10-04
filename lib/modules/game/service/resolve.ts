@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { eventLog, gameRolls, seasonPlayers, type User } from "@/db/schema";
+import { eventLog, gameRolls, gamesCatalog, seasonPlayers, type User } from "@/db/schema";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import {
@@ -19,6 +19,8 @@ import { canReroll, type RollOutcome } from "@/lib/engine";
 import { GameLoopError } from "./errors";
 import { assertActorAllowed, parseSeasonConfig } from "./helpers";
 import { applyResolvedTurn } from "./turn";
+import { notifyStaff, notifyUser } from "@/lib/modules/notifications/service";
+import { log } from "@/lib/infrastructure/logger";
 
 export async function resolveGameRoll(
   params: {
@@ -133,6 +135,18 @@ export async function resolveGameRoll(
             : { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
         });
       });
+      await notifyUser(sp.playerId, "reroll_approved", {
+        seasonId: sp.seasonId,
+        seasonSlug: season.slug,
+        seasonTitle: season.title,
+        seasonPlayerId: sp.id,
+        gameId: game.id,
+        gameTitle: game.title,
+        imageUrl: game.coverUrl ?? null,
+        rollId: roll.id,
+      }).catch((error) =>
+        log.error("notifications.reroll_approved.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
+      );
       return {
         fromPosition: sp.position,
         toPosition: sp.position,
@@ -146,6 +160,25 @@ export async function resolveGameRoll(
       eventType: "reroll_requested",
       payload: { gameId: roll.gameId, reason },
     });
+    const rerollGame = roll.gameId
+      ? (await db.select().from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1))[0]
+      : undefined;
+    const rerollInput = {
+      seasonId: sp.seasonId,
+      seasonSlug: season.slug,
+      seasonTitle: season.title,
+      seasonPlayerId: sp.id,
+      gameId: roll.gameId,
+      gameTitle: rerollGame?.title ?? "",
+      imageUrl: rerollGame?.coverUrl ?? null,
+      rollId: roll.id,
+    };
+    await notifyUser(sp.playerId, "reroll_requested", rerollInput).catch((error) =>
+      log.error("notifications.reroll_requested.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
+    );
+    await notifyStaff("reroll_requested", rerollInput).catch((error) =>
+      log.error("notifications.reroll_requested_staff.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
+    );
     return {
       fromPosition: sp.position,
       toPosition: sp.position,
@@ -177,6 +210,26 @@ export async function resolveGameRoll(
       eventType: "completion_requested",
       payload: { gameId: roll.gameId, outcome: params.outcome, reason, rating },
     });
+    const completionGame = roll.gameId
+      ? (await db.select().from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1))[0]
+      : undefined;
+    const completionInput = {
+      seasonId: sp.seasonId,
+      seasonSlug: season.slug,
+      seasonTitle: season.title,
+      seasonPlayerId: sp.id,
+      gameId: roll.gameId,
+      gameTitle: completionGame?.title ?? "",
+      imageUrl: completionGame?.coverUrl ?? null,
+      rollId: roll.id,
+      outcome: params.outcome,
+    };
+    await notifyUser(sp.playerId, "completion_requested", completionInput).catch((error) =>
+      log.error("notifications.completion_requested.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
+    );
+    await notifyStaff("completion_requested", completionInput).catch((error) =>
+      log.error("notifications.completion_requested_staff.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
+    );
     return {
       fromPosition: sp.position,
       toPosition: sp.position,

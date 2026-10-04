@@ -29,7 +29,13 @@ const ROLE_OPTIONS = ["admin", "judge", "player", "viewer"] as const;
 
 function RoleBadge({ role, t }: { role: string; t: Awaited<ReturnType<typeof getT>>["t"] }) {
   const variant =
-    role === "admin" ? "danger" : role === "judge" ? "violet" : role === "player" ? "military" : "dim";
+    role === "admin"
+      ? "danger"
+      : role === "judge"
+        ? "violet"
+        : role === "player"
+          ? "military"
+          : "dim";
   const label = (t.admin.users.roles as Record<string, string>)[role] ?? role;
   return (
     <Badge variant={variant as never} size="sm">
@@ -59,7 +65,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         .where(and(or(...conditions), eq(users.role, roleFilter as never)))
         .orderBy(asc(users.username));
     } else {
-      rows = await db.select().from(users).where(or(...conditions)).orderBy(asc(users.username));
+      rows = await db
+        .select()
+        .from(users)
+        .where(or(...conditions))
+        .orderBy(asc(users.username));
     }
   } else if (roleFilter) {
     const { eq } = await import("drizzle-orm");
@@ -75,11 +85,14 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   // Hide blocked users from public roster – they still exist but shouldn't clutter the list
   const visible = rows.filter((u) => !u.isBlocked);
 
-  const dateFmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const dateFmt = new Intl.DateTimeFormat(
+    locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    },
+  );
 
   return (
     <PageContainer>
@@ -89,7 +102,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         right={
           <span className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest">
             <UsersIcon className="h-4 w-4 text-amber" aria-hidden />
-            <span className="ammo-counter text-amber">{format(t.profile.listing.count, { count: visible.length })}</span>
+            <span className="ammo-counter text-amber">
+              {format(t.profile.listing.count, { count: visible.length })}
+            </span>
           </span>
         }
       />
@@ -106,7 +121,10 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             {t.admin.users.searchPlaceholder}
           </span>
           <span className="relative block">
-            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dim" aria-hidden />
+            <MagnifyingGlassIcon
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dim"
+              aria-hidden
+            />
             <input
               name="q"
               defaultValue={query}
@@ -152,14 +170,21 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         </EmptyState>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((u) => (
-            <li key={u.id}>
+          {visible.map((u, i) => (
+            <li
+              key={u.id}
+              className="animate-hud-rise"
+              style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
+            >
               <Link
                 href={`/players/${u.username}`}
                 className="hud-card hud-lift group flex h-full flex-col p-5"
               >
                 {/* accent stripe */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-60" aria-hidden />
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-60"
+                  aria-hidden
+                />
 
                 <div className="flex items-start gap-3">
                   <AvatarWithPresence lastSeenAt={u.lastSeenAt} size="lg" locale={locale}>
@@ -191,14 +216,16 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
 
                 {Array.isArray(u.links) && (u.links as unknown[]).length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(u.links as Array<{ network: string; url: string }>).slice(0, 4).map((l, i) => (
-                      <span
-                        key={i}
-                        className="border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim"
-                      >
-                        {l.network}
-                      </span>
-                    ))}
+                    {(u.links as Array<{ network: string; url: string }>)
+                      .slice(0, 4)
+                      .map((l, i) => (
+                        <span
+                          key={i}
+                          className="border border-dim/20 bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim"
+                        >
+                          {l.network}
+                        </span>
+                      ))}
                     {(u.links as unknown[]).length > 4 ? (
                       <span className="px-1 py-0.5 font-mono text-[10px] text-dim">
                         +{(u.links as unknown[]).length - 4}
@@ -212,7 +239,8 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     {format(t.profile.listing.joined, { date: dateFmt.format(u.createdAt) })}
                   </span>
                   <span className="border border-amber/40 px-2 py-1 font-display text-[11px] uppercase tracking-widest text-amber group-hover:bg-amber group-hover:text-black">
-                    {t.profile.listing.viewProfile} <ArrowRightIcon className="size-3" aria-hidden />
+                    {t.profile.listing.viewProfile}{" "}
+                    <ArrowRightIcon className="size-3" aria-hidden />
                   </span>
                 </div>
               </Link>

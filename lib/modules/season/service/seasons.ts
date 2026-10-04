@@ -22,6 +22,7 @@ import { slugify } from "@/lib/shared/utils/slugify";
 import { generateSeasonTitle } from "@/lib/shared/utils/season-names";
 import { logAdminAction, logEvent } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
+import { notifySeasonParticipants } from "@/lib/modules/notifications/service";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import {
   boardMatchesConfig,
@@ -188,6 +189,11 @@ export async function changeSeasonStatus(
   if (newStatus === "active") {
     log.info("season.started", { actorId: actor.id, seasonId });
     await logEvent({ seasonId, eventType: "season_started", payload: {} });
+    await notifySeasonParticipants(seasonId, "season_started", {
+      seasonId,
+      seasonSlug: season.slug,
+      seasonTitle: season.title,
+    }).catch((error) => log.error("notifications.season_started.failed", { seasonId, err: error instanceof Error ? error : undefined }));
   }
   log.info("season.status_change.persisted", { actorId: actor.id, seasonId, newStatus });
 }

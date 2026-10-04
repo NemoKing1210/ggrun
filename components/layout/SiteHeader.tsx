@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, Cog6ToothIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, Cog6ToothIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { logoutAction } from "@/lib/modules/auth/actions/logout";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -12,7 +12,10 @@ import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { useAdminConsole } from "@/components/admin/command-palette/CommandPaletteProvider";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 export interface SiteHeaderUser {
+  id: string;
   displayName: string | null;
   username: string;
   avatarUrl?: string | null;
@@ -32,6 +35,7 @@ export function SiteHeader({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const consoleApi = useAdminConsole();
   const navLinks = [
     { href: "/", label: t.core.nav.home },
     ...(user ? [{ href: "/dashboard", label: t.core.nav.dashboard }] : []),
@@ -80,9 +84,25 @@ export function SiteHeader({
 
           <span className="ml-auto flex items-center gap-2 sm:gap-3">
 
+            {consoleApi && (
+              <button
+                type="button"
+                onClick={consoleApi.open}
+                title={t.adminConsole.open}
+                aria-label={t.adminConsole.open}
+                className="hud-btn inline-flex items-center gap-1.5 !px-2.5 !py-1"
+              >
+                <MagnifyingGlassIcon className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden font-mono text-[10px] tracking-widest sm:inline">
+                  {t.adminConsole.openHint}
+                </span>
+              </button>
+            )}
+
             <LocaleSwitcher current={locale} />
             {user ? (
               <>
+                <NotificationsBell userId={user.id} />
                 <Link
                   href={"/players/" + user.username}
                   onClick={guard()}

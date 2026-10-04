@@ -24,7 +24,7 @@ export type TileSize = "sm" | "md" | "lg";
  * Items take the 4px clipped square every other control in the app uses — the
  * inventory-slot idiom. Effects take a hexagon, which is deliberately the one
  * shape in the interface that is *not* the house cut, because its whole job is
- * to not look like a slot. It stays angular, so `DESIGN.md` §1 still holds;
+ * to not look like a slot. It stays angular, so `docs/DESIGN.md` §1 still holds;
  * the exception is recorded there.
  *
  * The frame also carries polarity, so a debuff reads as a debuff before a word

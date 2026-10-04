@@ -1,5 +1,5 @@
 /**
- * Generates `ITEMS_EFFECTS_SCENARIOS.md` from `lib/engine/iee/scenarios.ts`.
+ * Generates `docs/ITEMS_EFFECTS_SCENARIOS.md` from `lib/engine/iee/scenarios.ts`.
  *
  * The reference is generated rather than written so it cannot describe
  * behaviour the code does not have. Editing the markdown by hand is pointless:
@@ -13,7 +13,7 @@ import { resolve } from "node:path";
 
 import { EFFECTS, ITEMS, SCENARIOS, type Scenario } from "@/lib/engine/iee";
 
-const OUT = resolve(process.cwd(), "ITEMS_EFFECTS_SCENARIOS.md");
+const OUT = resolve(process.cwd(), "docs/ITEMS_EFFECTS_SCENARIOS.md");
 
 const TIER_LABEL: Record<Scenario["tier"], string> = {
   engine: "`pnpm test`",
@@ -53,7 +53,7 @@ const lines: string[] = [];
 lines.push("# Items & effects — scenario reference");
 lines.push("");
 lines.push("> **Generated file — do not edit.** `pnpm scenarios:doc` rebuilds it from");
-lines.push("> [`lib/engine/iee/scenarios.ts`](./lib/engine/iee/scenarios.ts), which is also what");
+lines.push("> [`lib/engine/iee/scenarios.ts`](../lib/engine/iee/scenarios.ts), which is also what");
 lines.push("> the tests run. A scenario cannot appear here without an implementation:");
 lines.push("> `lib/engine/iee-scenarios.test.ts` and `probe/scenarios.mts` each fail if one of");
 lines.push("> their tier is unimplemented.");

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import type { Season } from "@/db/schema";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
+import { FadeSwitch } from "@/components/ui/motion";
 
 type SeasonWithStats = {
   season: Season;
@@ -41,10 +42,18 @@ export function SeasonsArchiveClient({
   t: Dictionary;
   locale: string;
 }) {
-  const [filter, setFilter] = useState<"all" | "active" | "paused" | "finished" | "archived">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "paused" | "finished" | "archived">(
+    "all",
+  );
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: seasons.length, active: 0, paused: 0, finished: 0, archived: 0 };
+    const c: Record<string, number> = {
+      all: seasons.length,
+      active: 0,
+      paused: 0,
+      finished: 0,
+      archived: 0,
+    };
     for (const s of seasons) c[s.season.status] = (c[s.season.status] ?? 0) + 1;
     return c;
   }, [seasons]);
@@ -68,9 +77,16 @@ export function SeasonsArchiveClient({
       <div>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-dim">{"// "}{format(t.seasons.archiveKicker, { count: String(total) })}</p>
-            <h1 className="font-display text-3xl uppercase tracking-widest text-amber leading-none">{t.seasons.archiveTitle}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{t.seasons.archiveDescription}</p>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-dim">
+              {"// "}
+              {format(t.seasons.archiveKicker, { count: String(total) })}
+            </p>
+            <h1 className="font-display text-3xl uppercase tracking-widest text-amber leading-none">
+              {t.seasons.archiveTitle}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+              {t.seasons.archiveDescription}
+            </p>
           </div>
           <div className="hidden sm:flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-dim">
             <CalendarDaysIcon className="size-3.5" aria-hidden /> {t.seasons.tabs.overview}
@@ -87,7 +103,9 @@ export function SeasonsArchiveClient({
           </span>
           <div>
             <div className="ammo-counter text-xl leading-none text-amber">{total}</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.statsBar.total}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+              {t.seasons.statsBar.total}
+            </div>
           </div>
         </div>
         <div className="hud-card p-3 flex items-center gap-3 border-amber/20 bg-amber/5 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -96,7 +114,9 @@ export function SeasonsArchiveClient({
           </span>
           <div>
             <div className="ammo-counter text-xl leading-none text-amber">{active}</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.statsBar.active}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+              {t.seasons.statsBar.active}
+            </div>
           </div>
         </div>
         <div className="hud-card p-3 flex items-center gap-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -104,8 +124,12 @@ export function SeasonsArchiveClient({
             <TrophyIcon className="size-4" aria-hidden />
           </span>
           <div>
-            <div className="ammo-counter text-xl leading-none text-military">{finished + archived}</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.statsBar.finished}</div>
+            <div className="ammo-counter text-xl leading-none text-military">
+              {finished + archived}
+            </div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+              {t.seasons.statsBar.finished}
+            </div>
           </div>
         </div>
         <div className="hud-card p-3 flex items-center gap-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -114,14 +138,19 @@ export function SeasonsArchiveClient({
           </span>
           <div>
             <div className="ammo-counter text-xl leading-none text-sky-400">{totalPlayers}</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.statsBar.players}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+              {t.seasons.statsBar.players}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Hero spotlight */}
       {spotlight ? (
-        <Link href={`/seasons/${spotlight.season.slug}`} className="hud-card group relative overflow-hidden p-0 border-amber/30 bg-gradient-to-br from-amber/10 via-raised to-raised hover:brightness-110 transition-[filter] [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]">
+        <Link
+          href={`/seasons/${spotlight.season.slug}`}
+          className="hud-card animate-hud-rise group relative overflow-hidden p-0 border-amber/30 bg-gradient-to-br from-amber/10 via-raised to-raised hover:brightness-110 transition-[filter] [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]"
+        >
           <div className="absolute inset-x-0 top-0 h-1 bg-amber" aria-hidden />
           <div className="absolute -right-8 -top-8 size-32 opacity-10 rotate-12 pointer-events-none">
             <FlagIcon className="size-full text-amber" aria-hidden />
@@ -130,90 +159,144 @@ export function SeasonsArchiveClient({
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="amber" size="sm" className="gap-1">
-                  <span className="size-1.5 bg-amber animate-pulse [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden /> {t.seasons.hero.live}
+                  <span
+                    className="size-1.5 bg-amber animate-pulse [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]"
+                    aria-hidden
+                  />{" "}
+                  {t.seasons.hero.live}
                 </Badge>
-                <span className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.hero.currentSeason}</span>
-                <Badge variant="military" size="sm">{t.core.seasonStatuses[spotlight.season.status]}</Badge>
+                <span className="font-mono text-xs uppercase tracking-widest text-dim">
+                  {t.seasons.hero.currentSeason}
+                </span>
+                <Badge variant="military" size="sm">
+                  {t.core.seasonStatuses[spotlight.season.status]}
+                </Badge>
               </div>
               <h2 className="mt-2 font-display text-2xl sm:text-3xl uppercase tracking-wide leading-none group-hover:text-amber transition-colors">
                 {spotlight.season.title}
-                <span className="ml-2 font-mono text-sm normal-case tracking-normal text-dim">/{spotlight.season.slug}</span>
+                <span className="ml-2 font-mono text-sm normal-case tracking-normal text-dim">
+                  /{spotlight.season.slug}
+                </span>
               </h2>
               <div className="mt-3 grid grid-cols-3 gap-2 max-w-md">
                 <div className="border border-amber/20 bg-amber/5 p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                  <div className="ammo-counter text-lg leading-none text-amber">{spotlight.stats.participants}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statPlayers}</div>
+                  <div className="ammo-counter text-lg leading-none text-amber">
+                    {spotlight.stats.participants}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                    {t.seasons.overview.statPlayers}
+                  </div>
                 </div>
                 <div className="border border-dim/20 bg-raised p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                   <div className="ammo-counter text-lg leading-none">{spotlight.stats.cells}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.card.cells.replace("{count}", "").trim()}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                    {t.seasons.card.cells.replace("{count}", "").trim()}
+                  </div>
                 </div>
                 <div className="border border-dim/20 bg-raised p-2 text-center [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                  <div className="ammo-counter text-lg leading-none text-military">{spotlight.stats.moves ?? 0}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">{t.seasons.overview.statMoves}</div>
+                  <div className="ammo-counter text-lg leading-none text-military">
+                    {spotlight.stats.moves ?? 0}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                    {t.seasons.overview.statMoves}
+                  </div>
                 </div>
               </div>
               {spotlight.stats.topPlayer ? (
                 <p className="mt-3 inline-flex items-center gap-2 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                   <TrophyIcon className="size-3.5 shrink-0" aria-hidden />
                   <span>{t.seasons.card.topPlayer}:</span>
-                  <AvatarWithPresence lastSeenAt={spotlight.stats.topPlayer.lastSeenAt} size="sm" locale={locale}>
+                  <AvatarWithPresence
+                    lastSeenAt={spotlight.stats.topPlayer.lastSeenAt}
+                    size="sm"
+                    locale={locale}
+                  >
                     {spotlight.stats.topPlayer.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={spotlight.stats.topPlayer.avatarUrl} alt={spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username} className="size-6 object-cover" />
+                      <img
+                        src={spotlight.stats.topPlayer.avatarUrl}
+                        alt={
+                          spotlight.stats.topPlayer.displayName ??
+                          spotlight.stats.topPlayer.username
+                        }
+                        className="size-6 object-cover"
+                      />
                     ) : (
                       <AvatarFallback
                         seed={spotlight.stats.topPlayer.username}
-                        name={spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}
+                        name={
+                          spotlight.stats.topPlayer.displayName ??
+                          spotlight.stats.topPlayer.username
+                        }
                         className="size-6"
                         emojiClassName="text-[13px]"
                       />
                     )}
                   </AvatarWithPresence>
-                  <span className="truncate">{spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}</span>
+                  <span className="truncate">
+                    {spotlight.stats.topPlayer.displayName ?? spotlight.stats.topPlayer.username}
+                  </span>
                 </p>
               ) : spotlight.stats.topPlayerName ? (
                 <p className="mt-3 inline-flex items-center gap-1.5 border border-amber/20 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                  <TrophyIcon className="size-3.5" aria-hidden /> {t.seasons.card.topPlayer}: {spotlight.stats.topPlayerName}
+                  <TrophyIcon className="size-3.5" aria-hidden /> {t.seasons.card.topPlayer}:{" "}
+                  {spotlight.stats.topPlayerName}
                 </p>
               ) : null}
-              {spotlight.stats.participantsAvatars && spotlight.stats.participantsAvatars.length > 0 && (
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex -space-x-1.5">
-                    {spotlight.stats.participantsAvatars.map((p) => (
-                      <AvatarWithPresence key={p.username} lastSeenAt={p.lastSeenAt} size="sm" locale={locale}>
-                        {p.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.avatarUrl} alt={p.displayName ?? p.username} className="size-7 object-cover" />
-                        ) : (
-                          <AvatarFallback
-                            seed={p.username}
-                            name={p.displayName ?? p.username}
-                            className="size-7"
-                            emojiClassName="text-sm"
-                          />
-                        )}
-                      </AvatarWithPresence>
-                    ))}
-                    {spotlight.stats.participants > spotlight.stats.participantsAvatars.length && (
-                      <span className="inline-flex size-7 items-center justify-center border border-dim/20 bg-raised font-mono text-[10px] text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
-                        +{spotlight.stats.participants - spotlight.stats.participantsAvatars.length}
-                      </span>
-                    )}
+              {spotlight.stats.participantsAvatars &&
+                spotlight.stats.participantsAvatars.length > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="flex -space-x-1.5">
+                      {spotlight.stats.participantsAvatars.map((p) => (
+                        <AvatarWithPresence
+                          key={p.username}
+                          lastSeenAt={p.lastSeenAt}
+                          size="sm"
+                          locale={locale}
+                        >
+                          {p.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.avatarUrl}
+                              alt={p.displayName ?? p.username}
+                              className="size-7 object-cover"
+                            />
+                          ) : (
+                            <AvatarFallback
+                              seed={p.username}
+                              name={p.displayName ?? p.username}
+                              className="size-7"
+                              emojiClassName="text-sm"
+                            />
+                          )}
+                        </AvatarWithPresence>
+                      ))}
+                      {spotlight.stats.participants >
+                        spotlight.stats.participantsAvatars.length && (
+                        <span className="inline-flex size-7 items-center justify-center border border-dim/20 bg-raised font-mono text-[10px] text-dim [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
+                          +
+                          {spotlight.stats.participants -
+                            spotlight.stats.participantsAvatars.length}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-xs text-dim">
+                      {spotlight.stats.participants} {t.seasons.overview.statPlayers}
+                    </span>
                   </div>
-                  <span className="font-mono text-xs text-dim">
-                    {spotlight.stats.participants} {t.seasons.overview.statPlayers}
-                  </span>
-                </div>
-              )}
+                )}
             </div>
             <div className="flex lg:flex-col gap-2 lg:w-44 shrink-0">
               <span className="hud-btn hud-btn-primary flex-1 lg:flex-none justify-center gap-1.5 !py-2.5">
                 {t.seasons.hero.openSeason} <ArrowRightIcon className="size-4" aria-hidden />
               </span>
               <div className="hidden lg:grid grid-cols-2 gap-1.5">
-                <span className="hud-btn !py-1.5 !text-xs justify-center hidden lg:inline-flex">{t.seasons.hero.viewBoard}</span>
-                <span className="hud-btn !py-1.5 !text-xs justify-center hidden lg:inline-flex">{t.seasons.hero.viewLeaderboard}</span>
+                <span className="hud-btn !py-1.5 !text-xs justify-center hidden lg:inline-flex">
+                  {t.seasons.hero.viewBoard}
+                </span>
+                <span className="hud-btn !py-1.5 !text-xs justify-center hidden lg:inline-flex">
+                  {t.seasons.hero.viewLeaderboard}
+                </span>
               </div>
             </div>
           </div>
@@ -221,8 +304,12 @@ export function SeasonsArchiveClient({
       ) : (
         <div className="hud-card border-dashed p-6 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
           <SparklesIcon className="mx-auto size-6 text-dim" aria-hidden />
-          <h2 className="mt-2 font-display text-lg uppercase tracking-wide text-dim">{t.seasons.hero.noActiveTitle}</h2>
-          <p className="mt-1 text-sm text-zinc-500 max-w-lg mx-auto">{t.seasons.hero.noActiveText}</p>
+          <h2 className="mt-2 font-display text-lg uppercase tracking-wide text-dim">
+            {t.seasons.hero.noActiveTitle}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500 max-w-lg mx-auto">
+            {t.seasons.hero.noActiveText}
+          </p>
         </div>
       )}
 
@@ -230,25 +317,36 @@ export function SeasonsArchiveClient({
       <div className="hud-card p-3 flex flex-col sm:flex-row gap-3 sm:items-center justify-between [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
         <div className="flex items-center gap-2">
           <FunnelIcon className="size-4 text-dim" aria-hidden />
-          <span className="font-mono text-xs uppercase tracking-widest text-dim">{t.seasons.filter.title}</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-dim">
+            {t.seasons.filter.title}
+          </span>
           <div className="flex flex-wrap gap-1">
             {(["all", "active", "paused", "finished", "archived"] as const).map((key) => (
               <button
                 key={key}
                 onClick={() => setFilter(key)}
                 className={`px-2.5 py-1 font-mono text-xs uppercase tracking-widest border transition-colors [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)] ${
-                  filter === key ? "bg-amber text-black border-amber" : "bg-raised border-[#3d3d34] text-dim hover:border-amber/40 hover:text-amber"
+                  filter === key
+                    ? "bg-amber text-black border-amber"
+                    : "bg-raised border-[#3d3d34] text-dim hover:border-amber/40 hover:text-amber"
                 }`}
               >
-                {t.seasons.filter[key]} <span className={filter === key ? "opacity-60" : "opacity-40"}>·{counts[key] ?? 0}</span>
+                {t.seasons.filter[key]}{" "}
+                <span className={filter === key ? "opacity-60" : "opacity-40"}>
+                  ·{counts[key] ?? 0}
+                </span>
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-2 font-mono text-xs text-dim">
           <ClockIcon className="size-3.5" aria-hidden />
-          <span>{filtered.length} / {total}</span>
-          <Badge variant="dim" size="sm" className="hidden sm:inline-flex">{t.seasons.archiveKicker.replace("{count}", String(total))}</Badge>
+          <span>
+            {filtered.length} / {total}
+          </span>
+          <Badge variant="dim" size="sm" className="hidden sm:inline-flex">
+            {t.seasons.archiveKicker.replace("{count}", String(total))}
+          </Badge>
         </div>
       </div>
 
@@ -256,14 +354,30 @@ export function SeasonsArchiveClient({
       {filtered.length === 0 ? (
         <div className="hud-card border-dashed p-8 text-center [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
           <FlagIcon className="mx-auto size-6 text-dim" aria-hidden />
-          <p className="mt-2 font-display uppercase tracking-wide text-dim">{t.seasons.archiveEmpty}</p>
+          <p className="mt-2 font-display uppercase tracking-wide text-dim">
+            {t.seasons.archiveEmpty}
+          </p>
         </div>
       ) : (
-        <div className="grid gap-4">
-          {filtered.map(({ season, stats }) => (
-            <SeasonCard key={season.id} season={season} t={t} locale={locale} stats={stats} isCurrent={activeSeason?.id === season.id} />
-          ))}
-        </div>
+        <FadeSwitch viewKey={filter}>
+          <div className="grid gap-4">
+            {filtered.map(({ season, stats }, i) => (
+              <div
+                key={season.id}
+                className="animate-hud-rise"
+                style={{ animationDelay: `${Math.min(i * 40, 320)}ms` }}
+              >
+                <SeasonCard
+                  season={season}
+                  t={t}
+                  locale={locale}
+                  stats={stats}
+                  isCurrent={activeSeason?.id === season.id}
+                />
+              </div>
+            ))}
+          </div>
+        </FadeSwitch>
       )}
     </div>
   );

@@ -49,7 +49,7 @@ function describe(t: Dictionary, kind: WheelOutcomeKind, key: string | null): Ce
  * does appear rarely as it scrolls past — the odds a player sees are the odds
  * they played.
  *
- * A reel rather than a disc: `DESIGN.md` §1 is square, cut and stamped, and a
+ * A reel rather than a disc: `docs/DESIGN.md` §1 is square, cut and stamped, and a
  * spinning circle would be the one round thing in the whole interface.
  */
 export function WheelOverlay({

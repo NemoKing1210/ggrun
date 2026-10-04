@@ -105,24 +105,28 @@ pnpm db:setup               # schema + demo season + first admin
 pnpm dev                    # http://localhost:3000
 ```
 
-Local development: [`DEVELOPMENT.md`](./DEVELOPMENT.md) ·
-Production deploy: [`DEPLOYMENT.md`](./DEPLOYMENT.md)
+Local development: [`DEVELOPMENT.md`](./docs/DEVELOPMENT.md) ·
+Production deploy: [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
 
 ## Documentation
 
 | Doc | What it covers |
 | --- | --- |
-| [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Architecture, commands, code conventions, testing, releases |
-| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Docker Compose & manual production deployment, env reference, troubleshooting |
+| [`docs/`](./docs/README.md) | Full documentation index |
+| [`DEVELOPMENT.md`](./docs/DEVELOPMENT.md) | Architecture, commands, code conventions, testing, releases |
+| [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Docker Compose & manual production deployment, env reference, troubleshooting |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | How to report issues and submit pull requests |
-| [`DESIGN.md`](./DESIGN.md) | The HUD design system — read it before writing any UI |
-| [`RUNBOOK.md`](./RUNBOOK.md) | Step-by-step host guide for event day |
+| [`DESIGN.md`](./docs/DESIGN.md) | The HUD design system — read it before writing any UI |
+| [`RUNBOOK.md`](./docs/RUNBOOK.md) | Step-by-step host guide for event day |
+| [`ITEMS_EFFECTS_EVENTS.md`](./docs/ITEMS_EFFECTS_EVENTS.md) | Items / effects / events: concept, contracts, decisions |
+| [`ITEMS_EFFECTS_SCENARIOS.md`](./docs/ITEMS_EFFECTS_SCENARIOS.md) | Generated — what every item and effect promises, as scenarios |
+| [`WORKLOG.md`](./docs/WORKLOG.md) | Work journal — what each session did next |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Release history (Keep a Changelog) |
 
 ## Environment variables
 
 See [`.env.example`](./.env.example) — secrets are never committed. The full
-reference lives in [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+reference lives in [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 ## License
 

@@ -69,3 +69,6 @@ $RECYCLE.BIN/
 *.sqlite
 *.sqlite3
 *.db
+
+# stray screenshot dumps
+/Claude outputs/

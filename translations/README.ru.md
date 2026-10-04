@@ -105,24 +105,28 @@ pnpm db:setup               # схема + демо-сезон + первый а
 pnpm dev                    # http://localhost:3000
 ```
 
-Локальная разработка: [`DEVELOPMENT.md`](../DEVELOPMENT.md) ·
-Продакшн-деплой: [`DEPLOYMENT.md`](../DEPLOYMENT.md)
+Локальная разработка: [`DEVELOPMENT.md`](../docs/DEVELOPMENT.md) ·
+Продакшн-деплой: [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
 
 ## Документация
 
 | Документ | О чём |
 | --- | --- |
-| [`DEVELOPMENT.md`](../DEVELOPMENT.md) | Архитектура, команды, конвенции кода, тестирование, релизы |
-| [`DEPLOYMENT.md`](../DEPLOYMENT.md) | Docker Compose и ручной деплой в продакшн, справка по env, решение проблем |
+| [`docs/`](../docs/README.md) | Полный индекс документации |
+| [`DEVELOPMENT.md`](../docs/DEVELOPMENT.md) | Архитектура, команды, конвенции кода, тестирование, релизы |
+| [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md) | Docker Compose и ручной деплой в продакшн, справка по env, решение проблем |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Как сообщать об ошибках и присылать pull request'ы |
-| [`DESIGN.md`](../DESIGN.md) | HUD-дизайн-система — прочитать до написания любого UI |
-| [`RUNBOOK.md`](../RUNBOOK.md) | Пошаговое руководство для хоста на день события |
+| [`DESIGN.md`](../docs/DESIGN.md) | HUD-дизайн-система — прочитать до написания любого UI |
+| [`RUNBOOK.md`](../docs/RUNBOOK.md) | Пошаговое руководство для хоста на день события |
+| [`ITEMS_EFFECTS_EVENTS.md`](../docs/ITEMS_EFFECTS_EVENTS.md) | Предметы / эффекты / события: концепция, контракты, решения |
+| [`ITEMS_EFFECTS_SCENARIOS.md`](../docs/ITEMS_EFFECTS_SCENARIOS.md) | Генерируется — что обещает каждый предмет и эффект, в виде сценариев |
+| [`WORKLOG.md`](../docs/WORKLOG.md) | Журнал работ — что делала каждая сессия |
 | [`CHANGELOG.md`](../CHANGELOG.md) | История релизов (Keep a Changelog) |
 
 ## Переменные окружения
 
 См. [`.env.example`](../.env.example) — секреты никогда не коммитятся. Полная
-справка — в [`DEPLOYMENT.md`](../DEPLOYMENT.md).
+справка — в [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
 
 ## Лицензия
 

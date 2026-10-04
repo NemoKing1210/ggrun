@@ -6,7 +6,7 @@ import { cn } from "@/lib/shared/utils/cn";
  * It exists because that sentence was written six times at `text-[11px]
  * text-dim` -- smaller than the name above it, which carries no information at
  * all. The hierarchy was inverted: the label was prominent and the meaning was
- * a footnote. DESIGN.md 2 does not have an 11px step.
+ * a footnote. docs/DESIGN.md 2 does not have an 11px step.
  *
  * Contrast was never the problem (#9a958a on #1a1a1a measures 5.83:1, AA
  * clear) -- size and rank were.

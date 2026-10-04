@@ -104,6 +104,7 @@ export function BotsRunCard({
   playerStatusLabels,
   t,
   onStart,
+  onRestart,
   onPause,
   onStop,
   onStep,
@@ -121,6 +122,7 @@ export function BotsRunCard({
   playerStatusLabels: Record<string, string>;
   t: BotsText;
   onStart: (run: ConsoleBotRun) => void;
+  onRestart: (run: ConsoleBotRun) => void;
   onPause: (runId: string) => void;
   onStop: (runId: string) => void;
   onStep: (runId: string) => void;
@@ -140,6 +142,10 @@ export function BotsRunCard({
   useEffect(() => {
     if (configState.ok) router.refresh();
   }, [configState.ok, router]);
+
+  // A stopped run restarts only while its bots are still season members —
+  // after "Remove bots" there is nobody to tick, and the server refuses too.
+  const canRestart = roster.some((b) => b.seasonPlayerId !== null);
 
   return (
     <article className="hud-card p-4 sm:p-5">
@@ -185,10 +191,10 @@ export function BotsRunCard({
           <button
             type="button"
             className="hud-btn hud-btn-primary"
-            disabled={busy || tickingActive || run.status === "stopped"}
-            onClick={() => onStart(run)}
+            disabled={busy || tickingActive || (run.status === "stopped" && !canRestart)}
+            onClick={() => (run.status === "stopped" ? onRestart(run) : onStart(run))}
           >
-            {t.startButton}
+            {run.status === "stopped" ? t.restartButton : t.startButton}
           </button>
         ) : (
           <button type="button" className="hud-btn" disabled={busy} onClick={() => onPause(run.id)}>

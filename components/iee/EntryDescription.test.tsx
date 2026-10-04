@@ -35,7 +35,7 @@ describe("EntryDescription — what it renders", () => {
     expect(html).toMatch(/\btext-(sm|base|lg)\b/);
   });
 
-  // DESIGN.md §2 has no 11px step; those sizes are HUD mono labels.
+  // docs/DESIGN.md §2 has no 11px step; those sizes are HUD mono labels.
   it.each(["default", "dense"] as const)("%s tone never falls below the type scale", (tone) => {
     const html = renderToStaticMarkup(<EntryDescription tone={tone}>x</EntryDescription>);
     expect(html).not.toContain("text-[11px]");

@@ -15,6 +15,7 @@ import {
   createBotRunAction,
   pauseBotRunAction,
   resumeBotRunAction,
+  restartBotRunAction,
   stopBotRunAction,
   tickBotsAction,
   type BotTickState,
@@ -135,6 +136,19 @@ export function BotsConsole({
     setTickError(null);
     startBusy(async () => {
       await resumeBotRunAction(runForm(run.id));
+      setTickingId(run.id);
+      setLoopIntervalMs(run.config.tickIntervalMs);
+      loopOn.current = true;
+      router.refresh();
+      void loopTick(run.id, run.config.tickIntervalMs);
+    });
+  }
+
+  function restartRun(run: ConsoleBotRun) {
+    if (tickingId) return;
+    setTickError(null);
+    startBusy(async () => {
+      await restartBotRunAction(runForm(run.id));
       setTickingId(run.id);
       setLoopIntervalMs(run.config.tickIntervalMs);
       loopOn.current = true;
@@ -346,6 +360,7 @@ export function BotsConsole({
             onStart={startRun}
             onPause={pauseRun}
             onStop={stopRun}
+            onRestart={restartRun}
             onStep={stepRun}
             onViewLogs={viewLogs}
           />

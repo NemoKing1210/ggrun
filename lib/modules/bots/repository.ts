@@ -1,7 +1,7 @@
 import { and, desc, eq, ilike, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { seasonPlayers, users } from "@/db/schema";
+import { seasonPlayers, seasons, users } from "@/db/schema";
 
 import { botLogs, botRuns, type BotLog, type BotLogLevel, type BotRun } from "@/db/schema/bots";
 
@@ -21,6 +21,22 @@ export async function getBotRun(runId: string): Promise<BotRun | null> {
 
 export async function listBotRuns(seasonId: string): Promise<BotRun[]> {
   return db.select().from(botRuns).where(eq(botRuns.seasonId, seasonId)).orderBy(desc(botRuns.createdAt));
+}
+
+export interface BotRunListRow {
+  run: BotRun;
+  seasonTitle: string;
+  seasonSlug: string;
+}
+
+/** Every run with its season, newest first — console listing + completions. */
+export async function listAllBotRuns(limit = 50): Promise<BotRunListRow[]> {
+  return db
+    .select({ run: botRuns, seasonTitle: seasons.title, seasonSlug: seasons.slug })
+    .from(botRuns)
+    .innerJoin(seasons, eq(botRuns.seasonId, seasons.id))
+    .orderBy(desc(botRuns.createdAt))
+    .limit(limit);
 }
 
 /** Every run in `running` status across seasons — the autonomous ticker's input. */

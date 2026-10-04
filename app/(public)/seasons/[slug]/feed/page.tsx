@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/ui/BackLink";
 import { FeedList } from "@/components/feed/feed-list";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonTabs } from "@/components/seasons/SeasonTabs";
@@ -29,16 +30,35 @@ export default async function SeasonFeedPage({ params }: { params: Promise<{ slu
 
   return (
     <PageContainer>
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
       <BackLink href="/seasons" label={t.seasons.detail.backToArchive} />
       <PageHeader
         kicker={format(t.core.common.seasonKicker, { season: season.title })}
         title={t.feed.pageTitle}
-        right={<StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />}
+        right={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <LiveBadge
+              seasonId={season.id}
+              showCount={false}
+              labels={{
+                online: t.feed.live,
+                offline: t.feed.offline,
+                syncing: t.feed.updating,
+                watching: t.feed.watching,
+              }}
+            />
+            <StatusBadge
+              kind="season"
+              status={season.status}
+              label={t.core.seasonStatuses[season.status]}
+            />
+          </span>
+        }
       />
       <SeasonTabs slug={season.slug} t={t} />
-      <div className="mt-6 hud-card p-6">
+      <LiveFlash seasonId={season.id} className="mt-6 hud-card p-6">
         <FeedList rows={rows} />
-      </div>
+      </LiveFlash>
     </PageContainer>
   );
 }

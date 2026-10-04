@@ -110,7 +110,7 @@ async function main() {
 
     // --- IEE tracer set ----------------------------------------------------
     // One event template, plus the season pool that enables the tracer item
-    // and effect. See ITEMS_EFFECTS_EVENTS.md §15.
+    // and effect. See docs/ITEMS_EFFECTS_EVENTS.md §15.
     await pool.query(
       `insert into event_templates
          (key, title, description_md, reward, requires_proof, default_deadline_hours)

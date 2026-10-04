@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Cog8ToothIcon, CpuChipIcon, MapIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import { getT } from "@/lib/i18n/server";
+import { listBotOwnedPlayers, listBotRuns } from "@/lib/modules/bots";
+import { getLeaderboard } from "@/lib/modules/season/repository/players";
 
 const TABS = [
   { key: "settings", icon: Cog8ToothIcon },
@@ -18,13 +20,12 @@ const paths: Record<SeasonTabKey, (id: string) => string> = {
   players: (id) => `/admin/seasons/${id}/players`,
   bots: (id) => `/admin/seasons/${id}/bots`,
 };
-
 /** Season editor tab strip: Settings / Board / Players / Bots. */
 export async function SeasonTabs({
   seasonId,
   active,
-  playerCount = 0,
-  botCount = 0,
+  playerCount,
+  botCount,
 }: {
   seasonId: string;
   active: SeasonTabKey;
@@ -32,6 +33,20 @@ export async function SeasonTabs({
   botCount?: number;
 }) {
   const { t } = await getT();
+  // Counts omitted by the caller resolve here so no tab can lose its badge
+  // by omission. getLeaderboard is request-cached; bot roster lengths equal
+  // owned-player lengths (listBotRunRoster maps 1:1 from owned players), so
+  // the cheaper owned query reports the same number the bots page passes.
+  const [resolvedPlayers, resolvedBots] = await Promise.all([
+    playerCount ?? getLeaderboard(seasonId).then((rows) => rows.length),
+    botCount ??
+      (async () => {
+        const runs = await listBotRuns(seasonId);
+        if (runs.length === 0) return 0;
+        const owned = await Promise.all(runs.map((r) => listBotOwnedPlayers(r.id, seasonId)));
+        return owned.reduce((n, o) => n + o.length, 0);
+      })(),
+  ]);
   const labels: Record<SeasonTabKey, string> = {
     settings: t.admin.seasonTabs.settings,
     board: t.admin.seasonTabs.board,
@@ -43,7 +58,7 @@ export async function SeasonTabs({
     <nav className="mb-6 flex flex-wrap items-stretch gap-1 border-b border-[#3d3d34]">
       {TABS.map(({ key, icon: Icon }) => {
         const isActive = active === key;
-        const count = key === "players" ? playerCount : key === "bots" ? botCount : 0;
+        const count = key === "players" ? resolvedPlayers : key === "bots" ? resolvedBots : 0;
         return (
           <Link
             key={key}

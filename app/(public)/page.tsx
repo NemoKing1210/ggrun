@@ -14,6 +14,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { FeedList } from "@/components/feed/feed-list";
 import { SeasonUptime } from "@/components/landing/SeasonUptime";
+import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
 import { StatusBadge } from "@/components/ui/status";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeasonMissing } from "@/components/ui/season-missing";
@@ -145,11 +146,14 @@ function ChampionRow({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <div className="absolute left-3 top-3 flex items-center gap-1.5 border border-amber bg-amber px-2 py-0.5 font-display text-[11px] uppercase tracking-widest text-black">
-          <TrophyIcon className="h-3.5 w-3.5" aria-hidden />
-          #{rank} {t.leaderboard.champion}
+          <TrophyIcon className="h-3.5 w-3.5" aria-hidden />#{rank} {t.leaderboard.champion}
         </div>
         <div className="absolute right-3 top-3">
-          <StatusBadge kind="player" status={row.status} label={t.core.playerStatuses[row.status]} />
+          <StatusBadge
+            kind="player"
+            status={row.status}
+            label={t.core.playerStatuses[row.status]}
+          />
         </div>
       </div>
 
@@ -221,7 +225,17 @@ function ChampionRow({
   );
 }
 
-function TopRow({ row, rank, t }: { row: LeaderboardRow; rank: number; t: T }) {
+function TopRow({
+  row,
+  rank,
+  t,
+  index,
+}: {
+  row: LeaderboardRow;
+  rank: number;
+  t: T;
+  index: number;
+}) {
   const rankClass =
     rank === 2
       ? "border-zinc-400 bg-zinc-300 text-black"
@@ -229,7 +243,7 @@ function TopRow({ row, rank, t }: { row: LeaderboardRow; rank: number; t: T }) {
         ? "border-[#c98f00] bg-[#8a5f00] text-white"
         : "border-dim/20 bg-raised text-dim";
   return (
-    <li>
+    <li className="animate-hud-rise" style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}>
       <Link
         href={`/players/${row.username}`}
         className="group flex items-center gap-3 border border-dim/20 bg-[#1a1a18] p-2.5 transition-colors hover:border-amber/30"
@@ -310,10 +324,11 @@ export default async function HomePage() {
   ];
 
   const startedAtText = season.startedAt
-    ? new Intl.DateTimeFormat(
-        locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU",
-        { day: "numeric", month: "long", year: "numeric" },
-      ).format(season.startedAt)
+    ? new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale === "uk" ? "uk-UA" : "ru-RU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(season.startedAt)
     : null;
 
   const champion = top[0] ?? null;
@@ -321,7 +336,8 @@ export default async function HomePage() {
 
   return (
     <PageContainer className="flex flex-col gap-8">
-      <section className="hud-card overflow-hidden">
+      <SeasonLiveRefresh seasonId={season.id} labels={{ updated: t.feed.updated }} />
+      <section className="hud-card animate-hud-rise overflow-hidden">
         <div className="hazard-tape h-2 w-full" />
         <div
           className="p-6 sm:p-8"
@@ -335,11 +351,24 @@ export default async function HomePage() {
             <p className="font-mono text-xs uppercase tracking-[0.25em] text-dim">
               {t.landing.currentSeason}
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <LiveBadge
+                seasonId={season.id}
+                labels={{
+                  online: t.feed.live,
+                  offline: t.feed.offline,
+                  syncing: t.feed.updating,
+                  watching: t.feed.watching,
+                }}
+              />
               <span className="font-mono text-xs uppercase tracking-widest text-dim">
                 /{season.slug}
               </span>
-              <StatusBadge kind="season" status={season.status} label={t.core.seasonStatuses[season.status]} />
+              <StatusBadge
+                kind="season"
+                status={season.status}
+                label={t.core.seasonStatuses[season.status]}
+              />
             </div>
           </div>
 
@@ -370,9 +399,16 @@ export default async function HomePage() {
             </div>
           ) : null}
 
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-dim/20 pt-5 sm:grid-cols-3 lg:grid-cols-5">
+          <LiveFlash
+            seasonId={season.id}
+            className="mt-6 grid grid-cols-2 gap-3 border-t border-dim/20 pt-5 sm:grid-cols-3 lg:grid-cols-5"
+          >
             <StatTile icon={UsersIcon} label={t.landing.statParticipants} value={top.length} />
-            <StatTile icon={ArrowsRightLeftIcon} label={t.landing.statMoves} value={stats.totalMoves} />
+            <StatTile
+              icon={ArrowsRightLeftIcon}
+              label={t.landing.statMoves}
+              value={stats.totalMoves}
+            />
             <StatTile
               icon={CheckCircleIcon}
               label={t.landing.statPassed}
@@ -386,12 +422,12 @@ export default async function HomePage() {
               tone="danger"
             />
             <StatTile icon={ArrowPathIcon} label={t.landing.statRerolls} value={stats.rerolls} />
-          </div>
+          </LiveFlash>
         </div>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="hud-card p-6">
+      <LiveFlash seasonId={season.id} className="grid gap-6 md:grid-cols-2">
+        <section className="hud-card animate-hud-rise p-6">
           <header className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
               {t.landing.topHeading}
@@ -405,14 +441,20 @@ export default async function HomePage() {
             </Link>
           </header>
           {top.length === 0 ? (
-            <p className="font-mono text-sm uppercase tracking-widest text-dim">{t.landing.emptyTop}</p>
+            <p className="font-mono text-sm uppercase tracking-widest text-dim">
+              {t.landing.emptyTop}
+            </p>
           ) : (
             <div className="space-y-2.5">
-              {champion ? <ChampionRow row={champion} rank={1} boardSize={boardSize} t={t} /> : null}
+              {champion ? (
+                <div className="animate-hud-rise">
+                  <ChampionRow row={champion} rank={1} boardSize={boardSize} t={t} />
+                </div>
+              ) : null}
               {rest.length > 0 ? (
                 <ol className="space-y-2">
                   {rest.map((row, i) => (
-                    <TopRow key={row.id} row={row} rank={i + 2} t={t} />
+                    <TopRow key={row.id} row={row} rank={i + 2} t={t} index={i} />
                   ))}
                 </ol>
               ) : null}
@@ -420,7 +462,7 @@ export default async function HomePage() {
           )}
         </section>
 
-        <section className="hud-card p-6">
+        <section className="hud-card animate-hud-rise p-6" style={{ animationDelay: "60ms" }}>
           <header className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
               {t.landing.latestHeading}
@@ -435,11 +477,16 @@ export default async function HomePage() {
           </header>
           <FeedList rows={feed} />
         </section>
-      </div>
+      </LiveFlash>
 
       <nav className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {sections.map((s) => (
-          <Link key={s.href} href={s.href} className="hud-btn justify-start">
+        {sections.map((s, i) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="hud-btn animate-hud-rise justify-start"
+            style={{ animationDelay: `${Math.min(i * 40, 200)}ms` }}
+          >
             <span>
               {s.label}
               <br />
@@ -451,7 +498,7 @@ export default async function HomePage() {
         ))}
       </nav>
 
-      <section className="hud-card p-6">
+      <section className="hud-card animate-hud-rise p-6" style={{ animationDelay: "60ms" }}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl uppercase tracking-wide text-amber">
@@ -459,18 +506,22 @@ export default async function HomePage() {
             </h2>
             <p className="mt-1 font-mono text-xs text-dim">{t.seasons.archiveDescription}</p>
           </div>
-          <Link href="/seasons" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5">
+          <Link
+            href="/seasons"
+            className="hud-btn hud-btn-primary inline-flex items-center gap-1.5"
+          >
             {t.core.nav.seasons}
             <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
         {archived.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            {archived.slice(0, 6).map((s) => (
+            {archived.slice(0, 6).map((s, i) => (
               <Link
                 key={s.id}
                 href={`/seasons/${s.slug}`}
-                className="border border-dim/40 bg-raised px-3 py-1 font-mono text-xs hover:border-amber hover:text-amber"
+                style={{ animationDelay: `${Math.min(i * 25, 150)}ms` }}
+                className="animate-hud-rise border border-dim/40 bg-raised px-3 py-1 font-mono text-xs hover:border-amber hover:text-amber"
               >
                 {s.title} <span className="text-dim">/{s.slug}</span>
               </Link>

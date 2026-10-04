@@ -1,7 +1,7 @@
 # AGENTS.md — GGRun agent guide
 
 > How to work on this codebase fast and without breaking it. Read this before
-> any edit; read [`DESIGN.md`](./DESIGN.md) before any UI work.
+> any edit; read [`DESIGN.md`](./docs/DESIGN.md) before any UI work.
 
 ## 1. 30-second orientation
 
@@ -16,7 +16,7 @@ dice movement, leaderboard, public feed, player HQ and an admin console.
 - **PostgreSQL 17 + Drizzle** (`db/schema/**` is the source of truth),
   **pnpm 9** (lockfile v9), **Node ≥ 20**, **Vitest**.
 - HUD tactical design system — square beveled, clipped corners, amber accent.
-  `DESIGN.md` is the source of truth for visuals.
+  `docs/DESIGN.md` is the source of truth for visuals.
 
 ## 2. Golden rules (never break)
 
@@ -55,8 +55,9 @@ dice movement, leaderboard, public feed, player HQ and an admin console.
 ## 3. Command line
 
 ```bash
-pnpm dev            # next dev (webpack). Turbopack dev = pnpm dev:turbo
-                    # (plain dev is the default because Turbopack dev has a
+pnpm dev            # everything: DB check + db:push + Next/Socket.IO server
+                    # + bot ticker (scripts/dev.ts; --port N, --no-bots, --no-push).
+                    # Turbopack dev = pnpm dev:turbo (plain Next, no sockets —
                     # Windows-only _buildManifest.js.tmp ENOENT race)
 pnpm build          # next build --turbopack
 pnpm start          # production server
@@ -77,7 +78,7 @@ pnpm db:setup       # push + seed + admin
 ```
 
 Production/deploy specifics: `Dockerfile` + `compose.yaml` +
-`docker/entrypoint.sh` (see [`DEPLOYMENT.md`](./DEPLOYMENT.md)). Container
+`docker/entrypoint.sh` (see [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md)). Container
 Postgres maps to host port `5433`.
 
 ## 4. Codebase map (current)
@@ -135,7 +136,7 @@ Key component/file pointers:
 
 ### Add UI
 
-1. Follow `DESIGN.md`; use `components/ui/*` (never raw checkboxes → `Switch`,
+1. Follow `docs/DESIGN.md`; use `components/ui/*` (never raw checkboxes → `Switch`,
    never `rounded-*`).
 2. All labels go through dictionaries **en/ru/uk** in the same change
    (§7). Server: `const { t, locale } = await getT()`. Client: `useI18n()`.
@@ -243,7 +244,7 @@ the roll FSM lives in `lib/engine/roll/state-machine.ts`
 `docker compose up --build`; on boot the entrypoint waits for Postgres,
 runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 (`BOOTSTRAP_ADMIN_*`). Container DB maps to host `5433`. Env template:
-`docker/env.example`. Full detail in `DEPLOYMENT.md`.
+`docker/env.example`. Full detail in `docs/DEPLOYMENT.md`.
 
 ## 6. UI pitfalls (all seen in this codebase — don't repeat)
 
@@ -284,9 +285,11 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 
 ## 8. Testing & verification
 
-- Vitest, colocated in `lib/engine/` — pure deterministic functions with
-  injected `rng`; no mocks/DB/DOM.
-- No tests outside `lib/engine/`; UI tests (if added) stay colocated and DB-free.
+- Vitest, colocated next to the code, DB-free: `lib/engine/` (pure
+  deterministic functions with injected `rng`; alias-free; no mocks/DOM),
+  `lib/realtime/` (policy units + Socket.IO boundary tests with injected
+  user lookup; dummy env in vitest.config.mts satisfies the pool import).
+  UI tests (if added) stay colocated and DB-free.
 - **Before handoff:** `pnpm lint` → `pnpm exec tsc --noEmit` → `pnpm test` →
   `pnpm build`; verify behavioral changes against a live dev server (admin
   flows included).
@@ -326,12 +329,12 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 | File | For |
 | --- | --- |
 | `README.md` (+ `translations/README.{ru,uk}.md`) | Project overview, features, quick start |
-| `DEVELOPMENT.md` | Architecture, commands, conventions, testing, releases |
-| `DEPLOYMENT.md` | Docker + manual production deployment, env reference |
+| `docs/DEVELOPMENT.md` | Architecture, commands, conventions, testing, releases |
+| `docs/DEPLOYMENT.md` | Docker + manual production deployment, env reference |
 | `CONTRIBUTING.md` | Issue/PR workflow, checklist |
-| `DESIGN.md` | HUD design system (read before any UI) |
-| `RUNBOOK.md` | Host guide for event day |
+| `docs/DESIGN.md` | HUD design system (read before any UI) |
+| `docs/RUNBOOK.md` | Host guide for event day |
 | `CHANGELOG.md` | Release history + versioning rules |
-| `ITEMS_EFFECTS_EVENTS.md` | Items / effects / events: concept, contracts, decisions, phase plan |
-| `ITEMS_EFFECTS_SCENARIOS.md` | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
-| `WORKLOG.md` | Work journal — what each session did and what to pick up next |
+| `docs/ITEMS_EFFECTS_EVENTS.md` | Items / effects / events: concept, contracts, decisions, phase plan |
+| `docs/ITEMS_EFFECTS_SCENARIOS.md` | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
+| `docs/WORKLOG.md` | Work journal — what each session did and what to pick up next |

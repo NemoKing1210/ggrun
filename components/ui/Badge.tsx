@@ -31,7 +31,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "hud-badge inline-flex items-center border font-display uppercase [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]",
+        "hud-badge inline-flex items-center border font-display uppercase whitespace-nowrap [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]",
         variants[variant],
         sizes[size],
         className,

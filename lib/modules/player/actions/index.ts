@@ -229,6 +229,9 @@ export async function updateUserSettingsAction(
       linksCount: links.length,
     });
     revalidatePath("/settings");
+    // Layouts own the saved data's consumers: root layout (accent <style>,
+    // <html lang>, I18nProvider) and the public shell (SiteHeader identity).
+    revalidatePath("/", "layout");
     revalidatePath("/");
     return { ok: (await getT()).t.settings.saved };
   } catch (e) {

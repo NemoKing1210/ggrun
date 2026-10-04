@@ -3,7 +3,7 @@
  * scenarios that are actually executed.
  *
  * This table is the single source for two things — the generated reference
- * (`ITEMS_EFFECTS_SCENARIOS.md`, via `pnpm scenarios:doc`) and the tests that
+ * (`docs/ITEMS_EFFECTS_SCENARIOS.md`, via `pnpm scenarios:doc`) and the tests that
  * run them. Neither is written by hand against the other, so the document
  * cannot describe behaviour the code does not have.
  *

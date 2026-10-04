@@ -76,10 +76,11 @@ export function ChallengesPanel({
         <p className="text-xs text-dim">{e.empty}</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {challenges.map((row) => (
+          {challenges.map((row, i) => (
             <li
               key={row.id}
-              className="border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
+              style={{ animationDelay: `${Math.min(i * 30, 240)}ms` }}
+              className="animate-hud-rise border border-[#3d3d34] bg-[#1a1a1a] p-3 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-display text-sm uppercase tracking-wider text-zinc-100">
@@ -93,7 +94,9 @@ export function ChallengesPanel({
                 </span>
               </div>
 
-              <EntryDescription className="whitespace-pre-wrap">{row.descriptionMd}</EntryDescription>
+              <EntryDescription className="whitespace-pre-wrap">
+                {row.descriptionMd}
+              </EntryDescription>
 
               <p className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-military">
                 {e.reward}: {rewardText(row.reward)}

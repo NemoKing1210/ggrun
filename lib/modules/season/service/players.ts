@@ -1,6 +1,8 @@
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { addPlayerToSeason, getSeasonPlayerById, getSeasonPlayerForUser, removePlayerFromSeason, updateSeasonPlayer } from "@/lib/modules/season/repository/players";
+import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { logAdminAction, logEvent } from "@/lib/infrastructure/events";
+import { notifyUser } from "@/lib/modules/notifications/service";
 import { log } from "@/lib/infrastructure/logger";
 
 import { AdminError } from "./errors";
@@ -17,6 +19,12 @@ export async function adminAddPlayer(seasonId: string, userId: string): Promise<
   log.info("season.player_added.persisted", { actorId: actor.id, seasonId, userId });
   await logAdminAction({ actorId: actor.id, actionType: "player_added", targetType: "season_player", payload: { seasonId, userId } });
   await logEvent({ seasonId, eventType: "player_joined", payload: { userId } });
+  const season = await getSeasonById(seasonId);
+  await notifyUser(userId, "player_added", {
+    seasonId,
+    seasonSlug: season?.slug ?? null,
+    seasonTitle: season?.title ?? "",
+  }).catch((error) => log.error("notifications.player_added.failed", { seasonId, userId, err: error instanceof Error ? error : undefined }));
 }
 
 export async function adminRemovePlayer(seasonId: string, userId: string): Promise<void> {
@@ -27,6 +35,12 @@ export async function adminRemovePlayer(seasonId: string, userId: string): Promi
   log.info("season.player_removed.persisted", { actorId: actor.id, seasonId, userId });
   await logAdminAction({ actorId: actor.id, actionType: "player_removed", targetType: "season_player", targetId: sp.id, payload: { seasonId, userId } });
   await logEvent({ seasonId, eventType: "player_left", payload: { userId } });
+  const season = await getSeasonById(seasonId);
+  await notifyUser(userId, "player_removed", {
+    seasonId,
+    seasonSlug: season?.slug ?? null,
+    seasonTitle: season?.title ?? "",
+  }).catch((error) => log.error("notifications.player_removed.failed", { seasonId, userId, err: error instanceof Error ? error : undefined }));
 }
 
 export async function adminAdjustPlayer(input: {
@@ -46,4 +60,11 @@ export async function adminAdjustPlayer(input: {
   await updateSeasonPlayer(sp.id, patch);
   await logAdminAction({ actorId: actor.id, actionType: "player_adjusted", targetType: "season_player", targetId: sp.id, payload: { ...patch, reason: input.reason } });
   log.info("season.player_adjusted.persisted", { actorId: actor.id, seasonId: sp.seasonId, seasonPlayerId: sp.id, patch });
+  const season = await getSeasonById(sp.seasonId);
+  await notifyUser(sp.playerId, "player_adjusted", {
+    seasonId: sp.seasonId,
+    seasonSlug: season?.slug ?? null,
+    seasonTitle: season?.title ?? "",
+    seasonPlayerId: sp.id,
+  }).catch((error) => log.error("notifications.player_adjusted.failed", { seasonPlayerId: sp.id, err: error instanceof Error ? error : undefined }));
 }
