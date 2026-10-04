@@ -23,10 +23,10 @@
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
-| Tests | **686 unit tests / 41 files** (as of session 24f) + the harness probes recorded per session; tsc, eslint, `next build` and a browser pass against the live app all green |
-| Uncommitted | Yes — everything below lives in the working tree only, by request |
+| Tests | **753 unit tests / 49 files** (after the `add-sockets` merge) + the harness probes recorded per session; tsc, eslint, `next build` and a browser pass against the live app all green |
+| Uncommitted | No — the merge (`1de95b5`) and its follow-up fix (`3396c3b`) carry everything below; `main` is one commit ahead of `origin/main` |
 | **Action needed** | Run `pnpm db:push` then `pnpm db:seed` — and note migration `0017` (`season_players.finished_at`) is new as of session 23. Verified end-to-end against a scratch Postgres, **not applied to your database** |
-| Next step | **Yours**: run `pnpm db:push` + `pnpm db:seed`, then play a season through. Nothing is committed — see below. |
+| Next step | **Yours**: play a season through on a live server — the merged realtime, notification and feed surfaces have had `tsc`/tests/build but no browser pass yet |
 
 ### Known repo issues
 
@@ -45,6 +45,40 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-04 — `add-sockets` merged into `main`
+
+Merged the realtime/notifications/console branch into main (`1de95b5`),
+resolved its conflicts and reconciled the one class of silent ones
+(`3396c3b`).
+
+**Textual conflicts.**
+
+- `app/(public)/dashboard/page.tsx` — kept the branch's markup
+  (`SeasonLiveRefresh`, reformatted props) and main's `rerollApproved` /
+  `rerollNeedsApproval`. The branch predates the permission model, so taking
+  its side as-is would have left `RollCard` without two required props.
+- `components/feed/feed-list.tsx` — took the branch's 24-line wrapper (rows are
+  rendered by `feed-timeline-view.tsx` now), then carried main's
+  `reroll_approved` row into the new client view; without it the event falls
+  through to the unknown-event default.
+- `docs/WORKLOG.md` — union, newest first: the branch's 2026-10-04 entries, then
+  main's 2026-10-02 … 2026-09-26 sessions.
+
+**Silent ones.** Both sides had edited `lib/modules/game/moderation/reroll.ts`
+and `lib/modules/game/service/resolve.ts`; git merged the hunks cleanly and the
+result did not compile — the branch's `reroll_approved` notification referenced
+the game the approval used to draw, which main's permission model removed.
+Fixed in `3396c3b`: the notice carries season/roll/request only (the game is
+drawn when the player presses Reroll), the duplicate draw-time notice is gone,
+and the en/ru/uk body now says the player draws from the dashboard.
+
+**Verified.** `tsc --noEmit` clean · `eslint` 0 errors (3 warnings, present on
+both sides before the merge) · **753 tests / 49 files** · `next build` green ·
+`FeedTimelineView` rendered with a `reroll_approved` row. No live browser pass
+yet.
 
 ---
 
