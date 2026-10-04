@@ -19,7 +19,7 @@ import {
 } from "./access";
 import { subscribeRealtime } from "./bus";
 import { count } from "./metrics";
-import { CHAT_ROOM, parseSeasonRoom, type ChatTypingBroadcast } from "./protocol";
+import { CHAT_ROOM, parseSeasonRoom, parseUserRoom, type ChatTypingBroadcast } from "./protocol";
 
 /**
  * Socket.IO server — the only place that owns the `io` instance.
@@ -169,6 +169,31 @@ export function attachRealtime(httpServer: HttpServer, deps: RealtimeDeps = {}):
               err: error instanceof Error ? error : undefined,
             });
             if (!isStaffRole(state.user?.role)) {
+              count("joinDenied");
+              done({ ok: false, error: "FORBIDDEN" });
+              return;
+            }
+          }
+        }
+        // Private inboxes are re-checked the same way: a revoked cookie or a
+        // blocked user stops receiving another user's notifications at the
+        // next join. Fail-closed here would lock the owner out on a DB blip,
+        // so an outage keeps the cached (already owner-checked) verdict.
+        const owner = parseUserRoom(name);
+        if (owner !== null) {
+          try {
+            const fresh = state.token ? await lookup(state.token) : null;
+            if (!fresh || fresh.id !== owner) {
+              count("joinDenied");
+              done({ ok: false, error: "FORBIDDEN" });
+              return;
+            }
+            state.user = fresh;
+          } catch (error) {
+            log.warn("realtime.notifications.revalidate.failed", {
+              err: error instanceof Error ? error : undefined,
+            });
+            if (!state.user || state.user.id !== owner) {
               count("joinDenied");
               done({ ok: false, error: "FORBIDDEN" });
               return;

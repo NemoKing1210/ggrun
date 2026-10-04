@@ -11,13 +11,15 @@
  * crosses processes, so ticking anywhere else would publish into the void
  * (skip: `--no-bots`).
  *
- * Flags: `--port N` (default 3000, also `PORT`), `--no-bots`, `--no-push`,
- * `BOTS_TICK_MS` (default 10000). `LOG_LEVEL=debug` restores the verbose
- * per-tick logs (default in dev is `info`). Ctrl+C stops everything.
+ * Flags: `--port N` (default 3000, also `PORT`; next free port when busy),
+ * `--no-bots`, `--no-push`, `BOTS_TICK_MS` (default 10000).
+ * `LOG_LEVEL=debug` restores the verbose per-tick logs (default `info`).
+ * Ctrl+C stops everything.
  */
 import "./lib/load-env";
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import net from "node:net";
 
 import pg from "pg";
 
@@ -41,7 +43,7 @@ function parseArgs(argv: string[]): DevOptions {
     if (arg === "--help" || arg === "-h") {
       console.log(
         "Usage: pnpm dev [--port N] [--no-bots] [--no-push]\n" +
-          "  --port N   serve on N (default 3000 / PORT)\n" +
+          "  --port N   serve on N (default 3000 / PORT; next free port when busy)\n" +
           "  --no-bots  skip the autonomous bot ticker\n" +
           "  --no-push  skip applying the DB schema on boot",
       );
@@ -95,6 +97,27 @@ async function applySchema(): Promise<void> {
     process.exit(res.status ?? 1);
   }
 }
+/** True when nothing listens on `port` (all interfaces — matches the server bind). */
+function isPortFree(port: number): Promise<boolean> {
+  const { promise, resolve } = Promise.withResolvers<boolean>();
+  const probe = net.createServer();
+  probe.once("error", () => resolve(false));
+  probe.once("listening", () => probe.close(() => resolve(true)));
+  probe.listen(port, "0.0.0.0");
+  return promise;
+}
+
+/** First free port at/above `start`; warns when the requested one is busy. */
+async function findFreePort(start: number, tries = 20): Promise<number> {
+  for (let p = start; p < start + tries; p++) {
+    if (await isPortFree(p)) {
+      if (p !== start) console.log(`${DEV} ${yellow(`port ${start} is busy — using ${p} instead`)}`);
+      return p;
+    }
+  }
+  console.error(`${DEV} ${red(`no free port in ${start}–${start + tries - 1}`)} — free one or pass ${bold("--port N")}`);
+  process.exit(1);
+}
 
 let child: ChildProcess | null = null;
 let stopping = false;
@@ -115,6 +138,10 @@ async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
   await checkDatabase();
   if (opts.withPush) await applySchema();
+  // Probe right before spawn (not at arg parse): `db:push` takes a while and
+  // the port could be grabbed in between. The server still retries on
+  // EADDRINUSE as a last resort for the leftover TOCTOU race.
+  opts.port = await findFreePort(opts.port);
 
   console.log(`${bold("ggrun")} ${dim("dev — db + sockets + bots")}`);
   console.log(`  ${dim("app")}      ${link(`http://localhost:${opts.port}`)}`);

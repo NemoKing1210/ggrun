@@ -13,6 +13,7 @@ import { seasons as seasonsEn } from "./en/seasons";
 import { settings as settingsEn } from "./en/settings";
 import { chat as chatEn } from "./en/chat";
 import { iee as ieeEn } from "./en/iee";
+import { notifications as notificationsEn } from "./en/notifications";
 import * as coreRu from "./ru/core";
 import { landing as landingRu } from "./ru/landing";
 import { board as boardRu } from "./ru/board";
@@ -25,6 +26,7 @@ import { seasons as seasonsRu } from "./ru/seasons";
 import { settings as settingsRu } from "./ru/settings";
 import { chat as chatRu } from "./ru/chat";
 import { iee as ieeRu } from "./ru/iee";
+import { notifications as notificationsRu } from "./ru/notifications";
 import * as coreUk from "./uk/core";
 import { landing as landingUk } from "./uk/landing";
 import { board as boardUk } from "./uk/board";
@@ -37,6 +39,7 @@ import { seasons as seasonsUk } from "./uk/seasons";
 import { settings as settingsUk } from "./uk/settings";
 import { chat as chatUk } from "./uk/chat";
 import { iee as ieeUk } from "./uk/iee";
+import { notifications as notificationsUk } from "./uk/notifications";
 
 /** core exports several constants — assembled into a plain object for serialization to the client. */
 function pickCore(core: Widen<typeof coreEn>) {
@@ -78,6 +81,7 @@ export type Dictionary = {
   settings: Widen<typeof settingsEn>;
   chat: Widen<typeof chatEn>;
   iee: Widen<typeof ieeEn>;
+  notifications: Widen<typeof notificationsEn>;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -94,6 +98,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     settings: settingsEn,
     chat: chatEn,
     iee: ieeEn,
+    notifications: notificationsEn,
   },
   ru: {
     core: coreRuDict,
@@ -108,6 +113,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     settings: settingsRu,
     chat: chatRu,
     iee: ieeRu,
+    notifications: notificationsRu,
   },
   uk: {
     core: coreUkDict,
@@ -122,6 +128,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     settings: settingsUk,
     chat: chatUk,
     iee: ieeUk,
+    notifications: notificationsUk,
   },
 };
 

@@ -16,6 +16,8 @@
  * - `"audit"` — admin audit log. Staff (`admin`/`judge`) only.
  * - `"season:<seasonId>"` — one room per season: movement, rolls, items,
  *   effects and every other public feed event of that season.
+ * - `"user:<userId>"` — private per-user inbox for notifications.
+ *   Owner-only; never presence-tracked, never backfilled over REST.
  *
  * To add a new live feature: pick a room (or add a `*Room` helper next to
  * `seasonRoom`), add the event + payload to `RealtimeEventMap`, publish with
@@ -43,6 +45,19 @@ const SEASON_ROOM_RE = /^season:([A-Za-z0-9_-]{1,64})$/;
 /** Returns the season id for a `season:*` room, or null. */
 export function parseSeasonRoom(room: string): string | null {
   const m = SEASON_ROOM_RE.exec(room);
+  return m ? m[1]! : null;
+}
+
+/** Private per-user room for notifications. Owner-only (see `access.ts`). */
+export function userRoom(userId: string): string {
+  return `user:${userId}`;
+}
+
+const USER_ROOM_RE = /^user:([A-Za-z0-9_-]{1,64})$/;
+
+/** Returns the user id for a `user:*` room, or null. */
+export function parseUserRoom(room: string): string | null {
+  const m = USER_ROOM_RE.exec(room);
   return m ? m[1]! : null;
 }
 
@@ -115,12 +130,46 @@ export interface PresenceBroadcast {
   count: number;
 }
 
+/** Serialized notification row pushed into `user:<id>` rooms. */
+export interface NotificationBroadcast {
+  id: string;
+  userId: string;
+  kind: string;
+  titleKey: string;
+  bodyKey: string;
+  params: Record<string, unknown>;
+  severity: string;
+  icon: string | null;
+  imageUrl: string | null;
+  href: string | null;
+  actions: Array<{ id: string; labelKey: string; href?: string; style?: string }>;
+  data: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+  /** Unread count after this change — lets badges sync without refetch. */
+  unread: number;
+  /** Per-process sequence stamped by `publish` — same contract as chat. */
+  seq?: number;
+}
+
+/** Read-state sync for other tabs holding the same `user:<id>` room. */
+export interface NotificationReadBroadcast {
+  id: string | null;
+  readAt: string | null;
+  /** Null id = whole inbox marked read. */
+  all: boolean;
+  unread: number;
+  seq?: number;
+}
+
 /** Every server→client event. Adding a feature = adding a row here. */
 export interface RealtimeEventMap {
   "chat:message": ChatMessageBroadcast;
   "chat:typing": ChatTypingBroadcast;
   "audit:created": AuditEntryBroadcast;
   "board:event": BoardEventBroadcast;
+  "notifications:created": NotificationBroadcast;
+  "notifications:read": NotificationReadBroadcast;
   "presence:update": PresenceBroadcast;
 }
 

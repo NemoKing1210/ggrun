@@ -56,12 +56,29 @@ const handler = app.getRequestHandler();
 void app.prepare().then(() => {
   const httpServer = createServer(handler);
   attachRealtime(httpServer);
-  httpServer.listen(port, hostname, () => {
+  // The dev script pre-scans for a free port, but the port can still be
+  // grabbed in between (or when running `pnpm start` directly) — bump
+  // upward instead of crashing with EADDRINUSE.
+  const maxBumps = 20;
+  let current = port;
+  httpServer.on("error", (err: NodeJS.ErrnoException) => {
+    if (err?.code === "EADDRINUSE" && current - port < maxBumps) {
+      current += 1;
+      console.log(`${bold("[ggrun]")} ${yellow(`port ${current - 1} is busy — trying ${current} instead`)}`);
+      httpServer.listen(current, hostname);
+      return;
+    }
+    console.error(`${bold("[ggrun]")} ${red("failed to listen:")} ${err?.message ?? err}`);
+    process.exit(1);
+  });
+  httpServer.listen(current, hostname, () => {
     // `hostname` is the bind address (`0.0.0.0` = all interfaces) — not a
-    // connectable URL, so display `localhost` for wildcard binds.
+    // connectable URL, so display `localhost` for wildcard binds. The actual
+    // port comes from the socket: it may have bumped past `port` above.
     const displayHost = hostname === "0.0.0.0" || hostname === "::" ? "localhost" : hostname;
+    const actual = (httpServer.address() as { port?: number } | null)?.port ?? current;
     console.log(
-      `${bold("[ggrun]")} ${green("ready")} on ${link(`http://${displayHost}:${port}`)} ${dim(`(${dev ? "dev" : "prod"}, realtime attached)`)}`,
+      `${bold("[ggrun]")} ${green("ready")} on ${link(`http://${displayHost}:${actual}`)} ${dim(`(${dev ? "dev" : "prod"}, realtime attached)`)}`,
     );
     startBotTicker();
   });

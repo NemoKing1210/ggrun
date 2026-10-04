@@ -425,6 +425,25 @@ select:disabled {
 .animate-chat-ping {
   animation: chat-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+@keyframes hud-bell-ring {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-16deg);
+  }
+  45% {
+    transform: rotate(11deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+}
+.animate-hud-bell-ring {
+  animation: hud-bell-ring 450ms ease-out;
+  transform-origin: top center;
+}
 @media (prefers-reduced-motion: reduce) {
   .hud-loader-blink,
   .hud-loader-cell,
@@ -441,7 +460,8 @@ select:disabled {
   .animate-presence-glow,
   .animate-presence-border,
   .animate-chat-badge,
-  .animate-chat-ping {
+  .animate-chat-ping,
+  .animate-hud-bell-ring {
     animation: none;
   }
   .hud-btn:active:not(:disabled),

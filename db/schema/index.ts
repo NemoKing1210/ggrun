@@ -15,4 +15,5 @@ export * from "./iee";
 export * from "./bots";
 export * from "./settings";
 export * from "./chat";
+export * from "./notifications";
 export * from "./relations";

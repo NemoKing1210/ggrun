@@ -10,7 +10,7 @@ import {
   TYPING_THROTTLE_MS,
   type SocketUser,
 } from "./access";
-import { AUDIT_ROOM, CHAT_ROOM, seasonRoom } from "./protocol";
+import { AUDIT_ROOM, CHAT_ROOM, seasonRoom, userRoom } from "./protocol";
 
 const viewer: SocketUser = { id: "u1", username: "viewer", displayName: null, role: "viewer" };
 const judge: SocketUser = { id: "u2", username: "judge", displayName: "J", role: "judge" };
@@ -62,6 +62,12 @@ describe("authorizeJoin", () => {
     expect(authorizeJoin(AUDIT_ROOM, admin)).toEqual({ ok: true });
   });
 
+  it("restricts inbox rooms to their owner", () => {
+    // Same opaque verdict for strangers and staff: no inbox oracle.
+    expect(authorizeJoin(userRoom("u1"), null)).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(authorizeJoin(userRoom("u1"), admin)).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(authorizeJoin(userRoom("u1"), viewer)).toEqual({ ok: true });
+  });
   it("rejects unknown rooms without leaking membership", () => {
     // Same verdict for anonymous and staff: no room oracle.
     for (const room of [undefined, null, 42, "", "lobby", "season:", "chat ", "AUDIT", "x".repeat(81)]) {
@@ -97,6 +103,7 @@ describe("isLeavableRoom", () => {
   it("accepts known rooms and rejects stray input", () => {
     expect(isLeavableRoom(CHAT_ROOM)).toBe(true);
     expect(isLeavableRoom(seasonRoom("s1"))).toBe(true);
+    expect(isLeavableRoom(userRoom("u1"))).toBe(true);
     expect(isLeavableRoom("lobby")).toBe(false);
     expect(isLeavableRoom(42)).toBe(false);
     expect(isLeavableRoom("")).toBe(false);

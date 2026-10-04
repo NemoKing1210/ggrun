@@ -22,6 +22,7 @@ export default async function PublicLayout({
         user={
           user
             ? {
+                id: user.id,
                 displayName: user.displayName,
                 username: user.username,
                 avatarUrl: user.avatarUrl,

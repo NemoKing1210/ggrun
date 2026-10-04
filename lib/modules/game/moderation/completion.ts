@@ -1,12 +1,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/infrastructure/db";
-import { completionRequests, eventLog, gameRolls, seasonPlayers } from "@/db/schema";
+import { completionRequests, eventLog, gameRolls, gamesCatalog, seasonPlayers } from "@/db/schema";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getCompletionRequestById } from "@/lib/modules/catalog/repository";
 import type { RollOutcome } from "@/lib/engine";
 import { GameLoopError } from "../service/errors";
 import { parseSeasonConfig, requireStaffActor } from "../service/helpers";
 import { applyResolvedTurn } from "../service/turn";
+import { notifyUser } from "@/lib/modules/notifications/service";
+import { log } from "@/lib/infrastructure/logger";
 
 export async function approveCompletionRequest(requestId: string): Promise<void> {
   const actor = await requireStaffActor();
@@ -42,8 +44,6 @@ export async function approveCompletionRequest(requestId: string): Promise<void>
   // different game from one without it, and nothing said so.
   //
   // The request row and its feed line are written *inside* the turn's
-  // transaction, because an approved request whose move did not land — or a
-  // move whose request stayed pending — would each be worse than failing.
   await applyResolvedTurn({
     sp,
     roll,
@@ -65,6 +65,21 @@ export async function approveCompletionRequest(requestId: string): Promise<void>
       },
     ],
   });
+  const catalogRow = roll.gameId
+    ? (await db.select().from(gamesCatalog).where(eq(gamesCatalog.id, roll.gameId)).limit(1))[0]
+    : undefined;
+  await notifyUser(sp.playerId, "completion_approved", {
+    seasonId: sp.seasonId,
+    seasonSlug: season.slug,
+    seasonTitle: season.title,
+    seasonPlayerId: sp.id,
+    gameId: roll.gameId,
+    gameTitle: catalogRow?.title ?? "",
+    imageUrl: catalogRow?.coverUrl ?? null,
+    rollId: roll.id,
+    requestId: req.id,
+    outcome,
+  }).catch((error) => log.error("notifications.completion_approved.failed", { requestId, err: error instanceof Error ? error : undefined }));
 }
 
 export async function rejectCompletionRequest(requestId: string, adminNote: string): Promise<void> {
@@ -77,7 +92,25 @@ export async function rejectCompletionRequest(requestId: string, adminNote: stri
   const sp = spRows[0];
   if (!sp) throw new GameLoopError("gameParticipantNotFound");
   await db.update(completionRequests).set({ status: "rejected", adminNote: reason, resolvedAt: new Date(), resolvedBy: actor.id }).where(eq(completionRequests.id, req.id));
-  await db.insert(eventLog).values({ seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "completion_rejected", payload: { gameId: (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0]?.gameId ?? null, reason, requestId: req.id, outcome: req.outcome } });
+  const rollRow = (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0];
+  await db.insert(eventLog).values({ seasonId: sp.seasonId, seasonPlayerId: sp.id, eventType: "completion_rejected", payload: { gameId: rollRow?.gameId ?? null, reason, requestId: req.id, outcome: req.outcome } });
+  const season = await getSeasonById(sp.seasonId);
+  const catalogRow = rollRow?.gameId
+    ? (await db.select().from(gamesCatalog).where(eq(gamesCatalog.id, rollRow.gameId)).limit(1))[0]
+    : undefined;
+  await notifyUser(sp.playerId, "completion_rejected", {
+    seasonId: sp.seasonId,
+    seasonSlug: season?.slug ?? null,
+    seasonTitle: season?.title ?? "",
+    seasonPlayerId: sp.id,
+    gameId: rollRow?.gameId ?? null,
+    gameTitle: catalogRow?.title ?? "",
+    imageUrl: catalogRow?.coverUrl ?? null,
+    rollId: req.gameRollId,
+    requestId: req.id,
+    outcome: req.outcome,
+    adminNote: reason,
+  }).catch((error) => log.error("notifications.completion_rejected.failed", { requestId, err: error instanceof Error ? error : undefined }));
 }
 
 /** The participant's unfinished roll (rolled/in_progress), if any. */

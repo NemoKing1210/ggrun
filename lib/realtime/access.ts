@@ -1,4 +1,4 @@
-import { AUDIT_ROOM, CHAT_ROOM, parseSeasonRoom } from "./protocol";
+import { AUDIT_ROOM, CHAT_ROOM, parseSeasonRoom, parseUserRoom } from "./protocol";
 
 /**
  * Pure realtime policy — who may join what, who may type, and how the
@@ -65,13 +65,19 @@ export function authorizeJoin(
   user: SocketUser | null,
   opts: { roomsHeld?: number; recentJoins?: readonly number[]; now?: number } = {},
 ): JoinVerdict {
+  if (typeof room !== "string" || room.length === 0 || room.length > 80) {
+    return { ok: false, error: "UNKNOWN_ROOM" };
+  }
   const known =
-    typeof room === "string" &&
-    room.length > 0 &&
-    room.length <= 80 &&
-    (room === CHAT_ROOM || room === AUDIT_ROOM || parseSeasonRoom(room) !== null);
+    room === CHAT_ROOM || room === AUDIT_ROOM || parseSeasonRoom(room) !== null || parseUserRoom(room) !== null;
   if (!known) return { ok: false, error: "UNKNOWN_ROOM" };
   if (room === AUDIT_ROOM && !isStaffRole(user?.role)) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  // Private inbox: the socket owner only. Anonymous sockets and other users
+  // learn nothing — same opaque FORBIDDEN as the audit room.
+  const owner = parseUserRoom(room);
+  if (owner !== null && user?.id !== owner) {
     return { ok: false, error: "FORBIDDEN" };
   }
   const now = opts.now ?? Date.now();
@@ -90,7 +96,10 @@ export function isLeavableRoom(room: unknown): room is string {
     typeof room === "string" &&
     room.length > 0 &&
     room.length <= 80 &&
-    (room === CHAT_ROOM || room === AUDIT_ROOM || parseSeasonRoom(room) !== null)
+    (room === CHAT_ROOM ||
+      room === AUDIT_ROOM ||
+      parseSeasonRoom(room) !== null ||
+      parseUserRoom(room) !== null)
   );
 }
 

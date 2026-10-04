@@ -12,7 +12,9 @@ import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
 import { AvatarBadge } from "@/components/ui/AvatarBadge";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 export interface SiteHeaderUser {
+  id: string;
   displayName: string | null;
   username: string;
   avatarUrl?: string | null;
@@ -83,6 +85,7 @@ export function SiteHeader({
             <LocaleSwitcher current={locale} />
             {user ? (
               <>
+                <NotificationsBell userId={user.id} />
                 <Link
                   href={"/players/" + user.username}
                   onClick={guard()}

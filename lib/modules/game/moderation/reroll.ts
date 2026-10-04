@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/infrastructure/db";
-import { eventLog, gameRolls, rerollRequests, seasonPlayers } from "@/db/schema";
+import { eventLog, gameRolls, gamesCatalog, rerollRequests, seasonPlayers } from "@/db/schema";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { countRerollsForGame, getRerollRequestById, pickGameForRoll, POOL_EMPTY_ERROR } from "@/lib/modules/catalog/repository";
 import { canReroll } from "@/lib/engine";
 import { GameLoopError } from "../service/errors";
 import { parseSeasonConfig, requireStaffActor } from "../service/helpers";
+import { notifyUser } from "@/lib/modules/notifications/service";
+import { log } from "@/lib/infrastructure/logger";
 
 export async function approveRerollRequest(requestId: string): Promise<void> {
   const actor = await requireStaffActor();
@@ -57,6 +59,17 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
       payload: { oldGameId: roll.gameId, newGameId: game.id, title: game.title, requestId: req.id },
     });
   });
+  await notifyUser(sp.playerId, "reroll_approved", {
+    seasonId: sp.seasonId,
+    seasonSlug: season.slug,
+    seasonTitle: season.title,
+    seasonPlayerId: sp.id,
+    gameId: game.id,
+    gameTitle: game.title,
+    imageUrl: game.coverUrl,
+    rollId: roll.id,
+    requestId: req.id,
+  }).catch((error) => log.error("notifications.reroll_approved.failed", { requestId, err: error instanceof Error ? error : undefined }));
 }
 
 export async function rejectRerollRequest(requestId: string, adminNote: string): Promise<void> {
@@ -74,16 +87,33 @@ export async function rejectRerollRequest(requestId: string, adminNote: string):
     .update(rerollRequests)
     .set({ status: "rejected", adminNote: reason, resolvedAt: new Date(), resolvedBy: actor.id })
     .where(eq(rerollRequests.id, req.id));
+  const rollRow = (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0];
   await db.insert(eventLog).values({
     seasonId: sp.seasonId,
     seasonPlayerId: sp.id,
     eventType: "reroll_rejected",
     payload: {
-      gameId: (await db.select().from(gameRolls).where(eq(gameRolls.id, req.gameRollId)).limit(1))[0]?.gameId ?? null,
+      gameId: rollRow?.gameId ?? null,
       reason,
       requestId: req.id,
     },
   });
+  const season = await getSeasonById(sp.seasonId);
+  const catalogRow = rollRow?.gameId
+    ? (await db.select().from(gamesCatalog).where(eq(gamesCatalog.id, rollRow.gameId)).limit(1))[0]
+    : undefined;
+  await notifyUser(sp.playerId, "reroll_rejected", {
+    seasonId: sp.seasonId,
+    seasonSlug: season?.slug ?? null,
+    seasonTitle: season?.title ?? "",
+    seasonPlayerId: sp.id,
+    gameId: rollRow?.gameId ?? null,
+    gameTitle: catalogRow?.title ?? "",
+    imageUrl: catalogRow?.coverUrl ?? null,
+    rollId: req.gameRollId,
+    requestId: req.id,
+    adminNote: reason,
+  }).catch((error) => log.error("notifications.reroll_rejected.failed", { requestId, err: error instanceof Error ? error : undefined }));
 }
 
 // --- Admin moderation of completion requests (passed/dropped) ----------------
