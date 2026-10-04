@@ -148,6 +148,17 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKind, NotificationTempla
     actions: dashboardActions,
     dedupeKeyOf: ({ requestId }) => (requestId ? `completion:rejected:${requestId}` : null),
   },
+  admin_broadcast: {
+    kind: "admin_broadcast",
+    titleKey: "adminBroadcast",
+    bodyKey: "adminBroadcast",
+    severity: "info",
+    icon: "MegaphoneIcon",
+    href: "/notifications",
+    actions: [{ id: "open_inbox", labelKey: "openInbox", href: "/notifications" }],
+    // A personal note from staff is never deduped — same wording twice still means twice.
+    dedupeKeyOf: () => null,
+  },
 };
 
 export const NOTIFICATION_KINDS = Object.keys(NOTIFICATION_TEMPLATES) as NotificationKind[];

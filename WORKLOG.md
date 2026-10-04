@@ -48,6 +48,66 @@
 
 ---
 
+## 2026-10-04 — Admin command console (Ctrl+K)
+
+Asked for an in-app command line for admins: a palette on `Ctrl+K` with hints
+and autocomplete, quick commands for seasons, games, messages, notifications,
+built to be extended.
+
+**Shape.** Three separate pieces, because they have different lifetimes:
+
+- `lib/shared/admin-console/` — the contract. `spec.ts` is the command table
+  (name, group, argument kinds, danger flag); `parse.ts` is a pure tokenizer +
+  parser + completion engine (quotes group values with spaces, longest command
+  name wins, `argIndex`/`argPartial` describe the argument under the caret).
+  No React, no DB — `parse.test.ts` pins the grammar.
+- `lib/modules/admin-console/` — the executor. It calls the *same* use-cases as
+  the console pages, so status changes, player adjustments and catalog edits
+  keep their audit/event logging for free. It returns message *codes* + rows;
+  the `"use server"` action resolves them in the session language.
+- `components/admin/command-palette/` — the UI (`cmdk` 1.1.1 for listbox
+  semantics, keyboard nav and filtering-off control), hosted once in
+  `app/layout.tsx` behind `user.role === "admin"`, with triggers in both
+  `AdminHeader` and the public `SiteHeader` reading the host's context (a null
+  context means "not an admin", so no trigger and no Ctrl+K).
+
+**Decisions worth keeping.**
+
+- *Command grammar is shell-like, not a tree of menus.* Enter runs when the
+  command is complete, Tab/click completes. Enter completes instead when the
+  highlighted item is a command name or a not-yet-matching argument, which is
+  what makes `season stat` → `season status` work without a second key.
+- *Every console error is a code.* Console-level failures (unknown command,
+  ambiguous reference, bad enum) travel back as `ok:false` + code and are
+  resolved from `adminConsole.result.*`; domain errors keep going through
+  `AdminError`/`errorText`, exactly like the form actions. The executor stays
+  i18n-free.
+- *`notify` needed a kind.* There was no free-text notification, so
+  `admin_broadcast` was added to the engine union + registry + icon map +
+  `notifications.title/body` dictionaries. It is the only kind the console
+  emits; it is never deduped (the same words twice still mean twice).
+- *Entity arguments resolve by human name.* Seasons by slug (id fallback),
+  users by username/email, games by exact title then unique substring. The
+  `getSeasonById` lookup is guarded by a UUID check — an unguarded pass at a
+  non-uuid slug threw `22P02` from Postgres. Games insert quoted
+  (`game blacklist "Hotline Miami" on`).
+
+**Verified live** (`pnpm dev:turbo`, logged in as the bootstrap admin): Ctrl+K
+and the header button open it, the catalogue renders localised (ru), season
+suggestions come from the layout, user/game suggestions from the debounced
+server action, Tab completes enums, `seasons` / `season nosuch` / `whoami` /
+`moderation` / `help player` print correctly, danger commands gate on a second
+Enter and clear the gate when the line is edited, `open board` navigates and
+closes, and `say` / `notify staff` landed in `chat_messages` /
+`notifications` (smoke rows removed afterwards). Smoke data was deleted; the
+DB is as found.
+
+**Not verified:** the judge path — there is no judge user in this database, so
+the `role === "admin"` gate is code-inspected, not exercised. The server action
+re-checks the role, so the gate is not client-only.
+
+---
+
 ## 2026-09-10 — Session 23 · The IEE audit, and five stages of fixes
 
 Asked for an audit of the items-and-effects subsystem: describe the project,

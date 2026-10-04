@@ -10,6 +10,18 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **Admin command console** — <kbd>Ctrl</kbd>+<kbd>K</kbd> anywhere on the
+  site (admins only) opens a HUD terminal palette with fuzzy command
+  completion, live argument suggestions and a session log. Spec + parser live
+  in `lib/shared/admin-console/` (pure, unit-tested), the executor in
+  `lib/modules/admin-console/` runs the same use-cases as the console pages, so
+  every command lands in the audit log too. Commands cover seasons (list,
+  status, reset, roster), players (add, remove, position, points, status,
+  block, verify), the game catalog (search, blacklist, delete), chat (`say`),
+  notifications (`notify user|season|staff` — adds the `admin_broadcast`
+  notification kind) and navigation (`open`); destructive commands require a
+  second Enter. Adding a command = one spec entry + one executor case + one
+  dictionary line.
 - **Items, effects and challenges** — a whole subsystem, opt-in per season
   (`seasons.config.iee`, migration `0016`). Concept, contracts and the
   decision record live in `ITEMS_EFFECTS_EVENTS.md`.

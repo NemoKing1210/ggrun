@@ -31,6 +31,7 @@ export const notifications = {
     completionRequested: "Результат отправлен на проверку",
     completionApproved: "Результат принят",
     completionRejected: "Результат отклонён",
+    adminBroadcast: "Сообщение из консоли",
   },
   body: {
     playerAdded: "Тебя добавили в сезон «{season}». Первую игру можно роллить с дашборда.",
@@ -43,10 +44,12 @@ export const notifications = {
     completionRequested: "Отчёт {outcome} для «{game}» ждёт судью.",
     completionApproved: "Отчёт {outcome} для «{game}» принят.",
     completionRejected: "Отчёт {outcome} для «{game}» отклонён: {adminNote}",
+    adminBroadcast: "{note}",
   },
   actions: {
     openDashboard: "Дашборд",
     viewSeason: "Сезон",
     browseSeasons: "Сезоны",
+    openInbox: "Открыть",
   },
 } as const;

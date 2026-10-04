@@ -20,7 +20,9 @@ export type NotificationKind =
   | "reroll_rejected"
   | "completion_requested"
   | "completion_approved"
-  | "completion_rejected";
+  | "completion_rejected"
+  /** Free-text notice sent by an admin from the command console. */
+  | "admin_broadcast";
 
 /** One action button rendered under the card. */
 export interface NotificationActionDef {

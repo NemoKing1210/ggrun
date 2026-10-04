@@ -10,6 +10,11 @@ import { ToastProvider } from "@/components/ui/toast";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getAccent, isAccentKey, type AccentKey } from "@/lib/shared/ui/accent";
 import { AccentSync } from "@/components/system/accent-sync";
+import {
+  AdminConsoleHost,
+  type ConsoleSeason,
+} from "@/components/admin/command-palette/CommandPaletteProvider";
+import { listSeasons } from "@/lib/modules/season/repository/seasons";
 import { isDbAvailable } from "@/lib/infrastructure/db/health";
 import { SiteUnavailableScreen } from "@/components/system/site-unavailable-screen";
 import "./globals.css";
@@ -71,6 +76,10 @@ export default async function RootLayout({
   }
 
   const user = await getCurrentUser();
+  const consoleSeasons: ConsoleSeason[] =
+    user?.role === "admin"
+      ? (await listSeasons()).map((s) => ({ id: s.id, slug: s.slug, title: s.title, status: s.status }))
+      : [];
   const accentKey: AccentKey = isAccentKey(user?.accent) ? user.accent : "amber";
   const accent = getAccent(accentKey);
   const accentCss = `:root{--hud-amber:${accent.primary};--hud-amber-border:${accent.border};--hud-amber-glow:${accent.glow};}`;
@@ -94,16 +103,18 @@ export default async function RootLayout({
         <I18nProvider locale={locale} t={t}>
           <ToastProvider>
             <RealtimeProvider>
-            <TopLoader />
-            {showMaintenanceBanner && (
-              <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
-                <span className="size-2 bg-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] animate-pulse" aria-hidden />
-                {t.core.maintenance.text} — {t.core.maintenance.title}
-                <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
-              </div>
-            )}
-            {children}
-            <GlobalChat isAuthenticated={!!user} currentUserId={user?.id ?? null} />
+              <AdminConsoleHost enabled={user?.role === "admin"} seasons={consoleSeasons}>
+                <TopLoader />
+                {showMaintenanceBanner && (
+                  <div className="sticky top-0 z-[60] border-b border-amber/40 bg-amber px-4 py-2 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-black">
+                    <span className="size-2 bg-black [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] animate-pulse" aria-hidden />
+                    {t.core.maintenance.text} — {t.core.maintenance.title}
+                    <span className="hidden sm:inline opacity-70">· login restricted to admins</span>
+                  </div>
+                )}
+                {children}
+                <GlobalChat isAuthenticated={!!user} currentUserId={user?.id ?? null} />
+              </AdminConsoleHost>
             </RealtimeProvider>
           </ToastProvider>
         </I18nProvider>

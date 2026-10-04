@@ -31,6 +31,7 @@ export const notifications = {
     completionRequested: "Result sent for review",
     completionApproved: "Result approved",
     completionRejected: "Result rejected",
+    adminBroadcast: "Message from the console",
   },
   body: {
     playerAdded: "You've been added to season “{season}”. Roll your first game from the dashboard.",
@@ -43,10 +44,12 @@ export const notifications = {
     completionRequested: "Your {outcome} report for “{game}” is waiting for a judge.",
     completionApproved: "Your {outcome} report for “{game}” was approved.",
     completionRejected: "Your {outcome} report for “{game}” was rejected: {adminNote}",
+    adminBroadcast: "{note}",
   },
   actions: {
     openDashboard: "Dashboard",
     viewSeason: "Season",
     browseSeasons: "Seasons",
+    openInbox: "Open inbox",
   },
 } as const;

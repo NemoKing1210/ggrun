@@ -5,6 +5,7 @@ import {
   BellIcon,
   CheckCircleIcon,
   ClockIcon,
+  MegaphoneIcon,
   PlayIcon,
   TrophyIcon,
   UserMinusIcon,
@@ -23,6 +24,7 @@ const ICONS: Record<string, ComponentType<IconProps>> = {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
+  MegaphoneIcon,
   TrophyIcon,
 };
 
