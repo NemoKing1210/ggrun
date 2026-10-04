@@ -25,9 +25,10 @@ export interface NotificationView {
   createdAt: string;
 }
 
+/** Severity → HUD accent. Only real theme tokens — `success`/`sky` alone are not defined. */
 const SEVERITY_BAR: Record<string, string> = {
-  info: "bg-sky",
-  success: "bg-success",
+  info: "bg-sky-500",
+  success: "bg-military",
   warning: "bg-amber",
   danger: "bg-danger",
 };
@@ -112,15 +113,20 @@ export function NotificationCard({
     variant === "card"
       ? `hud-card hud-lift relative flex gap-3 p-3 pl-4 ${unread ? "border-amber/60" : ""}`
       : "relative flex gap-3 py-1 pl-3";
-  const inner = (
+  return (
     <article className={frame}>
+      {/* A card-level anchor stretched over the surface keeps the whole card
+          clickable without nesting it around the action links / children. */}
+      {item.href && (
+        <Link href={item.href} className="absolute inset-0 z-0" aria-label={title} />
+      )}
       <span className={`absolute top-0 bottom-0 left-0 w-1 ${bar}`} aria-hidden />
       <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-line bg-black/40 [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
         <NotificationIcon icon={item.icon} className="h-5 w-5 text-amber" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <h3 className="truncate font-display text-sm tracking-wider text-foreground uppercase">
+          <h3 className="line-clamp-2 min-w-0 font-display text-sm leading-snug tracking-wider text-foreground uppercase">
             {title}
           </h3>
           {unread && <span className="h-1.5 w-1.5 shrink-0 bg-amber" aria-hidden />}
@@ -135,8 +141,8 @@ export function NotificationCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.imageUrl} alt="" className="mt-2 h-16 w-16 border border-line object-cover" />
         )}
-        {actions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
+        {(actions.length > 0 || children) && (
+          <div className="relative z-10 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             {actions.map((a) =>
               a.href ? (
                 <Link key={a.id} href={a.href} className="hud-btn !px-2 !py-1 text-[11px]">
@@ -148,17 +154,13 @@ export function NotificationCard({
                 </span>
               ),
             )}
+            {actions.length > 0 && children && (
+              <span aria-hidden className="h-4 w-px shrink-0 bg-line" />
+            )}
+            {children}
           </div>
         )}
-        {children}
       </div>
     </article>
-  );
-  return item.href ? (
-    <Link href={item.href} className="block no-underline">
-      {inner}
-    </Link>
-  ) : (
-    inner
   );
 }

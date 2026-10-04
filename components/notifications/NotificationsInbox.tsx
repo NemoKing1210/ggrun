@@ -35,7 +35,7 @@ export function NotificationsInbox({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`font-mono text-[11px] tracking-widest ${live ? "text-success" : "text-dim"}`}
+          className={`font-mono text-[11px] tracking-widest ${live ? "text-military" : "text-dim"}`}
         >
           {live ? `● ${t.notifications.live}` : `○ ${t.notifications.offline}`}
         </span>
@@ -74,7 +74,7 @@ export function NotificationsInbox({
           {visible.map((n) => (
             <li key={n.id}>
               <NotificationCard item={n} unread={!n.readAt}>
-                <span className="mt-2 flex gap-3">
+                <span className="flex items-center gap-3">
                   {!n.readAt && (
                     <form action={markNotificationReadAction}>
                       <input type="hidden" name="id" value={n.id} />

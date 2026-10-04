@@ -5,6 +5,7 @@ export const notifications = {
   kicker: "inbox",
   bell: "Уведомления",
   bellOpen: "Открыть уведомления",
+  close: "Закрыть",
   unreadCount: "Непрочитанных: {count}",
   markAllRead: "Прочитать все",
   marking: "Отмечаем…",
