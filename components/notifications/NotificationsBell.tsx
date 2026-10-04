@@ -58,6 +58,7 @@ export function NotificationsBell({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
   const [ringKey, setRingKey] = useState(0);
   const prevUnread = useRef(unread);
+  const containerRef = useRef<HTMLSpanElement>(null);
 
   // Ring the bell when the unread count grows while the menu is closed.
   useEffect(() => {
@@ -74,11 +75,25 @@ export function NotificationsBell({ userId }: { userId: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open ]);
 
+  // Close on outside interaction. A fixed backdrop can't be used here: the
+  // sticky header's backdrop-filter turns it into the containing block for
+  // `position: fixed` descendants, so the overlay would only span the header.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open ]);
+
   const preview = items.slice(0, 5);
 
   return (
     <HudMotion>
-      <span className="relative inline-flex">
+      <span ref={containerRef} className="relative inline-flex">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -112,11 +127,6 @@ export function NotificationsBell({ userId }: { userId: string }) {
         <AnimatePresence>
           {open && (
             <>
-              <span
-                aria-hidden
-                onClick={() => setOpen(false)}
-                className="fixed inset-0 z-40 cursor-default"
-              />
               <motion.span
                 initial={{ opacity: 0, y: -6, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}

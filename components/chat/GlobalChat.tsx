@@ -384,8 +384,8 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
             aria-expanded={open}
             className={[
               "relative flex size-14 items-center justify-center border-2 bg-gradient-to-br from-[#1e1e18] to-[#0a0a08] text-amber shadow-[0_8px_28px_rgba(0,0,0,0.6)] transition-all duration-200 [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]",
-              "hover:scale-[1.07] hover:from-amber hover:to-[#e8a600] hover:text-black hover:shadow-[0_10px_36px_rgba(242,169,0,0.45)] active:scale-[0.97]",
-              open ? "border-amber bg-amber text-black shadow-[0_0_24px_rgba(242,169,0,0.5)]" : "animate-chat-amber",
+              "hover:scale-[1.07] hover:from-amber hover:to-[var(--hud-amber-border)] hover:text-black hover:shadow-[0_10px_36px_rgb(var(--hud-amber-glow)/0.45)] active:scale-[0.97]",
+              open ? "border-amber bg-amber text-black shadow-[0_0_24px_rgb(var(--hud-amber-glow)/0.5)]" : "animate-chat-amber",
             ].join(" ")}
           >
             {/* corner ticks */}
@@ -400,7 +400,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
             <span className="relative flex items-center justify-center">
               <ChatBubbleLeftRightIcon
                 className={[
-                  "size-7 drop-shadow-[0_1px_6px_rgba(242,169,0,0.35)] transition-all duration-200",
+                  "size-7 drop-shadow-[0_1px_6px_rgb(var(--hud-amber-glow)/0.35)] transition-all duration-200",
                   open ? "scale-0 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100 group-hover/btn:scale-110 group-hover/btn:-rotate-3",
                 ].join(" ")}
                 aria-hidden
@@ -415,7 +415,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
             </span>
             {/* unread badge */}
             {unread > 0 && !open && (
-              <span className="absolute -right-1.5 -top-1.5 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-amber px-1 py-0.5 font-mono text-[11px] font-bold leading-none text-black shadow-[0_2px_12px_rgba(242,169,0,0.65)] animate-chat-badge">
+              <span className="absolute -right-1.5 -top-1.5 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-amber px-1 py-0.5 font-mono text-[11px] font-bold leading-none text-black shadow-[0_2px_12px_rgb(var(--hud-amber-glow)/0.65)] animate-chat-badge">
                 {unread > 99 ? "99+" : unread}
               </span>
             )}

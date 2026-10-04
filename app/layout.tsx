@@ -83,7 +83,9 @@ export default async function RootLayout({
   const showMaintenanceBanner = maintenanceMode && (!user || user.role !== "admin");
   return (
     <html lang={locale}>
-      <style id="hud-accent">{accentCss}</style>
+      <style id="hud-accent" href="hud-accent" precedence="default">
+        {accentCss}
+      </style>
       <body
         className={`${stencil.variable} ${techMono.variable} ${body.variable} antialiased`}
         suppressHydrationWarning

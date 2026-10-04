@@ -51,6 +51,38 @@ body {
   }
 }
 
+/*
+ * Interactive affordance: Tailwind v4 preflight leaves buttons at the browser
+ * default (arrow) cursor, so every clickable control must opt in explicitly.
+ * Centralised here so custom-styled buttons, chips, tabs, selects, native
+ * inputs and summaries never drift. Kept in `base` so explicit utilities
+ * (e.g. `cursor-not-allowed`) still win.
+ */
+@layer base {
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="color"]:not(:disabled),
+  input[type="range"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  select:disabled,
+  input:disabled,
+  summary[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* Hazard tape: black-and-yellow diagonal stripes */
 .hazard-tape {
   background: repeating-linear-gradient(-45deg, var(--hud-amber) 0 12px, #111110 12px 24px);
@@ -383,17 +415,17 @@ select:disabled {
 @keyframes chat-amber {
   0%,
   100% {
-    border-color: rgba(242, 169, 0, 0.55);
+    border-color: rgb(var(--hud-amber-glow) / 0.55);
     box-shadow:
-      0 0 14px rgba(242, 169, 0, 0.28),
-      0 0 32px rgba(242, 169, 0, 0.16),
+      0 0 14px rgb(var(--hud-amber-glow) / 0.28),
+      0 0 32px rgb(var(--hud-amber-glow) / 0.16),
       0 8px 24px rgba(0, 0, 0, 0.55);
   }
   50% {
-    border-color: rgba(242, 169, 0, 0.95);
+    border-color: rgb(var(--hud-amber-glow) / 0.95);
     box-shadow:
-      0 0 22px rgba(242, 169, 0, 0.52),
-      0 0 48px rgba(242, 169, 0, 0.28),
+      0 0 22px rgb(var(--hud-amber-glow) / 0.52),
+      0 0 48px rgb(var(--hud-amber-glow) / 0.28),
       0 8px 24px rgba(0, 0, 0, 0.55);
   }
 }
