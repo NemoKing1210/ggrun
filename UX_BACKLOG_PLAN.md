@@ -484,7 +484,7 @@ Plus `components/admin/IeeCatalogBrowser.tsx:47` at `text-xs`.
 
 **Contrast is not the problem** — `#9a958a` on `#1a1a1a` measures **5.83:1**,
 which passes WCAG AA comfortably. The problems are size and hierarchy. The
-screenshot in `Claude outputs/inventory-panel.png` shows it plainly: the name
+inventory panel shows it plainly: the name
 `HEX SCROLL` is `text-sm uppercase` in near-white, while *"Single use. Slows
 another player: their next two moves are one step shorter"* — the only text that
 tells the player anything — is 11px grey. The hierarchy is inverted: the label
