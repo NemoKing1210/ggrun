@@ -19,14 +19,14 @@
 | --- | --- |
 | Version | `0.5.0` |
 | Branch | `main` |
-| Active work | **Test bots** — bots now spend items/effects through the real activation path, and the console is live over a staff-only socket room (`bots:<seasonId>`). IEE stages 1–5 remain shipped, stage 6 (content) deferred |
+| Active work | **API reference** — every route handler and the whole Socket.IO protocol are described once in `lib/api/` and served at `/api-docs` (+ `/api/openapi.json`, `/api/openapi.md`, `docs/API.md`). Test bots (previous session) are shipped |
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
-| Tests | **3022 unit/component/invariant tests / 255 files** — `pnpm verify` (eslint + `tsc --noEmit` + `vitest run --coverage` with thresholds). Coverage ratchet in `vitest.config.mts` |
-| Uncommitted | **Yes** — the test-gate session (see the entry below) is not committed yet. The `add-sockets` merge (`1de95b5`) and its follow-up fix (`3396c3b`) are in `main` |
+| Tests | **3034 unit/component/invariant tests / 256 files** — `pnpm verify` (eslint + `tsc --noEmit` + `vitest run --coverage` with thresholds). Coverage ratchet in `vitest.config.mts` |
+| Uncommitted | **No** — the API-reference work ships in the same commit as this entry |
 | **Action needed** | Run `pnpm db:push` then `pnpm db:seed` — and note migration `0017` (`season_players.finished_at`) is new as of session 23. Verified end-to-end against a scratch Postgres, **not applied to your database** |
-| Next step | Commit the test-gate work (it is uncommitted as of this entry); the Husky hooks install on the next `pnpm install` via `prepare` |
+| Next step | Keep `lib/api/contract.ts` and `lib/api/realtime.ts` in step with the routes: edit them, run `pnpm api:doc`, and let `lib/api/spec.test.ts` prove the parity in `pnpm verify` |
 
 ### Known repo issues
 
@@ -45,6 +45,68 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-04 — An API reference that maintains itself
+
+**Goal.** Publish a browsable, machine-readable reference of every HTTP
+endpoint and the whole Socket.IO protocol — usable by humans, tooling and
+agents — without adding a second description of the API that drifts.
+
+**Done.**
+
+- **Contract** — `lib/api/contract.ts` (7 endpoints: the four app ones plus the
+  three meta routes that serve the reference) and `lib/api/realtime.ts`
+  (5 rooms, 10 server events, 3 client events, join errors, transport limits).
+  Bodies are Zod schemas converted by `z.toJSONSchema`; realtime payloads are
+  pinned to `RealtimeEventMap` at compile time (`satisfies` + a
+  mutual-assignability assertion), so a protocol change stops compiling until
+  the docs catch up.
+- **Served** — `/api-docs` (Scalar 1.72.4 pinned from jsDelivr, HUD palette,
+  telemetry and the Scalar Agent off, offline fallback to the raw spec),
+  `/api/openapi.json` (OpenAPI 3.1, socket protocol in an `x-realtime`
+  extension) and `/api/openapi.md`. All three are `force-static` route
+  handlers: no React tree, no i18n, no DB, so the reference renders while the
+  database is down.
+- **Repo copy** — `docs/API.md` (~1,800 lines, nothing left to follow) written
+  by `pnpm api:doc`; the served markdown is byte-identical to it.
+- **Guards** — `lib/api/spec.test.ts`: valid OpenAPI 3.1 (via
+  `@scalar/openapi-parser`, new devDependency), route↔spec parity in both
+  directions across every `app/**/route.ts`, error-code parity in both
+  directions (read through the TS AST, so comments and unrelated literals
+  cannot fool it), no dangling `$ref`, no orphan models, `x-realtime` ↔
+  `RealtimeEventMap`, and a staleness check on `docs/API.md`.
+- **Docs** — README, `docs/README.md`, DEVELOPMENT (key dirs + commands),
+  AGENTS §3/§4/§5 (new recipe "Change the API surface")/§11, translations,
+  CHANGELOG.
+
+**Decisions.**
+
+- Route handlers keep their hand-written guards; `lib/api/` describes them and
+  the tests compare the docs against the route source. Rewriting the routes to
+  validate through the schemas would have changed observable status codes and
+  error strings for tidiness alone.
+- The document is env-free (`servers: ["/"]`), so `docs/API.md` is
+  deterministic and the repo copy always equals the served copy.
+- Server actions stay out of the API on purpose — they are web-UI RPC over the
+  page URL, and saying so is more useful than documenting endpoints no third
+  party can call.
+
+**Notable.**
+
+- `pnpm build` must not run while `next dev` owns the same `.next`: the build
+  manifest is clobbered and the failure surfaces as a prerender error in
+  `/board`. Built green in an isolated `distDir` instead.
+- Verified: `pnpm verify` (3034 tests / 256 files, coverage ratchet intact),
+  production build marks all three routes static, live smoke covers the JSON,
+  markdown parity and the rendered reference in Chromium.
+
+**Files touched.** `lib/api/{contract,realtime,spec,markdown,spec.test}.ts`,
+`app/api/openapi.{json,md}/route.ts`, `app/api-docs/route.ts`,
+`scripts/api-doc.ts`, `docs/API.md`, `package.json` (`api:doc`,
+`@scalar/openapi-parser`), README / DEVELOPMENT / AGENTS / CHANGELOG /
+translations.
 
 ---
 

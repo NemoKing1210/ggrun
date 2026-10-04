@@ -120,8 +120,13 @@ pnpm dev                    # http://localhost:3000
 | [`RUNBOOK.md`](../docs/RUNBOOK.md) | Пошаговое руководство для хоста на день события |
 | [`ITEMS_EFFECTS_EVENTS.md`](../docs/ITEMS_EFFECTS_EVENTS.md) | Предметы / эффекты / события: концепция, контракты, решения |
 | [`ITEMS_EFFECTS_SCENARIOS.md`](../docs/ITEMS_EFFECTS_SCENARIOS.md) | Генерируется — что обещает каждый предмет и эффект, в виде сценариев |
+| [`API.md`](../docs/API.md) | Генерируется — все HTTP-эндпоинты и события Socket.IO с схемами запросов, ответов и payload'ов |
 | [`WORKLOG.md`](../docs/WORKLOG.md) | Журнал работ — что делала каждая сессия |
 | [`CHANGELOG.md`](../CHANGELOG.md) | История релизов (Keep a Changelog) |
+
+Справка по API отдаётся и самим приложением: `/api-docs` (с отрисовкой),
+`/api/openapi.json` (OpenAPI 3.1) и `/api/openapi.md` (та же страница
+в markdown — удобно вставлять агенту).
 
 ## Переменные окружения
 

@@ -59,6 +59,7 @@
     "db:admin": "tsx scripts/bootstrap-admin.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "scenarios:doc": "tsx scripts/scenarios-doc.ts",
+    "api:doc": "tsx scripts/api-doc.ts",
     "iee:art": "tsx scripts/iee-art.ts"
   },
   "dependencies": {
@@ -85,6 +86,7 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@eslint/eslintrc": "^3",
+    "@scalar/openapi-parser": "^0.29.10",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^20",

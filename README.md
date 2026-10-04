@@ -120,8 +120,13 @@ Production deploy: [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
 | [`RUNBOOK.md`](./docs/RUNBOOK.md) | Step-by-step host guide for event day |
 | [`ITEMS_EFFECTS_EVENTS.md`](./docs/ITEMS_EFFECTS_EVENTS.md) | Items / effects / events: concept, contracts, decisions |
 | [`ITEMS_EFFECTS_SCENARIOS.md`](./docs/ITEMS_EFFECTS_SCENARIOS.md) | Generated — what every item and effect promises, as scenarios |
+| [`API.md`](./docs/API.md) | Generated — every HTTP endpoint and Socket.IO event, with request/response and payload schemas |
 | [`WORKLOG.md`](./docs/WORKLOG.md) | Work journal — what each session did next |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Release history (Keep a Changelog) |
+
+The API reference is also served by the app itself: `/api-docs` (rendered),
+`/api/openapi.json` (OpenAPI 3.1) and `/api/openapi.md` (the same page as a
+markdown file, handy for pasting into an agent).
 
 ## Environment variables
 

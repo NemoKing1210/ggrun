@@ -16,6 +16,7 @@ the files that tooling and conventions expect there: [`README.md`](../README.md)
 | [`RUNBOOK.md`](./RUNBOOK.md) | Step-by-step host guide for event day |
 | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) | Items / effects / events: concept, contracts, decisions |
 | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
+| [`API.md`](./API.md) | **Generated** — HTTP + realtime API reference: endpoints, error codes, Socket.IO events, models (`pnpm api:doc`; served at `/api-docs`, `/api/openapi.json`, `/api/openapi.md`) |
 | [`WORKLOG.md`](./WORKLOG.md) | Work journal — what each session did and what to pick up next |
 
 ## Root docs

@@ -82,6 +82,7 @@ already-played) → player marks the outcome → `resolveAction` →
 | `lib/engine/`                       | Domain (pure TS): `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts`          |
 | `lib/modules/*/`                    | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each with `repository/` + `service/` + `actions/` + `index.ts` barrel |
 | `lib/use-cases/`                    | Cross-module adapters only: `admin/actions/{helpers,types}`, `shared/action-error`                                                                                    |
+| `lib/api/`                          | API contract: `contract.ts` (HTTP endpoints + Zod body models), `realtime.ts` (Socket.IO events), `spec.ts` (OpenAPI 3.1 builder), `markdown.ts` (`docs/API.md`) — served at `/api-docs`, `/api/openapi.json`, `/api/openapi.md` |
 | `db/schema.ts` (now `db/schema/**`) | Drizzle schema — single source of truth (12 tables, 5 pg enums)                                                                                                       |
 | `scripts/`                          | `bootstrap-admin.ts`, `seed-demo.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts` (tsx + dotenv)                                                               |
 
@@ -106,6 +107,7 @@ pnpm test:watch         # vitest watch mode
 pnpm test:coverage      # vitest run --coverage
 pnpm typecheck          # tsc --noEmit
 pnpm verify             # lint + typecheck + test:coverage — the gate before handoff/push
+pnpm api:doc            # regenerate docs/API.md from lib/api/ (API reference)
 
 pnpm db:status          # connectivity + row counts
 pnpm db:generate        # drizzle-kit generate (SQL migration into drizzle/)

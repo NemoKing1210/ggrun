@@ -10,6 +10,20 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **A generated API reference, for humans and for agents.** Every route
+  handler and the whole Socket.IO protocol are described once, in `lib/api/`,
+  and served three ways: `/api-docs` (interactive Scalar reference),
+  `/api/openapi.json` (OpenAPI 3.1 — JSON Schema 2020-12 — with the socket
+  protocol in an `x-realtime` extension) and `/api/openapi.md` (the same
+  contract as a single markdown page, checked in as `docs/API.md` and
+  rebuilt by `pnpm api:doc`). It is not a second source of truth: request and
+  response bodies are Zod schemas converted by `z.toJSONSchema`, realtime
+  payloads are pinned to `RealtimeEventMap` at compile time, and
+  `lib/api/spec.test.ts` fails when a documented endpoint, method or literal
+  error code and the route source disagree in either direction, when a `$ref`
+  dangles, when an event is missing from the realtime section, or when
+  `docs/API.md` is stale. The reference touches no database and needs no
+  session, so it renders while the database is down and from any HTTP client.
 - **Test bots that play with items and effects, and a live console.** Bots now
   use the real activation path (`activateInventoryItem`) instead of only
   rolling and resolving: they cleanse a debuff, buff before a roll, and hex a

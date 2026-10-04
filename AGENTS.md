@@ -30,7 +30,8 @@ dice movement, leaderboard, public feed, player HQ and an admin console.
    ```
 
    Cross-cutting leaf code: `lib/shared/` (ui/utils/constants/stores),
-   `lib/config/`, `lib/errors/`, `lib/use-cases/` (adapters only), `lib/i18n/`.
+   `lib/config/`, `lib/errors/`, `lib/use-cases/` (adapters only), `lib/i18n/`,
+   `lib/api/` (the HTTP + realtime contract behind `/api-docs`).
 
 2. **`lib/engine/` stays pure** — no `next/*`, `react`, `drizzle-orm`, `pg`
    (enforced by ESLint `no-restricted-imports`; do not bypass).
@@ -77,6 +78,9 @@ pnpm db:seed        # demo season run-1 (idempotent)
 pnpm db:admin       # first admin from BOOTSTRAP_ADMIN_* (idempotent)
 pnpm db:reset       # drop schema + re-apply (asks to type YES)
 pnpm db:setup       # push + seed + admin
+
+pnpm api:doc        # regenerate docs/API.md from lib/api/ (API reference;
+                    # also served as /api-docs, /api/openapi.json, /api/openapi.md)
 ```
 
 Production/deploy specifics: `Dockerfile` + `compose.yaml` +
@@ -90,6 +94,7 @@ Postgres maps to host port `5433`.
 | `app/(public)/` | Landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/seasons` + `/seasons/[slug]/{board,leaderboard,feed,rules}`, `/players/[username]`, `/login`, `/register`, `/dashboard`, `/settings` |
 | `app/admin/` | `layout.tsx` (staff guard + nav + moderation-pending badge), dashboard, `seasons` + `seasons/[id]/{board,players}`, `users`, `games`, `audit`, `moderation`, `settings` |
 | `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each `repository/ + service/ + actions/ + index.ts` |
+| `lib/api/` | API contract (single source of truth): `contract.ts` (endpoints + Zod body models), `realtime.ts` (Socket.IO rooms/events), `spec.ts` (OpenAPI 3.1 builder), `markdown.ts` (`docs/API.md`) |
 | `lib/engine/` | Pure domain: `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts` |
 | `lib/infrastructure/` | `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts` scrypt), `events/` (audit + feed), `logger/` |
 | `lib/use-cases/admin/actions/` | `helpers.ts` (`toError`, `revalidateAdmin`), `types.ts` (`AdminFormState`) |
@@ -113,6 +118,24 @@ Key component/file pointers:
   `/board` + `/players` subroutes — don't add manual `revalidatePath` there.
 
 ## 5. Task recipes (copy these steps)
+
+### Change the API surface (HTTP or Socket.IO)
+
+1. Edit `lib/api/contract.ts` (endpoint, params, body model, every literal
+   error code) and/or `lib/api/realtime.ts` (server/client events, rooms). A
+   new `RealtimeEventMap` entry or a renamed event breaks the build there
+   until the docs catch up — that is the point.
+2. `pnpm api:doc` → rewrites `docs/API.md`. Never edit that file by hand.
+3. `pnpm verify`. `lib/api/spec.test.ts` fails on a route handler with no spec
+   entry (and vice versa), an error code that is documented but not returned
+   (and vice versa), a stale `docs/API.md`, and a document that is not valid
+   OpenAPI 3.1. The document is served at `/api/openapi.json`, rendered at
+   `/api-docs` (Scalar, pinned CDN version — see `app/api-docs/route.ts`) and
+   served as markdown at `/api/openapi.md`.
+4. Route handlers keep their own hand-written guards: the schemas in
+   `lib/api/` describe them, they do not validate at runtime. Do not move
+   validation into the docs module — the observable status codes and error
+   strings are the contract, and the tests compare them against the source.
 
 ### Add a server action — two flavors
 
@@ -371,4 +394,5 @@ pnpm test:watch        # watch mode; for the inner loop only
 | `CHANGELOG.md` | Release history + versioning rules |
 | `docs/ITEMS_EFFECTS_EVENTS.md` | Items / effects / events: concept, contracts, decisions, phase plan |
 | `docs/ITEMS_EFFECTS_SCENARIOS.md` | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
+| `docs/API.md` | **Generated** — HTTP + realtime API reference: endpoints, error codes, Socket.IO events, models (`pnpm api:doc`; served live at `/api-docs`, `/api/openapi.json`, `/api/openapi.md`) |
 | `docs/WORKLOG.md` | Work journal — what each session did and what to pick up next |
