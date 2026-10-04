@@ -48,4 +48,32 @@ describe("GameCategoryChips", () => {
     const out = chips(render(["action", "rpg", "strategy"], ["horror", "survival", "zombie"], 2));
     expect(out).toEqual(["Action", "RPG", "Horror", "Survival"]);
   });
+
+  it("caps each group at four by default", () => {
+    expect(chips(render(["a", "b", "c", "d", "e"], ["f", "g", "h", "i", "j"]))).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "f",
+      "g",
+      "h",
+      "i",
+    ]);
+  });
+
+  // A tag is suppressed when it repeats any genre, not only one still visible
+  // under the limit — otherwise a cut-off genre would reappear as a tag.
+  it("still removes a tag that repeats a genre hidden by the limit", () => {
+    expect(chips(render(["action", "rpg", "horror"], ["horror"], 2))).toEqual(["Action", "RPG"]);
+  });
+
+  it("forwards an extra class onto the wrapper", () => {
+    const html = renderToStaticMarkup(
+      <I18nProvider locale="ru" t={getDictionary("ru")}>
+        <GameCategoryChips genres={["action"]} tags={[]} className="mb-2" />
+      </I18nProvider>,
+    );
+    expect(html).toContain("mb-2");
+  });
 });

@@ -23,6 +23,11 @@
       "url": "https://github.com/NemoKing1210/ggrun"
     }
   ],
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "eslint --fix"
+    ]
+  },
   "keywords": [
     "gaming",
     "nextjs",
@@ -40,7 +45,12 @@
     "server": "tsx server.ts",
     "start": "tsx server.ts",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:coverage",
+    "prepare": "husky",
     "db:status": "tsx scripts/db-status.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push --force",
@@ -72,12 +82,16 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.11",
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
@@ -85,6 +99,7 @@
     "eslint-config-next": "15.5.24",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
+    "jsdom": "^30.1.2",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",

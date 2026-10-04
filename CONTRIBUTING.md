@@ -68,11 +68,14 @@ fine.
 Run everything and confirm the output is clean:
 
 ```bash
-pnpm lint                 # eslint — 0 errors
-pnpm exec tsc --noEmit    # type check — clean
-pnpm test                 # vitest — all domain tests pass
+pnpm verify               # lint + typecheck + test:coverage — must exit 0
+pnpm test:coverage        # the coverage run on its own
 pnpm build                # next build --turbopack — succeeds
 ```
+
+`pnpm verify` is also enforced by the `pre-push` hook, so a red suite cannot
+be pushed. If you want to see it before you commit, run it (or `pnpm test:watch`
+for the inner loop).
 
 Then **verify behavioral changes against a live dev server** (`pnpm dev`):
 log in, exercise the changed flow, check the admin console if the change
@@ -92,6 +95,9 @@ small feature if they were done together — do not over-engineer commit
 history.
 - A release commit is `chore(release): vX.Y.Z` and updates both
 `package.json` and `CHANGELOG.md` (see §7).
+- The `commit-msg` hook runs commitlint against
+`@commitlint/config-conventional`, so a malformed subject is rejected before
+the commit is created.
 
 ---
 
@@ -128,12 +134,12 @@ bottom of `CHANGELOG.md`).
 
 ## 8. Pull-request checklist
 
-- [ ] `pnpm lint` clean
-- [ ] `pnpm exec tsc --noEmit` clean
-- [ ] `pnpm test` passes
+- [ ] `pnpm verify` exits 0 (eslint + `tsc --noEmit` + vitest, coverage included)
 - [ ] `pnpm build` succeeds
 - [ ] Change verified in a live dev server, admin flow included if affected
+- [ ] New behavioral rules are locked by a test (unit, component, or source-level invariant)
 - [ ] New UI follows `docs/DESIGN.md`; new strings added to en/ru/uk dictionaries
 - [ ] `CHANGELOG.md` `[Unreleased]` entry added for user-visible changes
 - [ ] DB schema changes come with a generated migration (`pnpm db:generate`)
+- [ ] Commit messages pass commitlint (the `commit-msg` hook enforces this)
 

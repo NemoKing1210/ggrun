@@ -13,7 +13,9 @@ conventions, commands, design rules and release workflow.
 variables + `hud-*` classes in `app/globals.css` (no `tailwind.config`).
 - **Drizzle ORM + PostgreSQL 17**, **pg** as driver, **pnpm 9** (lockfile v9),
 Node ≥ 20.
-- **Vitest** for domain unit tests (colocated `*.test.ts`, engine only).
+- **Vitest** for the whole test suite (colocated `*.test.ts(x)`, DB-free) —
+  engine/modules/shared/i18n/infrastructure/realtime/components, plus
+  source-level architecture invariants.
 
 > **Design system:** all UI must follow [`DESIGN.md`](./DESIGN.md) — HUD
 > tactical style: square beveled controls, clipped corners, no rounded pills,
@@ -99,8 +101,11 @@ pnpm run server         # tsx server.ts (Next + Socket.IO only, no ticker/push;
                         # bare `pnpm server` is a pnpm store-server builtin — exits 0 silently)
 pnpm build              # next build --turbopack
 pnpm start              # tsx server.ts (production server: Next.js + Socket.IO, same port)
-pnpm test               # vitest run (domain tests)
-pnpm exec tsc --noEmit  # type check
+pnpm test               # vitest run — the whole suite (DB-free)
+pnpm test:watch         # vitest watch mode
+pnpm test:coverage      # vitest run --coverage
+pnpm typecheck          # tsc --noEmit
+pnpm verify             # lint + typecheck + test:coverage — the gate before handoff/push
 
 pnpm db:status          # connectivity + row counts
 pnpm db:generate        # drizzle-kit generate (SQL migration into drizzle/)
@@ -197,17 +202,34 @@ migration.
 
 ## 7. Testing
 
-- **Vitest**, colocated: `lib/engine/<module>.test.ts`. Run: `pnpm test`.
-- All domain branches are covered: dice, movement (passed/dropped, balance
-consumption, streak multiplier, clamp vs wrap), roll FSM (legal/illegal
-transitions, reroll limit), cell effects (all types + plugin routing),
-Zod config (defaults/rejections). Style: pure deterministic functions with
-an injected `rng` — no mocks/DB/DOM.
-- There are no tests outside `lib/engine/`. If you add UI tests, keep them
-next to the module under test and keep the DB out of them.
-- Before handing off changes: `pnpm lint` + `pnpm exec tsc --noEmit` +
-`pnpm test` + `pnpm build`; verify behavioral changes against a live dev
-server.
+- **Vitest**, colocated `*.test.ts(x)` next to the code it tests. The suite is
+  DB-free and network-free; mocks are allowed only at I/O boundaries.
+- **Suites**: `lib/engine/` (pure deterministic functions with an injected
+  `rng`; alias-free — no mocks/DOM), `lib/modules/` (service/validation logic
+  with boundary fakes), `lib/infrastructure/`, `lib/shared/`, `lib/i18n/`
+  (dictionary parity across en/ru/uk), `lib/realtime/` (policy units +
+  Socket.IO boundary tests), `components/` (`renderToStaticMarkup`), and
+  `lib/architecture.test.ts` (layer purity, feed-tab coverage, hook
+  integrity).
+- **Commands**:
+  - `pnpm test` — the whole suite, once (CI/pre-push shape);
+  - `pnpm test:watch` — watch mode for the inner loop;
+  - `pnpm test:coverage` — same run with a coverage report;
+  - `pnpm verify` — **lint + typecheck + test:coverage, the gate; a task is
+    done only when this exits 0**.
+- **Coverage thresholds** live in `vitest.config.mts` and only ratchet up.
+  A module added without tests pulls the global number down and fails the
+  gate — cover it rather than lowering the bar.
+- **What a good test looks like**: real behavior, boundaries, error codes,
+  state transitions, precedence, permissions. No snapshots; no assertions
+  that merely restate the implementation ("is defined", "is truthy", string
+  contains source). Where a rule cannot be expressed in types (one turn
+  implementation, layer direction, "every EventType has a feed tab"), use a
+  source/AST invariant test next to the existing ones
+  (`lib/modules/game/turn-parity.test.ts`).
+- **Handoff**: `pnpm verify` must be green in addition to a live check of
+  behavioral changes against `pnpm dev` (admin flows included), and
+  `pnpm build` must succeed before a PR.
 
 ---
 
@@ -220,8 +242,12 @@ server.
 `chore(release): vX.Y.Z`. New entries go in `[Unreleased]` and are promoted
 on release. While `0.x`, breaking changes bump MINOR and are marked
 **BREAKING** (details at the bottom of `CHANGELOG.md`).
-- No CI; husky/lint-staged are installed but pre-commit hooks are **not**
-wired — don't rely on them.
+- **Husky hooks are wired** (installed by `prepare` on `pnpm install`):
+  `pre-commit` runs `lint-staged` (eslint `--fix` on staged code),
+  `commit-msg` runs commitlint, and `pre-push` runs `pnpm verify`
+  (lint + typecheck + tests). A red check blocks the push; the deliberate
+  bypass is `git push --no-verify`. There is still no CI server — the
+  pre-push hook is the gate.
 - PowerShell note: LF→CRLF warnings from git are cosmetic (see
 `.gitattributes` for shell scripts).
 

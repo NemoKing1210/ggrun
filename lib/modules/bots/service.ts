@@ -1,5 +1,7 @@
 import { isAppError } from "@/lib/errors/app-error";
 
+import type { PoolClient } from "pg";
+
 import { db, pool } from "@/lib/infrastructure/db";
 import { seasonPlayers, users } from "@/db/schema";
 import { DEFAULT_BOT_RUN_CONFIG, type BotRun, type BotRunConfig } from "@/db/schema/bots";
@@ -476,8 +478,11 @@ export async function tickDueRuns(opts: { force?: boolean; triggeredBy?: string 
       continue;
     }
     tickInflight.add(run.id);
-    const client = await pool.connect();
+    // A failed connect must still release the in-process guard, or the run
+    // reports "inflight" forever in this process.
+    let client: PoolClient | null = null;
     try {
+      client = await pool.connect();
       const locked = await client.query("SELECT pg_try_advisory_lock(hashtext($1)) AS ok", [`bots:${run.id}`]);
       if (!locked.rows[0]?.ok) {
         results.push({ runId: run.id, ticked: false, reason: "locked" });
@@ -498,7 +503,7 @@ export async function tickDueRuns(opts: { force?: boolean; triggeredBy?: string 
       const reason = e instanceof BotError ? e.code : e instanceof Error ? e.message : "unknown";
       results.push({ runId: run.id, ticked: false, reason });
     } finally {
-      client.release();
+      client?.release();
       tickInflight.delete(run.id);
     }
   }

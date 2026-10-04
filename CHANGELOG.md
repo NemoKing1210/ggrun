@@ -10,6 +10,19 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **A test gate that cannot be bypassed by accident.** The suite now covers
+  every layer, not just `lib/engine`: service/validation logic in
+  `lib/modules/`, infrastructure (password hashing, env validation, proxy
+  resolution), shared utilities, i18n (dictionary parity across en/ru/uk),
+  presentational components, and source-level architecture invariants
+  (`lib/architecture.test.ts` — layer purity, feed-tab coverage, and the
+  integrity of the hooks below). `pnpm verify` (lint + typecheck + tests) is
+  the definition of done; `vitest.config.mts` carries global coverage
+  thresholds that may only go up.
+- **Husky hooks wired** (`prepare` installs them on `pnpm install`):
+  `pre-commit` runs `lint-staged` (eslint --fix on staged code),
+  `commit-msg` runs commitlint (Conventional Commits), and **`pre-push` runs
+  `pnpm verify`** — a failing lint, type check or test aborts the push.
 - **Chat alerts above the launcher** — a `chat:message` arriving over the
   socket while the comms drawer is shut now stacks a card above the launcher
   button (author, two-line preview, click to open), and the unread badge counts

@@ -19,14 +19,14 @@
 | --- | --- |
 | Version | `0.5.0` |
 | Branch | `main` |
-| Active work | **IEE work** — audit and fix plan done (stages 1–5 shipped and proved live, stage 6 (content) deferred). UX backlog waves 1 and 2 done; artwork pipeline in place, awaiting art |
+| Active work | **Test gate** — the suite now covers every layer (2996 tests / 253 files, 78.9% lines) and is enforced by a Husky `pre-push` hook. IEE stages 1–5 remain shipped, stage 6 (content) deferred |
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
-| Tests | **753 unit tests / 49 files** (after the `add-sockets` merge) + the harness probes recorded per session; tsc, eslint, `next build` and a browser pass against the live app all green |
-| Uncommitted | No — the merge (`1de95b5`) and its follow-up fix (`3396c3b`) carry everything below; `main` is one commit ahead of `origin/main` |
+| Tests | **2996 unit/component/invariant tests / 253 files** — `pnpm verify` (eslint + `tsc --noEmit` + `vitest run --coverage` with thresholds). Coverage ratchet in `vitest.config.mts` |
+| Uncommitted | **Yes** — the test-gate session (see the entry below) is not committed yet. The `add-sockets` merge (`1de95b5`) and its follow-up fix (`3396c3b`) are in `main` |
 | **Action needed** | Run `pnpm db:push` then `pnpm db:seed` — and note migration `0017` (`season_players.finished_at`) is new as of session 23. Verified end-to-end against a scratch Postgres, **not applied to your database** |
-| Next step | **Yours**: play a season through on a live server — the merged realtime, notification and feed surfaces have had `tsc`/tests/build but no browser pass yet |
+| Next step | Commit the test-gate work (it is uncommitted as of this entry); the Husky hooks install on the next `pnpm install` via `prepare` |
 
 ### Known repo issues
 
@@ -45,6 +45,80 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-04 — the test gate: every layer covered, red cannot be pushed
+
+The suite went from `lib/engine`-only (753 tests / 49 files) to the whole
+application: **2996 tests / 253 files**, 78.9% lines / 77.3% statements /
+69.8% branches / 69.9% functions, all DB-free and network-free.
+
+**What was added.**
+
+- Coverage across the layers that had none: `lib/modules/*` services,
+  repositories and actions (Drizzle faked at the boundary — the pattern from
+  `lib/modules/season/service/board.test.ts`), `lib/infrastructure` (password,
+  session, logger, db health, proxy/external fetch, env), `lib/shared`,
+  `lib/i18n` (including a dictionary-parity test: same keys, no empty strings,
+  same `{placeholders}` in en/ru/uk), `lib/modules/catalog` providers, the
+  realtime layer, and the components — including the large client screens
+  (board view, chat, admin consoles, settings, dashboard) under jsdom +
+  `@testing-library/react`.
+- `lib/architecture.test.ts` — AST/text invariants: layer direction, no
+  client/server directive in `lib/engine` + `lib/shared`, every `EventType`
+  filed under a feed tab, and the integrity of the hooks below.
+- `pnpm verify` = `lint && typecheck && test:coverage`; `vitest.config.mts`
+  carries global coverage thresholds (a ratchet — raise, never lower).
+- **Husky hooks** (`prepare` installs them): `pre-commit` → `lint-staged`
+  (eslint --fix on staged code), `commit-msg` → commitlint
+  (Conventional Commits), **`pre-push` → `pnpm verify`**, so a red lint, type
+  check or test aborts the push. `git push --no-verify` is the deliberate
+  escape hatch. Prettier is *not* in the hook: the repo has 472 files it would
+  reformat, so a staged-file prettier pass would produce unrelated churn —
+  run it by hand when you want it.
+- `jsdom` + `@testing-library/react` as dev deps, used per-file via the
+  `// @vitest-environment jsdom` docblock — the default node environment is
+  unchanged, so the engine suite stays DOM-free.
+
+**Bugs the new tests found (all fixed, with regression tests).**
+
+1. `components/admin/UserDetailPage.tsx` — the delete-account form had no
+   hidden `userId`, so the confirmed delete submitted `"null"` and deleted
+   nobody.
+2. `lib/shared/ui/accent.ts` — `isAccentKey` used `value in ACCENTS`, which
+   walks the prototype chain: `"constructor"` passed and `getAccent` returned
+   a non-accent object.
+3. `components/ui/breadcrumbs.tsx` — the UUID-shortening regex was missing a
+   hex group (8-4-4-12), so real season UUIDs were never shortened.
+4. `components/game/GameMetaBadges.tsx` — an unparseable `releasedAt` rendered
+   a `NaN` year badge.
+5. `lib/modules/bots/service.ts` — `tickInflight.add(run.id)` ran before
+   `pool.connect()`; a failed connect leaked the guard and the run reported
+   `inflight` forever.
+6. `lib/modules/site-settings/service/index.ts` — `.optional().transform()`
+   ran the transform on `undefined`, so saving one provider key wiped every
+   other one.
+7. `components/realtime/realtime-provider.tsx` — a join ack landing after the
+   last holder unmounted never emitted the compensating `leave`, leaking
+   server-side room membership; co-mounted hooks could also double-join.
+8. `lib/modules/season/actions/board.ts` — JSON position arrays skipped the
+   dedupe+sort the CSV branch applies; `applyToAll` without a usable
+   `boardSize` silently called the service with an empty list; the randomize
+   and bulk results were formatted with the single-cell template.
+9. `components/dashboard/RollCard.tsx` — untranslated Russian prose and
+   hardcoded English labels in the player dashboard; moved into
+   `core.dashboard` (en/ru/uk).
+
+**Known, deliberately not fixed.** `lib/modules/game/service/use-item.ts`
+hands the item hook a snapshot with `rank: 1` hardcoded (no catalog item reads
+`rank` today). `roll_seq`/DB-bound repository behaviour is covered by source
+invariants and the live-server pass, not by unit tests — the suite stays
+DB-free on purpose.
+
+**Verified.** `tsc --noEmit` clean · `eslint` 0 errors (3 pre-existing
+warnings) · 2996 tests green · coverage thresholds pass · `git hook run
+pre-push` exercised end to end.
 
 ---
 

@@ -9,7 +9,6 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  PhotoIcon,
   StarIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
@@ -355,7 +354,7 @@ export default function RollCard({
                   aria-hidden
                 />
                 <h3 className="font-display text-xs uppercase tracking-[0.16em] text-amber">
-                  {dicePhase === "spinning" ? "Throwing dice" : "Dice result"}
+                  {dicePhase === "spinning" ? d.dicePanelSpinning : d.dicePanelResult}
                 </h3>
                 <span className="ml-auto hidden font-mono text-[10px] tracking-widest text-dim sm:inline">
                   {dicePhase === "spinning" ? "RNG · 3D PHYSICS" : `TOTAL ${lastDice ? lastDice.reduce((a, b) => a + b, 0) : "—"}`}
@@ -378,7 +377,7 @@ export default function RollCard({
                         <DiceCube value={3} size={56} spinning index={0} />
                         <DiceCube value={5} size={56} spinning index={1} />
                       </div>
-                      <p className="font-mono text-xs uppercase tracking-[0.18em] text-amber animate-pulse">casting…</p>
+                      <p className="font-mono text-xs uppercase tracking-[0.18em] text-amber animate-pulse">{d.castingLabel}</p>
                       <div className="h-1.5 w-full max-w-[280px] overflow-hidden border border-[#2a2a22] bg-[#1a1a14] [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]">
                         <motion.div
                           className="h-full w-[55%] bg-amber shadow-[0_0_8px_rgba(242,169,0,0.6)]"
@@ -456,15 +455,15 @@ export default function RollCard({
           <div className="mb-4 border border-emerald-500/50 bg-emerald-500/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
             <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-emerald-400">
               <ClockIcon className="size-4" aria-hidden />
-              {pendingCompletion!.outcome === "passed" ? "Completion pending" : "Drop pending"} · {d.awaitingModeration}
+              {pendingCompletion!.outcome === "passed" ? d.completionPendingLabel : d.dropPendingLabel} · {d.awaitingModeration}
             </div>
             {pendingCompletion!.reason ? <p className="mt-2 border-l-2 border-emerald-500/40 pl-2 text-sm leading-snug">{pendingCompletion!.reason}</p> : null}
-            {pendingCompletion!.rating ? <p className="mt-1 font-mono text-xs text-amber">Rating: {pendingCompletion!.rating}/10</p> : null}
+            {pendingCompletion!.rating ? <p className="mt-1 font-mono text-xs text-amber">{format(d.ratingValue, { value: pendingCompletion!.rating })}</p> : null}
             <p className="mt-2 flex items-center gap-1.5 font-mono text-xs text-dim">
               <ClockIcon className="size-3.5" aria-hidden />
-              {now ? formatDuration(now - new Date(pendingCompletion!.requestedAt).getTime()) + " ago" : ""}
+              {now ? format(d.timeAgo, { time: formatDuration(now - new Date(pendingCompletion!.requestedAt).getTime()) }) : ""}
             </p>
-            <p className="mt-1 font-mono text-[11px] leading-snug text-dim">Awaiting admin approval — movement will be applied after review.</p>
+            <p className="mt-1 font-mono text-[11px] leading-snug text-dim">{d.awaitingReview}</p>
           </div>
         ) : null}
 
@@ -500,11 +499,11 @@ export default function RollCard({
                 type="button"
                 className="hud-btn inline-flex items-center gap-1.5"
                 disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
-                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
+                title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? d.completionPendingLabel : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                 onClick={() => setModal("reroll")}
               >
                 <ArrowPathIcon className="size-4" aria-hidden />
-                {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
+                {showPendingBanner ? d.rerollPending : showCompletionPending ? d.pendingLabel : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
               </button>
             </div>
           </div>
@@ -565,7 +564,7 @@ export default function RollCard({
                       <ExclamationTriangleIcon className="size-4" aria-hidden /> {d.missingCatalogEntry}
                     </p>
                     <p className="mt-2 font-mono text-xs leading-relaxed text-dim">
-                      Каталог пуст или все игры уже сыграны. Обратитесь к администратору или сбросьте этот бросок.
+                      {d.missingCatalogHint}
                     </p>
                   </div>
                 )}
@@ -589,17 +588,17 @@ export default function RollCard({
                   type="button"
                   className="hud-btn inline-flex items-center gap-1.5"
                   disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
-                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? "Completion pending" : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
+                  title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? d.completionPendingLabel : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                   onClick={() => setModal("reroll")}
                 >
                   <ArrowPathIcon className="size-4" aria-hidden />
-                  {showPendingBanner ? d.rerollPending : showCompletionPending ? "Pending" : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
+                  {showPendingBanner ? d.rerollPending : showCompletionPending ? d.pendingLabel : rerollApproved ? d.rerollApprovedButton : d.rerollButton}
                 </button>
               </div>
             ) : (
               <div className="mt-5 flex flex-wrap gap-2">
                 <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy} onClick={() => setModal("drop")}>
-                  <XCircleIcon className="size-4" aria-hidden /> Сбросить бросок
+                  <XCircleIcon className="size-4" aria-hidden /> {d.resetRoll}
                 </button>
               </div>
             )}
@@ -631,7 +630,7 @@ export default function RollCard({
                 </motion.span>
                 {rollPending ? d.rolling : d.rollButton}
               </motion.button>
-              <span className="font-mono text-[11px] tracking-wide text-dim">Catalog shuffle will lock on your next game after Roll</span>
+              <span className="font-mono text-[11px] tracking-wide text-dim">{d.shuffleLockHint}</span>
             </form>
           </div>
         ) : null}
@@ -639,7 +638,7 @@ export default function RollCard({
         {error ? (
           <div role="alert" className="mt-4 border border-danger/30 bg-danger/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
             <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-danger">
-              <XCircleIcon className="size-4" aria-hidden /> Error
+              <XCircleIcon className="size-4" aria-hidden /> {d.errorLabel}
             </div>
             <p className="mt-1 text-sm text-danger">{error}</p>
             <DebugError debug={openRoll ? resolveState.debug : rollState.debug} title="game" />
@@ -670,11 +669,11 @@ export default function RollCard({
                   </span>
                 ))}
                 <span className="ml-1 inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2.5 py-1.5 font-mono text-xs text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                  <span className="text-[10px] uppercase tracking-widest text-dim">total</span>
+                  <span className="text-[10px] uppercase tracking-widest text-dim">{d.totalLabel}</span>
                   <span className="ammo-counter text-base leading-none">{lastDice!.reduce((a, b) => a + b, 0)}</span>
                 </span>
               </div>
-              <p className="sr-only">Результат кубика: {lastDice!.join(" + ")}</p>
+              <p className="sr-only">{format(d.diceResult, { values: lastDice!.join(" + ") })}</p>
             </div>
             <div className="hazard-tape opacity-40" aria-hidden />
           </div>

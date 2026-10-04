@@ -77,7 +77,7 @@ function getLabel(
       }
 
       // UUID-like season id — shorten to keep breadcrumbs compact
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded)) {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded)) {
         return `${decoded.slice(0, 8)}…`;
       }
 

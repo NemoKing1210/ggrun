@@ -114,6 +114,77 @@ describe("buildSuggestions", () => {
   });
 });
 
+describe("tokenize edge cases", () => {
+  it("returns no tokens for empty or whitespace-only input", () => {
+    expect(tokenize("")).toEqual({ tokens: [], endsWithSpace: false });
+    expect(tokenize("   ")).toEqual({ tokens: [], endsWithSpace: true });
+  });
+});
+
+describe("parseInput edge cases", () => {
+  it("leaves the command null for an unrecognized input", () => {
+    const parsed = parseInput("nope x");
+    expect(parsed.command).toBeNull();
+    expect(parsed.argTokens).toEqual([]);
+    expect(parsed.argSpec).toBeNull();
+    expect(parsed.argPartial).toBe("");
+  });
+
+  it("clamps the argument index when more tokens than the command accepts", () => {
+    const parsed = parseInput("season run-1 extra");
+    expect(parsed.command?.name).toBe("season");
+    expect(parsed.argIndex).toBe(1);
+    expect(parsed.argSpec).toBeNull();
+    expect(parsed.argPartial).toBe("extra");
+  });
+
+  it("keeps a rest argument at its own index even with a trailing space", () => {
+    const parsed = parseInput("say hello ");
+    expect(parsed.argIndex).toBe(0);
+    expect(parsed.argPartial).toBe("hello");
+    expect(parsed.restArg).toBe(true);
+  });
+});
+
+describe("hasRequiredArgs edge cases", () => {
+  it("is false when no command was recognized", () => {
+    expect(hasRequiredArgs(parseInput("nope"))).toBe(false);
+  });
+});
+
+describe("buildSuggestions edge cases", () => {
+  it("excludes the exact command name from its own completions", () => {
+    const names = buildSuggestions(parseInput("season")).map((s) =>
+      s.kind === "command" ? s.command.name : "",
+    );
+    expect(names).toContain("season status");
+    expect(names).not.toContain("season");
+  });
+
+  it("matches enum options on a non-prefix substring", () => {
+    const values = buildSuggestions(parseInput("season status run-1 iv")).map((s) =>
+      s.kind === "arg" ? s.option.value : "",
+    );
+    expect(values).toEqual(["active", "archived"]);
+  });
+
+  it("returns nothing for an unrecognized command", () => {
+    expect(buildSuggestions(parseInput("nope "))).toEqual([]);
+  });
+});
+
+describe("applySuggestion edge cases", () => {
+  it("returns the input unchanged for an arg suggestion without a command", () => {
+    const parsed = parseInput("nope ");
+    const next = applySuggestion(parsed, {
+      kind: "arg",
+      argIndex: 0,
+      option: { value: "x", label: "x" },
+    });
+    expect(next).toBe("nope ");
+  });
+});
+
 describe("applySuggestion", () => {
   it("completes a command name with a trailing space", () => {
     const parsed = parseInput("season stat");

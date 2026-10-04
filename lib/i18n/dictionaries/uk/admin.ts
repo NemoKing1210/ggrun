@@ -14,6 +14,8 @@ export const admin: Widen<typeof AdminEn.admin> = {
   seasonReset: "Сезон скинуто — весь прогрес очищено",
   settingsSaved: "Налаштування збережено",
   cellSaved: "Клітинку {position} оновлено",
+  cellsUpdated: "Оновлено клітинок: {count}",
+  cellsRandomized: "Перемішано клітинок: {count}",
   playerAdded: "Учасника додано",
   adjustmentApplied: "Коригування застосовано",
   playerRemoved: "Учасника видалено",

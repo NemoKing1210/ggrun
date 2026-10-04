@@ -2,6 +2,9 @@
 # CRLF breaks the shebang inside the container.
 *.sh text eol=lf
 
+# Husky hooks run through Git's sh; a CRLF shebang/command breaks them.
+.husky/* text eol=lf
+
 # Text formats with explicit line endings.
 docker/entrypoint.sh text eol=lf
 Dockerfile text eol=lf

@@ -415,6 +415,7 @@ function ProfilePanel({ user, isSelf }: { user: User; isSelf: boolean }) {
           </form>
 
           <form action={deleteUserAction} className="hud-card bg-danger/5 p-3">
+            <input type="hidden" name="userId" value={user.id} />
             <div className="flex items-center gap-2">
               <TrashIcon className="h-4 w-4 text-danger" aria-hidden />
               <span className="font-display text-xs uppercase tracking-widest text-danger">{u.deleteButton}</span>

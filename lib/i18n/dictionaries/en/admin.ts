@@ -10,6 +10,8 @@ export const admin = {
   seasonReset: "Season reset — all progress cleared",
   settingsSaved: "Settings saved",
   cellSaved: "Cell {position} updated",
+  cellsUpdated: "{count} cells updated",
+  cellsRandomized: "{count} cells randomized",
   playerAdded: "Participant added",
   adjustmentApplied: "Adjustment applied",
   playerRemoved: "Participant removed",

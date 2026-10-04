@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Fast gate on staged files: format + lint. The full gate (typecheck + tests +
+# coverage) runs in pre-push, and again in `pnpm verify` before handoff.
+pnpm lint-staged

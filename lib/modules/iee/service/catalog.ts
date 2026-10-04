@@ -31,11 +31,11 @@ export const EventRewardSchema = z
     itemKey: z.string().optional(),
     effectKey: z.string().optional(),
   })
-  .refine((r) => !r.itemKey || r.itemKey in ITEMS, {
+  .refine((r) => !r.itemKey || Object.hasOwn(ITEMS, r.itemKey), {
     message: "ieeUnknownItemKey",
     path: ["itemKey"],
   })
-  .refine((r) => !r.effectKey || r.effectKey in EFFECTS, {
+  .refine((r) => !r.effectKey || Object.hasOwn(EFFECTS, r.effectKey), {
     message: "ieeUnknownEffectKey",
     path: ["effectKey"],
   });

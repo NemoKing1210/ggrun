@@ -112,5 +112,3 @@ export async function rejectCompletionRequest(requestId: string, adminNote: stri
     adminNote: reason,
   }).catch((error) => log.error("notifications.completion_rejected.failed", { requestId, err: error instanceof Error ? error : undefined }));
 }
-
-/** The participant's unfinished roll (rolled/in_progress), if any. */

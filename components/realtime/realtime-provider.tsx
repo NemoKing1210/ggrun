@@ -93,44 +93,57 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<RealtimeSocket | null>(null);
   // room → hooks currently holding it. The server sees one join per room;
   // `joined` tracks whether the server has acknowledged membership.
-  const roomsRef = useRef(new Map<string, { count: number; joined: boolean }>());
+  const roomsRef = useRef(
+    new Map<string, { count: number; joined: boolean; pending: Promise<JoinAck> | null }>(),
+  );
 
-  const joinRoom = useCallback((room: string): Promise<JoinAck> => {
-    const entry = roomsRef.current.get(room);
-    if (entry) {
-      entry.count += 1;
-      if (entry.joined) return Promise.resolve({ ok: true });
-      const s = socketRef.current;
-      if (!s) return Promise.resolve({ ok: false, error: "NO_SOCKET" });
-      return emitJoin(s, room).then((res) => {
-        const current = roomsRef.current.get(room);
-        if (!current) return res;
-        if (res.ok) {
-          current.joined = true;
-          return res;
-        }
-        // Intent released while the ack was in flight → undo the server join.
-        if (current.count === 0) s.emit("leave", room);
-        return res;
-      });
-    }
-    roomsRef.current.set(room, { count: 1, joined: false });
-    const s = socketRef.current;
-    if (!s) return Promise.resolve({ ok: false, error: "NO_SOCKET" });
-    return emitJoin(s, room).then((res) => {
+  /**
+   * Sends one `join` for a room and reconciles the ack with the current hold
+   * count. The in-flight promise is stored on the entry so two hooks mounted
+   * in the same commit share a single server join, and it is cleared when the
+   * ack lands.
+   */
+  const settleJoin = useCallback((s: RealtimeSocket, room: string): Promise<JoinAck> => {
+    const ack = emitJoin(s, room).then((res) => {
       const current = roomsRef.current.get(room);
-      if (!current) return res;
-      if (res.ok) {
-        current.joined = true;
+      if (!current) {
+        // Released while the ack was in flight and not re-acquired: undo the
+        // server join, or the socket stays subscribed to a dead room.
+        if (res.ok && !roomsRef.current.has(room)) s.emit("leave", room);
         return res;
       }
-      if (current.count === 0) {
-        roomsRef.current.delete(room);
-        s.emit("leave", room);
-      }
+      if (res.ok) current.joined = true;
       return res;
     });
+    const tracked = ack.finally(() => {
+      const current = roomsRef.current.get(room);
+      if (current && current.pending === tracked) current.pending = null;
+    });
+    return tracked;
   }, []);
+
+  const joinRoom = useCallback(
+    (room: string): Promise<JoinAck> => {
+      const s = socketRef.current;
+      const entry = roomsRef.current.get(room);
+      if (entry) {
+        entry.count += 1;
+        if (entry.joined) return Promise.resolve({ ok: true });
+        if (!s) return Promise.resolve({ ok: false, error: "NO_SOCKET" });
+        if (entry.pending) return entry.pending;
+        const pending = settleJoin(s, room);
+        entry.pending = pending;
+        return pending;
+      }
+      const fresh = { count: 1, joined: false, pending: null as Promise<JoinAck> | null };
+      roomsRef.current.set(room, fresh);
+      if (!s) return Promise.resolve({ ok: false, error: "NO_SOCKET" });
+      const pending = settleJoin(s, room);
+      fresh.pending = pending;
+      return pending;
+    },
+    [settleJoin],
+  );
 
   const leaveRoom = useCallback((room: string): void => {
     const entry = roomsRef.current.get(room);
@@ -162,14 +175,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // assigns a new session, so server-side membership is gone.
       for (const [room, entry] of rooms) {
         entry.joined = false;
-        emitJoin(s, room).then((res) => {
-          const current = rooms.get(room);
-          if (!current) {
-            if (res.ok) s.emit("leave", room);
-            return;
-          }
-          if (res.ok) current.joined = true;
-        });
+        entry.pending = settleJoin(s, room);
       }
     };
     const onDisconnect = () => setConnected(false);
@@ -185,7 +191,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       setSocket(null);
       setConnected(false);
     };
-  }, []);
+  }, [settleJoin]);
 
   return (
     <RealtimeContext.Provider value={{ socket, connected, connects, joinRoom, leaveRoom }}>

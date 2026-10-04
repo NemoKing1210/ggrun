@@ -57,7 +57,7 @@ export function transliterate(input: string): string {
 
 /**
  * Builds a URL-safe slug: lowercase latin letters, digits and hyphens only.
- * "Забег #1" -> "zabeg-1", "Сезон Київ" -> "sezon-kyiv".
+ * "Забег #1" -> "zabeg-1", "Сезон Київ" -> "sezon-kiyiv".
  */
 export function slugify(input: string, maxLength = 100): string {
   const transliterated = transliterate(input.trim());

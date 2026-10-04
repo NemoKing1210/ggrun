@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Nothing leaves the machine red. `pnpm verify` = eslint + tsc --noEmit +
+# vitest --coverage (thresholds come from vitest.config.mts). Emergency bypass
+# is `git push --no-verify`, and it is not a routine.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "[pre-push] pnpm is not on PATH in this shell — install it (corepack enable) or push with --no-verify" >&2
+  exit 1
+fi
+echo "[pre-push] running the full gate: lint + typecheck + tests"
+pnpm verify

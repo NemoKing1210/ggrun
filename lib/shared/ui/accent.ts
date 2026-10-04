@@ -70,7 +70,7 @@ export const ACCENT_KEYS = Object.keys(ACCENTS) as AccentKey[];
 export const DEFAULT_ACCENT: AccentKey = "amber";
 
 export function isAccentKey(value: unknown): value is AccentKey {
-  return typeof value === "string" && value in ACCENTS;
+  return typeof value === "string" && Object.hasOwn(ACCENTS, value);
 }
 
 export function getAccent(key: unknown): (typeof ACCENTS)[AccentKey] {

@@ -9,7 +9,13 @@ import { updateUserSettingsAction } from "@/lib/modules/player/actions";
 import { useActionToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/client";
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
-import { ACCENTS, ACCENT_KEYS, getAccent, type AccentKey } from "@/lib/shared/ui/accent";
+import {
+  ACCENTS,
+  ACCENT_KEYS,
+  getAccent,
+  isAccentKey,
+  type AccentKey,
+} from "@/lib/shared/ui/accent";
 import { ImageCropper } from "@/components/ui/ImageCropper";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
 import { Input } from "@/components/ui/Input";
@@ -87,7 +93,7 @@ export function SettingsForm({
   const [imageError, setImageError] = useState<string | null>(null);
   const [linksError, setLinksError] = useState<string | null>(null);
   const [accentKey, setAccentKey] = useState<AccentKey>(
-    (accent && accent in ACCENTS ? accent : "amber") as AccentKey,
+    isAccentKey(accent) ? accent : "amber",
   );
   const [localeKey, setLocaleKey] = useState<Locale>(
     (locale === "en" || locale === "ru" || locale === "uk" ? locale : "en") as Locale,

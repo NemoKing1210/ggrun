@@ -33,7 +33,10 @@ function parsePositions(raw: string): number[] {
   if (s.startsWith("[")) {
     try {
       const arr = JSON.parse(s);
-      if (Array.isArray(arr)) return arr.map((x) => Number(x)).filter((n) => !Number.isNaN(n));
+      if (Array.isArray(arr)) {
+        const nums = arr.map((x) => Number(x)).filter((n) => !Number.isNaN(n));
+        return [...new Set(nums)].sort((a, b) => a - b);
+      }
     } catch {}
   }
   const out: number[] = [];
@@ -98,13 +101,14 @@ export async function bulkSetCellGenresAction(_prev: AdminFormState, formData: F
     const size = sizeRaw ? Number(sizeRaw) : NaN;
     if (!Number.isNaN(size) && size > 0) positions = Array.from({ length: size }, (_, i) => i);
   }
+  if (positions.length === 0) return { error: "formUnknown" } as AdminFormState;
   try {
     const count = await bulkSetBoardCellGenres({ boardId, positions, genres });
     log.info("board.bulk_genres", { actorId: actor?.id ?? null, seasonId, boardId, count, genres });
     revalidateAdmin(seasonId);
     revalidatePath("/board");
     const t = (await getT()).t;
-    return { ok: format(t.admin.feedback.cellSaved, { position: `${count} cells` }) };
+    return { ok: format(t.admin.feedback.cellsUpdated, { count }) };
   } catch (e) {
     return await toError(e, "board.bulk_genres", { actorId: actor?.id ?? null, seasonId, boardId });
   }
@@ -130,7 +134,7 @@ export async function randomizeBoardGenresAction(_prev: AdminFormState, formData
     revalidateAdmin(seasonId);
     revalidatePath("/board");
     const t = (await getT()).t;
-    return { ok: format(t.admin.feedback.cellSaved, { position: `${count} cells randomized` }) };
+    return { ok: format(t.admin.feedback.cellsRandomized, { count }) };
   } catch (e) {
     return await toError(e, "board.randomize_genres", { actorId: actor?.id ?? null, seasonId, boardId });
   }

@@ -50,6 +50,24 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
     const tags = parseArray("tags");
     const esrb = parseArray("esrb");
 
+    // Provider depends on the *normalized* source: an unknown source falls back
+    // to catalog, and catalog pins the provider to internal, so a leftover
+    // provider value cannot survive a source that does not use one.
+    const rawSource = String(formData.get("gamePool_source") || "catalog").toLowerCase();
+    const gamePoolSource =
+      rawSource === "catalog" || rawSource === "api" || rawSource === "hybrid" ? rawSource : "catalog";
+    const rawProvider = String(formData.get("gamePool_provider") || "internal").toLowerCase();
+    const allowedProviders: Record<string, true> = {
+      rawg: true,
+      igdb: true,
+      steam: true,
+      freetogame: true,
+      gamespot: true,
+      internal: true,
+    };
+    const gamePoolProvider =
+      gamePoolSource === "catalog" ? "internal" : allowedProviders[rawProvider] ? rawProvider : "internal";
+
     config = {
       dice: {
         sides: parseIntOr("dice_sides", 6),
@@ -95,17 +113,8 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
         }
       })(),
       gamePool: {
-        source: (() => {
-          const s = String(formData.get("gamePool_source") || "catalog").toLowerCase();
-          return s === "catalog" || s === "api" || s === "hybrid" ? s : "catalog";
-        })(),
-        provider: (() => {
-          const raw = String(formData.get("gamePool_provider") || "internal").toLowerCase();
-          const src = String(formData.get("gamePool_source") || "catalog").toLowerCase();
-          if (src === "catalog") return "internal";
-          const allowed: Record<string, true> = { rawg: true, igdb: true, steam: true, freetogame: true, gamespot: true, internal: true };
-          return allowed[raw] ? raw : "internal";
-        })(),
+        source: gamePoolSource,
+        provider: gamePoolProvider,
         templateId: (() => {
           const v = formData.get("gamePool_templateId");
           const s = v ? String(v).trim() : "";

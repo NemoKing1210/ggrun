@@ -62,11 +62,13 @@ pnpm dev            # everything: DB check + db:push + Next/Socket.IO server
 pnpm build          # next build --turbopack
 pnpm start          # production server
 pnpm lint           # eslint (flat config)
-pnpm exec tsc --noEmit
-pnpm test           # vitest — the engine suite, plus component tests that
-                    # render to static markup (vitest.config.mts adds the
-                    # `@/` alias and the JSX transform; the engine suite
-                    # itself stays alias-free)
+pnpm typecheck      # tsc --noEmit
+pnpm test           # vitest run — every suite (engine, modules, shared,
+                    # infrastructure, i18n, components) + coverage thresholds
+pnpm test:watch     # vitest in watch mode while developing
+pnpm test:coverage  # vitest run --coverage — the same gate, with the report
+pnpm verify         # THE GATE: lint && typecheck && test:coverage.
+                    # This is what pre-push runs; never hand off without it.
 
 pnpm db:status      # connectivity + row counts
 pnpm db:generate    # SQL migration into drizzle/
@@ -283,16 +285,41 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
   (`lib/infrastructure/events/index.ts`), eventMeta/rendering cases, and
   `actions.*` text in en/ru/uk `feed.ts`.
 
-## 8. Testing & verification
+## 8. Testing & verification — the task is not done until it is green
 
-- Vitest, colocated next to the code, DB-free: `lib/engine/` (pure
-  deterministic functions with injected `rng`; alias-free; no mocks/DOM),
-  `lib/realtime/` (policy units + Socket.IO boundary tests with injected
-  user lookup; dummy env in vitest.config.mts satisfies the pool import).
-  UI tests (if added) stay colocated and DB-free.
-- **Before handoff:** `pnpm lint` → `pnpm exec tsc --noEmit` → `pnpm test` →
-  `pnpm build`; verify behavioral changes against a live dev server (admin
-  flows included).
+**Rule zero: a task is complete only when `pnpm verify` exits 0.** One red
+test anywhere means the work is unfinished — fix it, do not hand off, do not
+explain it away. Run the gate at the end of **every** task, however small
+(doc-only changes included), before reporting back.
+
+```bash
+pnpm verify            # lint && typecheck && test:coverage — the definition of done
+pnpm test -- -t "name" # one suite by name while iterating
+pnpm test:watch        # watch mode; for the inner loop only
+```
+
+- **What runs.** Vitest, colocated next to the code, DB-free and
+  network-free. Suites: `lib/engine/` (pure functions with injected `rng`;
+  alias-free), `lib/modules/` (service/validation logic with boundary
+  fakes), `lib/infrastructure/`, `lib/shared/`, `lib/i18n/` (dictionary
+  parity), `lib/realtime/`, `components/` (render to static markup),
+  `lib/architecture.test.ts` (layer purity + hook integrity).
+- **Coverage is a ratchet.** `vitest.config.mts` holds global thresholds;
+  they may only go up. Adding a module without tests lowers the number the
+  ratchet refuses to go below — cover it, don't lower the threshold.
+- **Test the contract, not the source.** Real behavior, boundaries, error
+  codes, state transitions, precedence. No snapshots, no
+  `toBeDefined`-as-the-assertion, no tests that restate the implementation.
+- **Mocks only at I/O boundaries** (`vi.mock` of the DB/session/repository
+  modules). Inject `rng` and clocks; never sleep or hit the network.
+- **Invariant tests are first-class.** `lib/modules/game/turn-parity.test.ts`
+  and `lib/architecture.test.ts` parse source/AST to enforce rules the type
+  system cannot (one turn implementation, layer direction, feed-tab
+  coverage). When you learn a rule the hard way, encode it there.
+- **Behavior changes** additionally get a live check against `pnpm dev`
+  (admin flows included) — tests prove the unit, the server proves the seam.
+- `pnpm build` is a release/PR step, not part of `verify` (too slow for the
+  push hook); run it before opening a PR.
 
 ## 9. Git & releases
 
@@ -304,7 +331,14 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
   release commit `chore(release): vX.Y.Z`. While `0.x`, breaking changes bump
   MINOR and are marked **BREAKING** (exact rules at the bottom of
   `CHANGELOG.md`).
-- No CI, husky not wired — run the checks yourself.
+- **Hooks are wired (Husky) and red cannot be pushed:**
+  `pre-commit` runs `lint-staged` (eslint --fix on staged code),
+  `commit-msg` runs commitlint (conventional commits), and **`pre-push` runs
+  `pnpm verify`** — a failing lint, type check or test aborts the push.
+  Hooks install via the `prepare` script on `pnpm install`
+  (`core.hooksPath=.husky/_`). `git push --no-verify` is the emergency
+  escape hatch, not a routine. There is still no CI server — the hook *is*
+  the gate.
 
 ## 10. Environment & runtime notes
 

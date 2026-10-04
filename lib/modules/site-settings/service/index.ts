@@ -29,14 +29,31 @@ export const siteSettingsSchema = z.object({
   maintenanceMode: z.boolean(),
 });
 
+/**
+ * `undefined` = leave the stored key alone, `null`/blank = clear it, a
+ * non-blank value = trimmed replacement. The transform must not run on
+ * `undefined` — `.optional().transform()` would, turning an omitted field
+ * into an explicit clear and wiping every key the form did not send.
+ */
+const secretField = () =>
+  z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      const trimmed = (v ?? "").trim();
+      return trimmed === "" ? null : trimmed;
+    });
+
 export const providerKeysSchema = z.object({
-  rawgApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
-  igdbClientId: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
-  igdbClientSecret: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
-  steamApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
-  gamespotApiKey: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  rawgApiKey: secretField(),
+  igdbClientId: secretField(),
+  igdbClientSecret: secretField(),
+  steamApiKey: secretField(),
+  gamespotApiKey: secretField(),
   proxyEnabled: z.boolean().optional(),
-  proxyUrl: z.string().trim().nullable().optional().transform((v) => (v && v.trim() ? v.trim() : null)),
+  proxyUrl: secretField(),
 });
 
 export async function getSiteSettingsUseCase() {

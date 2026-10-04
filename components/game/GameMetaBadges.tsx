@@ -10,7 +10,9 @@ import { format } from "@/lib/i18n/format";
 export function GameMetaBadges({ game }: { game: { releasedAt?: string | null; metacritic?: number | null; rating?: number | null; playtimeHours?: number | null } | null | undefined }) {
   const { t } = useI18n();
   if (!game) return null;
-  const year = game.releasedAt ? new Date(game.releasedAt).getUTCFullYear() : null;
+  const released = game.releasedAt ? new Date(game.releasedAt) : null;
+  const year =
+    released && !Number.isNaN(released.getTime()) ? released.getUTCFullYear() : null;
   const hasAny = year != null || (game.metacritic != null && !Number.isNaN(game.metacritic)) || game.rating != null || (game.playtimeHours != null && game.playtimeHours > 0);
   if (!hasAny) return null;
   return (
