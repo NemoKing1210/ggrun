@@ -135,18 +135,6 @@ export async function resolveGameRoll(
             : { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
         });
       });
-      await notifyUser(sp.playerId, "reroll_approved", {
-        seasonId: sp.seasonId,
-        seasonSlug: season.slug,
-        seasonTitle: season.title,
-        seasonPlayerId: sp.id,
-        gameId: game.id,
-        gameTitle: game.title,
-        imageUrl: game.coverUrl ?? null,
-        rollId: roll.id,
-      }).catch((error) =>
-        log.error("notifications.reroll_approved.failed", { rollId: roll.id, err: error instanceof Error ? error : undefined }),
-      );
       return {
         fromPosition: sp.position,
         toPosition: sp.position,

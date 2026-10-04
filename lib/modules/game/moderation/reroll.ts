@@ -61,14 +61,14 @@ export async function approveRerollRequest(requestId: string): Promise<void> {
       payload: { gameId: roll.gameId, requestId: req.id },
     });
   });
+  // Approval is a permission, not a game: the new game is drawn when the
+  // player presses Reroll (see `resolveGameRoll`), so this notice carries the
+  // request, not a title or a cover.
   await notifyUser(sp.playerId, "reroll_approved", {
     seasonId: sp.seasonId,
     seasonSlug: season.slug,
     seasonTitle: season.title,
     seasonPlayerId: sp.id,
-    gameId: game.id,
-    gameTitle: game.title,
-    imageUrl: game.coverUrl,
     rollId: roll.id,
     requestId: req.id,
   }).catch((error) => log.error("notifications.reroll_approved.failed", { requestId, err: error instanceof Error ? error : undefined }));

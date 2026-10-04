@@ -91,6 +91,8 @@ function eventMeta(type: string): {
       return { variant: "dim", Icon: WrenchScrewdriverIcon, label: type };
     case "reroll_rejected":
       return { variant: "danger", Icon: XCircleIcon, label: type };
+    case "reroll_approved":
+      return { variant: "military", Icon: CheckCircleIcon, label: type };
     case "item_granted":
       return { variant: "military", Icon: GiftIcon, label: type };
     case "item_used":
@@ -207,6 +209,13 @@ function EventLine({
         </>
       );
     }
+    case "reroll_approved":
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {t.actions.rerollApproved}
+        </>
+      );
     case "reroll_rejected": {
       const reason = str(p.reason);
       return (

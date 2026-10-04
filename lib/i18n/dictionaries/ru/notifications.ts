@@ -40,7 +40,7 @@ export const notifications = {
     playerAdjusted: "Судья скорректировал данные твоего забега. Актуальное состояние — на дашборде.",
     seasonStarted: "Сезон «{season}» стартовал. Удачи — ролль с дашборда.",
     rerollRequested: "Запрос реролла для «{game}» ждёт судью.",
-    rerollApproved: "Реролл одобрен — новая игра уже ждёт на дашборде.",
+    rerollApproved: "Реролл одобрен — нажмите «Реролл» на дашборде, чтобы вытянуть новую игру.",
     rerollRejected: "Реролл для «{game}» отклонён: {adminNote}",
     completionRequested: "Отчёт {outcome} для «{game}» ждёт судью.",
     completionApproved: "Отчёт {outcome} для «{game}» принят.",

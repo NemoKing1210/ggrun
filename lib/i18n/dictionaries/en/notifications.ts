@@ -40,7 +40,8 @@ export const notifications = {
     playerAdjusted: "A judge adjusted your run data. Check the dashboard for the current state.",
     seasonStarted: "Season “{season}” is live. Good luck — roll from the dashboard.",
     rerollRequested: "Your reroll request for “{game}” is waiting for a judge.",
-    rerollApproved: "Your reroll was approved — a new game is waiting on the dashboard.",
+    rerollApproved:
+      "Your reroll was approved — press Reroll on the dashboard to draw a new game.",
     rerollRejected: "Your reroll for “{game}” was rejected: {adminNote}",
     completionRequested: "Your {outcome} report for “{game}” is waiting for a judge.",
     completionApproved: "Your {outcome} report for “{game}” was approved.",
