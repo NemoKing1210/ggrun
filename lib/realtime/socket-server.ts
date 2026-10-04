@@ -19,6 +19,7 @@ import {
 } from "./access";
 import { subscribeRealtime } from "./bus";
 import { count } from "./metrics";
+import { setRealtimeAttached } from "./state";
 import { CHAT_ROOM, parseSeasonRoom, parseUserRoom, type ChatTypingBroadcast } from "./protocol";
 
 /**
@@ -86,6 +87,7 @@ function isPresenceRoom(room: string): boolean {
  */
 export function attachRealtime(httpServer: HttpServer, deps: RealtimeDeps = {}): Server {
   const lookup = deps.lookupUser ?? lookupUserFromDb;
+  setRealtimeAttached(true);
   const io = new Server(httpServer, {
     // Default path (`/socket.io/`) — the browser client uses the default too.
     transports: ["websocket", "polling"],

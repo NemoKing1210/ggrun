@@ -9,10 +9,26 @@
  */
 
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
+import { isDbAvailable } from "@/lib/infrastructure/db/health";
 import { log } from "@/lib/infrastructure/logger";
+import { getEnv } from "@/lib/config/env";
 import { publish } from "@/lib/realtime/bus";
+import { snapshotRealtimeMetrics } from "@/lib/realtime/metrics";
+import { isRealtimeAttached } from "@/lib/realtime/state";
 import { CHAT_ROOM } from "@/lib/realtime/protocol";
 import { createChatMessage } from "@/lib/modules/chat/repository";
+import {
+  cleanupBotRun,
+  createBotRun,
+  pauseBotRun,
+  restartBotRun,
+  resumeBotRun,
+  stopBotRun,
+  tickBotRun,
+} from "@/lib/modules/bots/service";
+import { getBotRun, listAllBotRuns, listBotLogs } from "@/lib/modules/bots/repository";
+import { countUnread } from "@/lib/modules/notifications/repository";
+import { getSiteSettings } from "@/lib/modules/site-settings/repository/site-settings";
 import {
   deleteCatalogGame,
   getGameById,
@@ -34,11 +50,12 @@ import { getSeasonById, getSeasonBySlug, listSeasons } from "@/lib/modules/seaso
 import { adminAddPlayer, adminAdjustPlayer, adminRemovePlayer } from "@/lib/modules/season/service/players";
 import { changeSeasonStatus, resetSeason } from "@/lib/modules/season/service/seasons";
 import { AdminError } from "@/lib/modules/season/service/errors";
-import type { CatalogGame, Season } from "@/db/schema";
+import { DEFAULT_BOT_RUN_CONFIG, type BotRun, type BotRunConfig, type CatalogGame, type Season } from "@/db/schema";
 import {
   parseInput,
   PLAYER_STATUSES,
   SEASON_STATUSES,
+  SYSTEM_SECTIONS,
   TOGGLE_VALUES,
   type ArgName,
   type ParsedInput,
@@ -121,6 +138,36 @@ async function resolveUser(ref: string): Promise<AdminUserRow> {
 function requireEnum<T extends string>(value: string, allowed: readonly T[], arg: ArgName): T {
   if ((allowed as readonly string[]).includes(value)) return value as T;
   throw new CommandError("invalidArg", { arg, value, options: allowed.join(", ") });
+}
+
+/**
+ * Bot runs are addressed by full UUID, by their 8-char display prefix, or by a
+ * season slug/title when that season has exactly one run.
+ */
+async function resolveBotRun(ref: string): Promise<BotRun> {
+  if (UUID_RE.test(ref)) {
+    const byId = await getBotRun(ref);
+    if (byId) return byId;
+  }
+  const q = ref.toLowerCase();
+  const runs = await listAllBotRuns(100);
+  const byPrefix = runs.filter((r) => r.run.id.toLowerCase().startsWith(q));
+  if (byPrefix.length === 1) return byPrefix[0].run;
+  if (byPrefix.length > 1) throw new CommandError("botAmbiguous", { ref, count: byPrefix.length });
+  const bySeason = runs.filter(
+    (r) => r.seasonSlug.toLowerCase() === q || r.seasonTitle.toLowerCase() === q,
+  );
+  if (bySeason.length === 1) return bySeason[0].run;
+  if (bySeason.length > 1) throw new CommandError("botAmbiguous", { ref, count: bySeason.length });
+  throw new CommandError("botNotFound", { ref });
+}
+
+/** Optional numeric argument; clamped into range, rejected when unparsable. */
+function optionalInt(token: string | undefined, fallback: number, min: number, max: number): number {
+  if (token === undefined) return fallback;
+  const n = Number(token);
+  if (!Number.isFinite(n)) throw new CommandError("invalidNumber", { arg: "value", value: token });
+  return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
 async function requireActor() {
@@ -333,6 +380,125 @@ export async function executeAdminCommand(input: string): Promise<CommandOutcome
         return { ok: true, code: "gameDeleted", params: { game: game.title } };
       }
 
+      // --- test bots -------------------------------------------------------
+      case "bots": {
+        const season = argTokens[0] !== undefined ? await resolveSeason(argTokens[0]) : null;
+        const all = await listAllBotRuns(50);
+        const runs = season ? all.filter((r) => r.run.seasonId === season.id) : all;
+        return {
+          ok: true,
+          code: "botsList",
+          params: { count: runs.length },
+          rows: runs.map((r) => ({
+            text: `#${r.run.id.slice(0, 8)} · ${r.seasonTitle}`,
+            hint: `${r.run.status} · ${r.run.totalTicks} ticks · ${r.run.totalActions} actions · ${r.run.totalErrors} errors`,
+            href: `/admin/seasons/${r.run.seasonId}/bots`,
+          })),
+        };
+      }
+      case "bot": {
+        const run = await resolveBotRun(argTokens[0]);
+        const season = await getSeasonById(run.seasonId);
+        const c = run.config;
+        const rows: CommandRow[] = [
+          { text: `run: #${run.id.slice(0, 8)}`, hint: run.id, href: `/admin/seasons/${run.seasonId}/bots` },
+          { text: `season: ${season?.title ?? run.seasonId}`, hint: season?.slug ?? "" },
+          { text: `status: ${run.status}` },
+          { text: `bots: ${c.botCount} · per tick: ${c.actionsPerTick} · interval: ${c.tickIntervalMs}ms` },
+          { text: `weights: pass ${c.passWeight} · drop ${c.dropWeight} · reroll ${c.rerollWeight}` },
+          {
+            text: `roll: ${c.enableRoll ? "on" : "off"} · resolve: ${c.enableResolve ? "on" : "off"} · stopOnError: ${c.stopOnError ? "on" : "off"}`,
+          },
+          { text: `ticks: ${run.totalTicks} · actions: ${run.totalActions} · errors: ${run.totalErrors}` },
+        ];
+        if (run.lastError) rows.push({ text: `last error: ${run.lastError}` });
+        return { ok: true, code: "botInfo", params: { id: run.id.slice(0, 8) }, rows };
+      }
+      case "bot create": {
+        const season = await resolveSeason(argTokens[0]);
+        const config: BotRunConfig = {
+          ...DEFAULT_BOT_RUN_CONFIG,
+          botCount: optionalInt(argTokens[1], DEFAULT_BOT_RUN_CONFIG.botCount, 1, 20),
+          actionsPerTick: optionalInt(argTokens[2], DEFAULT_BOT_RUN_CONFIG.actionsPerTick, 1, 10),
+        };
+        const run = await createBotRun(season.id, config);
+        log.info("console.bot_create", { actorId: actor.id, seasonId: season.id, runId: run.id });
+        return {
+          ok: true,
+          code: "botCreated",
+          params: { id: run.id.slice(0, 8), bots: config.botCount, season: season.title },
+          refresh: true,
+        };
+      }
+      case "bot start": {
+        const run = await resolveBotRun(argTokens[0]);
+        await resumeBotRun(run.id);
+        log.info("console.bot_start", { actorId: actor.id, runId: run.id });
+        return { ok: true, code: "botStarted", params: { id: run.id.slice(0, 8) }, refresh: true };
+      }
+      case "bot pause": {
+        const run = await resolveBotRun(argTokens[0]);
+        await pauseBotRun(run.id);
+        log.info("console.bot_pause", { actorId: actor.id, runId: run.id });
+        return { ok: true, code: "botPaused", params: { id: run.id.slice(0, 8) }, refresh: true };
+      }
+      case "bot stop": {
+        const run = await resolveBotRun(argTokens[0]);
+        await stopBotRun(run.id);
+        log.info("console.bot_stop", { actorId: actor.id, runId: run.id });
+        return { ok: true, code: "botStopped", params: { id: run.id.slice(0, 8) }, refresh: true };
+      }
+      case "bot restart": {
+        const run = await resolveBotRun(argTokens[0]);
+        await restartBotRun(run.id);
+        log.info("console.bot_restart", { actorId: actor.id, runId: run.id });
+        return { ok: true, code: "botRestarted", params: { id: run.id.slice(0, 8) }, refresh: true };
+      }
+      case "bot tick": {
+        const run = await resolveBotRun(argTokens[0]);
+        const times = optionalInt(argTokens[1], 1, 1, 20);
+        let actions = 0;
+        let errors = 0;
+        let lastError: string | null = null;
+        let ticks = 0;
+        for (let i = 0; i < times; i++) {
+          const summary = await tickBotRun(run.id);
+          ticks++;
+          actions += summary.actions;
+          errors += summary.errors;
+          if (summary.lastError) lastError = summary.lastError;
+          if (summary.stopped) break;
+        }
+        log.info("console.bot_tick", { actorId: actor.id, runId: run.id, ticks });
+        const rows: CommandRow[] = lastError ? [{ text: `last error: ${lastError}` }] : [];
+        return { ok: true, code: "botTicked", params: { count: ticks, actions, errors }, rows, refresh: true };
+      }
+      case "bot logs": {
+        const run = await resolveBotRun(argTokens[0]);
+        const limit = optionalInt(argTokens[1], 20, 1, 200);
+        const entries = await listBotLogs(run.id, limit);
+        return {
+          ok: true,
+          code: "botLogs",
+          params: { count: entries.length },
+          rows: entries.map((e) => ({
+            text: `${e.level === "error" ? "✗" : "·"} ${e.action}${e.botUsername ? ` ${e.botUsername}` : ""}`,
+            hint: e.message,
+          })),
+        };
+      }
+      case "bot cleanup": {
+        const run = await resolveBotRun(argTokens[0]);
+        const { removedPlayers } = await cleanupBotRun(run.id, true);
+        log.info("console.bot_cleanup", { actorId: actor.id, runId: run.id, removedPlayers });
+        return {
+          ok: true,
+          code: "botCleaned",
+          params: { players: removedPlayers, id: run.id.slice(0, 8) },
+          refresh: true,
+        };
+      }
+
       // --- chat / notifications -------------------------------------------
       case "say": {
         const content = restText(parsed, 0);
@@ -389,6 +555,84 @@ export async function executeAdminCommand(input: string): Promise<CommandOutcome
       }
 
       // --- system ----------------------------------------------------------
+      case "system": {
+        const section = requireEnum(argTokens[0] ?? "overview", SYSTEM_SECTIONS, "section");
+
+        if (section === "sockets") {
+          const attached = isRealtimeAttached();
+          const m = snapshotRealtimeMetrics();
+          return {
+            ok: true,
+            code: "systemSockets",
+            params: { state: attached ? "on" : "off" },
+            rows: [
+              { text: `sockets: ${attached ? "attached" : "off"}` },
+              { text: `connections: ${m.connections} · disconnects: ${m.disconnects}` },
+              { text: `joins: ${m.joins} · denied: ${m.joinDenied} · leaves: ${m.leaves}` },
+              { text: `published: ${m.published} · presence: ${m.presenceUpdates}` },
+              { text: `typing relayed: ${m.typingRelayed} · dropped: ${m.typingDropped}` },
+            ],
+          };
+        }
+
+        if (section === "notifications") {
+          const attached = isRealtimeAttached();
+          const unread = await countUnread(actor.id);
+          return {
+            ok: true,
+            code: "systemNotifications",
+            params: { state: attached ? "realtime" : "database-only" },
+            rows: [
+              { text: `delivery: ${attached ? "realtime push + database" : "database only (sockets off)"}` },
+              { text: `unread (you): ${unread}`, href: "/notifications" },
+            ],
+          };
+        }
+
+        const [dbUp, settings, users, allSeasons, games, allRuns, unread] = await Promise.all([
+          isDbAvailable(),
+          getSiteSettings(),
+          listUsers(undefined),
+          listSeasons(),
+          listCatalogGames(),
+          listAllBotRuns(100),
+          countUnread(actor.id),
+        ]);
+        const env = getEnv();
+        const attached = isRealtimeAttached();
+        const m = snapshotRealtimeMetrics();
+        const running = allRuns.filter((r) => r.run.status === "running").length;
+        const mem = process.memoryUsage();
+        const integrations: Array<[string, string]> = [
+          ["rawg", settings.rawgApiKey || env.RAWG_API_KEY],
+          ["igdb", settings.igdbClientId || env.IGDB_CLIENT_ID],
+          ["steam", settings.steamApiKey || env.STEAM_WEB_API_KEY],
+          ["gamespot", settings.gamespotApiKey || env.GAMESPOT_API_KEY],
+        ];
+        return {
+          ok: true,
+          code: "systemOverview",
+          rows: [
+            {
+              text: `runtime: ${process.env.NODE_ENV ?? "development"} · node ${process.version} · ${process.platform}/${process.arch}`,
+            },
+            { text: `pid: ${process.pid} · uptime: ${Math.round(process.uptime())}s` },
+            { text: `memory: rss ${Math.round(mem.rss / 1048576)}mb · heap ${Math.round(mem.heapUsed / 1048576)}mb` },
+            { text: `database: ${dbUp ? "up" : "down"}` },
+            { text: `sockets: ${attached ? "attached" : "off"} · connections ${m.connections} · published ${m.published}` },
+            { text: `notifications: ${attached ? "realtime" : "database only"} · unread (you) ${unread}` },
+            {
+              text: `bot ticker: ${process.env.BOTS_TICK === "1" ? "on" : "off"} · cron secret: ${process.env.CRON_SECRET ? "set" : "missing"}`,
+            },
+            { text: `bot runs: ${allRuns.length} total · ${running} running`, href: "/admin/seasons" },
+            { text: `integrations: ${integrations.map(([k, v]) => `${k} ${v ? "✓" : "—"}`).join(" · ")}` },
+            {
+              text: `site: registration ${settings.registrationEnabled ? "on" : "off"} (${settings.registrationMode}) · maintenance ${settings.maintenanceMode ? "on" : "off"}`,
+            },
+            { text: `counts: ${users.length} users · ${allSeasons.length} seasons · ${games.length} games` },
+          ],
+        };
+      }
       case "moderation": {
         const [rerolls, completions, events] = await Promise.all([
           listPendingRerollRequests(),

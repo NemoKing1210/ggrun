@@ -9,13 +9,14 @@
 
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { log } from "@/lib/infrastructure/logger";
+import { isAppError } from "@/lib/errors/app-error";
 import { errorText } from "@/lib/i18n/errors";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
+import { listAllBotRuns } from "@/lib/modules/bots/repository";
 import { listCatalogGames } from "@/lib/modules/catalog/repository";
 import { listUsers } from "@/lib/modules/player/service/admin";
 import { listSeasons } from "@/lib/modules/season/repository/seasons";
-import { AdminError } from "@/lib/modules/season/service/errors";
 import type { ArgOption, DynamicArgKind } from "@/lib/shared/admin-console";
 
 import { executeAdminCommand, type CommandRow } from "./execute";
@@ -45,7 +46,7 @@ export async function runAdminCommandAction(input: string): Promise<CommandRunRe
       refresh: outcome.refresh,
     };
   } catch (e) {
-    if (e instanceof AdminError) {
+    if (isAppError(e)) {
       return { ok: false, message: errorText(t.core.errors, e.code, e.params) };
     }
     log.error("console.command_failed", { input, err: e instanceof Error ? e : undefined });
@@ -79,6 +80,24 @@ export async function suggestAdminArgsAction(
         value: u.username,
         label: u.displayName ?? u.username,
         hint: `@${u.username}${u.isBlocked ? " · blocked" : ""}`,
+      }));
+  }
+
+  if (kind === "bot") {
+    const runs = await listAllBotRuns(SUGGEST_LIMIT * 5);
+    return runs
+      .filter(
+        (r) =>
+          !q ||
+          r.run.id.toLowerCase().startsWith(q) ||
+          r.seasonTitle.toLowerCase().includes(q) ||
+          r.seasonSlug.toLowerCase().includes(q),
+      )
+      .slice(0, SUGGEST_LIMIT)
+      .map((r) => ({
+        value: r.run.id.slice(0, 8),
+        label: `#${r.run.id.slice(0, 8)} · ${r.seasonTitle}`,
+        hint: r.run.status,
       }));
   }
 

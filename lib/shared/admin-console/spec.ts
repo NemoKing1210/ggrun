@@ -13,6 +13,7 @@ export const COMMAND_GROUPS = [
   "season",
   "player",
   "game",
+  "bots",
   "chat",
   "notify",
   "system",
@@ -21,10 +22,10 @@ export const COMMAND_GROUPS = [
 export type CommandGroup = (typeof COMMAND_GROUPS)[number];
 
 /** Where an argument's completions come from. */
-export type ArgKind = "season" | "user" | "game" | "text" | "rest" | "enum" | "number";
+export type ArgKind = "season" | "user" | "game" | "bot" | "text" | "rest" | "enum" | "number";
 
 /** Kinds the client fills from live data (server lookup) instead of a static list. */
-export const DYNAMIC_ARG_KINDS = ["season", "user", "game"] as const;
+export const DYNAMIC_ARG_KINDS = ["season", "user", "game", "bot"] as const;
 export type DynamicArgKind = (typeof DYNAMIC_ARG_KINDS)[number];
 
 export function isDynamicArgKind(kind: ArgKind): kind is DynamicArgKind {
@@ -35,6 +36,7 @@ export type ArgName =
   | "season"
   | "user"
   | "game"
+  | "run"
   | "value"
   | "section"
   | "status"
@@ -66,6 +68,9 @@ export interface CommandSpec {
 export const SEASON_STATUSES = ["draft", "active", "paused", "finished", "archived"] as const;
 export const PLAYER_STATUSES = ["active", "finished", "eliminated", "withdrawn"] as const;
 export const TOGGLE_VALUES = ["on", "off"] as const;
+
+/** Sections of the `system` diagnostics command. */
+export const SYSTEM_SECTIONS = ["overview", "sockets", "notifications"] as const;
 
 /** Quick navigation targets for `open <section>`. */
 export const OPEN_TARGETS: ReadonlyArray<{ value: string; href: string }> = [
@@ -179,6 +184,40 @@ export const ADMIN_COMMANDS: readonly CommandSpec[] = [
   },
   { name: "game delete", group: "game", args: [{ name: "game", kind: "game" }], danger: true },
 
+  // --- test bots ------------------------------------------------------------
+  { name: "bots", group: "bots", args: [{ name: "season", kind: "season", optional: true }] },
+  { name: "bot", group: "bots", args: [{ name: "run", kind: "bot" }] },
+  {
+    name: "bot create",
+    group: "bots",
+    args: [
+      { name: "season", kind: "season" },
+      { name: "value", kind: "number", optional: true },
+      { name: "value", kind: "number", optional: true },
+    ],
+  },
+  { name: "bot start", group: "bots", args: [{ name: "run", kind: "bot" }] },
+  { name: "bot pause", group: "bots", args: [{ name: "run", kind: "bot" }] },
+  { name: "bot stop", group: "bots", args: [{ name: "run", kind: "bot" }] },
+  { name: "bot restart", group: "bots", args: [{ name: "run", kind: "bot" }] },
+  {
+    name: "bot tick",
+    group: "bots",
+    args: [
+      { name: "run", kind: "bot" },
+      { name: "value", kind: "number", optional: true },
+    ],
+  },
+  {
+    name: "bot logs",
+    group: "bots",
+    args: [
+      { name: "run", kind: "bot" },
+      { name: "value", kind: "number", optional: true },
+    ],
+  },
+  { name: "bot cleanup", group: "bots", args: [{ name: "run", kind: "bot" }], danger: true },
+
   // --- chat / messages ------------------------------------------------------
   { name: "say", group: "chat", args: [{ name: "text", kind: "text", rest: true }] },
 
@@ -202,6 +241,11 @@ export const ADMIN_COMMANDS: readonly CommandSpec[] = [
   { name: "notify staff", group: "notify", args: [{ name: "text", kind: "text", rest: true }] },
 
   // --- system ---------------------------------------------------------------
+  {
+    name: "system",
+    group: "system",
+    args: [{ name: "section", kind: "enum", options: SYSTEM_SECTIONS, optional: true }],
+  },
   { name: "moderation", group: "system", args: [] },
   { name: "whoami", group: "system", args: [] },
   { name: "help", group: "system", args: [{ name: "query", kind: "text", optional: true }] },

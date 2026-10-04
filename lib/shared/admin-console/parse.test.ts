@@ -63,6 +63,28 @@ describe("parseInput", () => {
     expect(hasRequiredArgs(parseInput("player add run-1 bob"))).toBe(true);
     expect(hasRequiredArgs(parseInput("games"))).toBe(true);
   });
+
+  it("resolves the bot subcommands and their optional arguments", () => {
+    const create = parseInput("bot create run-1 5 3");
+    expect(create.command?.name).toBe("bot create");
+    expect(create.argTokens).toEqual(["run-1", "5", "3"]);
+    expect(hasRequiredArgs(create)).toBe(true);
+
+    const bareCreate = parseInput("bot create run-1");
+    expect(bareCreate.command?.name).toBe("bot create");
+    expect(hasRequiredArgs(bareCreate)).toBe(true);
+
+    expect(hasRequiredArgs(parseInput("bot tick"))).toBe(false);
+    expect(hasRequiredArgs(parseInput("bot tick f46d3c77"))).toBe(true);
+    expect(parseInput("bot f46d3c77").command?.name).toBe("bot");
+    expect(parseInput("bot cleanup f46d3c77").command?.name).toBe("bot cleanup");
+  });
+
+  it("treats the system section as an optional argument", () => {
+    expect(hasRequiredArgs(parseInput("system"))).toBe(true);
+    expect(parseInput("system sockets").argSpec?.name).toBe("section");
+    expect(parseInput("system sockets").argTokens).toEqual(["sockets"]);
+  });
 });
 
 describe("buildSuggestions", () => {
