@@ -14,6 +14,8 @@ export const chat = {
   emptyContent: "Message is empty",
   tooLong: "Message too long (max 1000)",
   newMessages: "{count} new",
+  notifyTag: "NEW TRANSMISSION",
+  notifyAria: "New message from {name}: {text}",
   onlineHint: "tactical link active",
   reconnecting: "reconnecting…",
   typingOne: "{name} is typing…",

@@ -10,6 +10,12 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **Chat alerts above the launcher** — a `chat:message` arriving over the
+  socket while the comms drawer is shut now stacks a card above the launcher
+  button (author, two-line preview, click to open), and the unread badge counts
+  messages received while closed. The socket subscription is no longer tied to
+  the drawer being open, and message-id dedupe moved into one set so the list
+  and the unread counter cannot disagree.
 - **Admin command console** — <kbd>Ctrl</kbd>+<kbd>K</kbd> anywhere on the
   site (admins only) opens a HUD terminal palette with fuzzy command
   completion, live argument suggestions and a session log. Spec + parser live

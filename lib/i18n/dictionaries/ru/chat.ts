@@ -17,6 +17,8 @@ export const chat: Widen<typeof ChatEn.chat> = {
   emptyContent: "Сообщение пустое",
   tooLong: "Сообщение слишком длинное (макс. 1000)",
   newMessages: "{count} новых",
+  notifyTag: "НОВАЯ ПЕРЕДАЧА",
+  notifyAria: "Новое сообщение от {name}: {text}",
   onlineHint: "канал активен",
   reconnecting: "переподключение…",
   typingOne: "{name} печатает…",

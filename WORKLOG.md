@@ -48,6 +48,49 @@
 
 ---
 
+## 2026-10-04 — Chat alerts above the launcher (socket-driven)
+
+Asked for a new-message notification above the "COMMS" launcher button,
+delivered over the sockets.
+
+**Shape.** `components/chat/GlobalChat.tsx` only. The `chat:message`
+subscription stopped being open-gated (`open ? CHAT_ROOM : null` →
+`CHAT_ROOM`), so the drawer being shut still feeds the unread badge; a socket
+arrival while shut also stacks a `ChatAlertCard` above the launcher (author,
+two-line preview, the whole card is one button that opens the drawer). Max 3,
+7 s TTL, hovering the stack holds them, opening the drawer consumes both the
+stack and the badge, own messages are suppressed by `currentUserId`.
+Dictionary keys `chat.notifyTag` / `chat.notifyAria` added in en/ru/uk.
+
+**Decisions worth keeping.**
+
+- *One dedupe gate.* `appendLive` re-checked ids inside the `setMsgs` updater
+  while the unread counter incremented by `incoming.length`, so a reconnect
+  backfill could double-count. `knownIdsRef` is now written by every path that
+  inserts messages (page replace/prepend, optimistic send, socket) and is the
+  only filter — the list and the counter cannot disagree.
+- *Closed counts as "not visible".* `unread` increments when `!open ||
+  !atBottom`, not only when scrolled up: while shut the badge previously could
+  not move at all.
+- *Permanent room join.* Joining `chat` for every connected socket also inflates
+  that room's presence headcount, which nothing renders today (only `season:*`
+  counts are displayed). Accepted — presence payloads are tiny, and the
+  alternatives (a second channel, a per-user fan-out) are more moving parts for
+  the same badge.
+- *Hover pause instead of per-card timers.* One 500 ms interval prunes by age
+  and skips while `alertsHoverRef` is set, so a card under the cursor cannot
+  vanish mid-read.
+
+**Verified live** (managed tab against the dev server, a second tab as an anon
+observer): the alert renders above the launcher, right-aligned with it and 12 px
+clear; 4 messages stack to 3; hover holds past the TTL and unhover expires the
+card; clicking opens the drawer and clears stack + badge; with the drawer open
+no alert is raised and the packet appends live; the sender never alerts on its
+own echo; 8 socket messages while shut produced exactly badge 8. Smoke rows
+were deleted afterwards; the DB is as found.
+
+---
+
 ## 2026-10-04 — Admin command console (Ctrl+K)
 
 Asked for an in-app command line for admins: a palette on `Ctrl+K` with hints

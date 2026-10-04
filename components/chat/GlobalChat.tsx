@@ -22,10 +22,16 @@ type ChatMsg = {
   role: string;
 };
 
+/** One socket-delivered new-message alert stacked above the launcher. */
+type ChatAlert = { id: string; msg: ChatMsg; ts: number };
+
 const PAGE_SIZE = 30;
 const POLL_MS = 5000;
 /** Two messages by one author closer than this form a "run" — later packets drop the repeated identity. */
 const RUN_MS = 7 * 60 * 1000;
+/** Launcher alerts: how many stack above the button, how long each lives. */
+const ALERT_MAX = 3;
+const ALERT_TTL_MS = 7000;
 
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -186,6 +192,66 @@ function ChatPacket({ msg, first, own, locale, youLabel, onNavigate }: ChatPacke
   );
 }
 
+type ChatAlertCardProps = {
+  msg: ChatMsg;
+  locale: string | null;
+  tag: string;
+  ariaLabel: string;
+  onOpen: () => void;
+};
+
+/**
+ * New-transmission alert — the socket `chat:message` mirror raised above the
+ * launcher while the drawer is shut. Same packet anatomy as the list, shrunk
+ * to a header strip + identity + two-line preview; the whole card is one
+ * button that opens the drawer.
+ */
+function ChatAlertCard({ msg, locale, tag, ariaLabel, onOpen }: ChatAlertCardProps) {
+  const label = msg.displayName ?? msg.username;
+  const accent = ROLE_ACCENT[msg.role] ?? PLAYER_ACCENT;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={ariaLabel}
+      className="animate-hud-rise pointer-events-auto relative w-full border border-amber/40 bg-gradient-to-br from-[#171208] to-[#0a0a08] p-2.5 text-left shadow-[0_10px_30px_rgba(0,0,0,0.7),0_0_18px_rgb(var(--hud-amber-glow)/0.16)] transition-colors hover:border-amber/75 [clip-path:polygon(8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%,0_8px)]"
+    >
+      {/* origin rail — same left-edge rail as an incoming packet */}
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-amber" />
+      {/* class strip: direction · tag · time */}
+      <span className="flex items-center gap-2 border-b border-amber/15 pb-1.5">
+        <SignalBars own={false} />
+        <span className="truncate font-mono text-[9px] uppercase tracking-[0.22em] text-amber/80">{tag}</span>
+        <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums tracking-widest text-dim/50">{timeLabel(msg.createdAt, locale)}</span>
+      </span>
+      <span className="mt-2 flex items-start gap-2">
+        {msg.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={msg.avatarUrl}
+            alt=""
+            className="size-7 shrink-0 object-cover ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+          />
+        ) : (
+          <AvatarFallback
+            seed={msg.userId ?? msg.username}
+            name={label}
+            className="size-7 ring-1 ring-white/5 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
+            emojiClassName="text-sm"
+          />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-1.5">
+            <span className={cn("truncate font-display text-[12px] uppercase tracking-wide", accent.text)}>{label}</span>
+            <span className="truncate font-mono text-[10px] tracking-widest text-dim/45">@{msg.username}</span>
+          </span>
+          <span className="mt-0.5 line-clamp-2 break-words font-mono text-[12px] leading-snug text-zinc-200">{msg.content}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { isAuthenticated?: boolean; currentUserId?: string | null }) {
   const { t, locale } = useI18n();
   const chatT = t.chat;
@@ -201,6 +267,8 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
+  /** Socket-delivered alerts raised above the launcher while the drawer is shut. */
+  const [alerts, setAlerts] = useState<ChatAlert[]>([]);
   /** userId → who is typing right now (socket `chat:typing`, expires in 3.5s). */
   const [typists, setTypists] = useState<Record<string, { name: string; ts: number }>>({});
   const lastTypingSentRef = useRef(0);
@@ -208,6 +276,15 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const initialLoaded = useRef(false);
+  /** Ids already merged into `msgs` — the dedupe gate for socket/live arrivals. */
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  /** `open` mirrored for the socket handler, which outlives re-renders. */
+  const openRef = useRef(false);
+  /** Pointer over the alert stack holds the expiry timer (reading pause). */
+  const alertsHoverRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = listRef.current;
@@ -224,6 +301,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     // API returns messages oldest->newest for the page; normalized to ChatMsg with string date
     const mapped = data.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() }));
     if (append === "replace") {
+      for (const m of mapped) knownIdsRef.current.add(m.id);
       setMsgs(mapped);
       setHasMore(data.hasMore);
       setNextBefore(data.nextBefore);
@@ -234,11 +312,9 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
       const el = listRef.current;
       const prevHeight = el?.scrollHeight ?? 0;
       const prevTop = el?.scrollTop ?? 0;
-      setMsgs((prev) => {
-        const existing = new Set(prev.map((p) => p.id));
-        const toAdd = mapped.filter((m) => !existing.has(m.id));
-        return [...toAdd, ...prev];
-      });
+      const toAdd = mapped.filter((m) => !knownIdsRef.current.has(m.id));
+      for (const m of toAdd) knownIdsRef.current.add(m.id);
+      setMsgs((prev) => [...toAdd, ...prev]);
       setHasMore(data.hasMore);
       setNextBefore(data.nextBefore);
       requestAnimationFrame(() => {
@@ -289,21 +365,24 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     return () => el.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  // Live messages over sockets. The HTTP poll below stays as a fallback for
-  // when the socket is disconnected (custom `dev:turbo`/`dev:next` servers,
-  // reconnect storms) — same merge, same unread accounting.
+  // Live messages over sockets. The subscription is permanent: while the
+  // drawer is shut the same event feeds the unread badge and the launcher
+  // alerts. The HTTP poll below stays a fallback for when the socket is
+  // disconnected (custom `dev:turbo`/`dev:next` servers, reconnect storms).
   const appendLive = useCallback((incoming: ChatMsg[]) => {
     if (incoming.length === 0) return;
+    const fresh = incoming.filter((n) => !knownIdsRef.current.has(n.id));
+    if (fresh.length === 0) return;
+    for (const n of fresh) knownIdsRef.current.add(n.id);
     setMsgs((prev) => {
-      const prevIds = new Set(prev.map((p) => p.id));
-      const filtered = incoming.filter((n) => !prevIds.has(n.id));
-      if (filtered.length === 0) return prev;
       // merge and keep sorted by time, cap to avoid unbounded growth (keep last 300)
-      const merged = [...prev, ...filtered].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+      const merged = [...prev, ...fresh].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
       return merged.length > 300 ? merged.slice(-300) : merged;
     });
-    if (!atBottomRef.current) {
-      setUnread((n) => n + incoming.length);
+    // Unread counts whenever the reader cannot see the arrival: drawer shut,
+    // or open but scrolled up (the sticky "N new" chip).
+    if (!openRef.current || !atBottomRef.current) {
+      setUnread((n) => n + fresh.length);
     } else {
       requestAnimationFrame(() => scrollToBottom(true));
     }
@@ -327,10 +406,16 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     if (!open || msgs.length === 0) return;
     void fetchLatest();
   });
-  useRealtimeEvent(open ? CHAT_ROOM : null, "chat:message", (m: ChatMessageBroadcast) => {
+  useRealtimeEvent(CHAT_ROOM, "chat:message", (m: ChatMessageBroadcast) => {
     // Own POST already appended optimistically — the id guard drops the echo.
-    if (msgs.some((x) => x.id === m.id)) return;
-    appendLive([{ ...m, createdAt: new Date(m.createdAt).toISOString() }]);
+    if (knownIdsRef.current.has(m.id)) return;
+    const msg: ChatMsg = { ...m, createdAt: new Date(m.createdAt).toISOString() };
+    appendLive([msg]);
+    // Raise the launcher alert for someone else's message, and only while the
+    // drawer is shut — an open drawer shows the packet in place.
+    if (!openRef.current && m.userId !== currentUserId) {
+      setAlerts((prev) => [...prev, { id: msg.id, msg, ts: Date.now() }].slice(-ALERT_MAX));
+    }
   });
   useRealtimeEvent(open ? CHAT_ROOM : null, "chat:typing", (hint) => {
     if (hint.userId === currentUserId) return;
@@ -358,6 +443,20 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     return () => window.clearInterval(id);
   }, [open ]);
 
+  // launcher alerts expire on their own; hovering the stack holds them (reading pause)
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    const id = window.setInterval(() => {
+      if (alertsHoverRef.current) return;
+      const cutoff = Date.now() - ALERT_TTL_MS;
+      setAlerts((prev) => {
+        const next = prev.filter((a) => a.ts >= cutoff);
+        return next.length === prev.length ? prev : next;
+      });
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [alerts.length]);
+
   // fallback poll for new messages — only while the socket is down
   useEffect(() => {
     if (!open || connected) return;
@@ -371,9 +470,12 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
     return () => window.clearInterval(id);
   }, [open, connected, msgs, fetchPage, fetchLatest]);
 
-  // when opening, ensure scrolled to bottom
+  // when opening, ensure scrolled to bottom; opening also consumes the badge and the alerts
   useEffect(() => {
-    if (open) requestAnimationFrame(() => scrollToBottom());
+    if (!open) return;
+    setUnread(0);
+    setAlerts([]);
+    requestAnimationFrame(() => scrollToBottom());
   }, [open, scrollToBottom]);
 
  // block page scroll when panel open (body lock + iOS touch guard)
@@ -490,6 +592,7 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
       }
       const msg = data.message as ChatMsg;
       const normalized = { ...msg, createdAt: new Date(msg.createdAt).toISOString() };
+      knownIdsRef.current.add(normalized.id);
       setMsgs((prev) => {
         // The socket echo can land before this response — never render the same id twice.
         if (prev.some((p) => p.id === normalized.id)) return prev;
@@ -519,6 +622,29 @@ export function GlobalChat({ isAuthenticated = false, currentUserId = null }: { 
         >
           {unread > 0 ? `${unread > 99 ? "99+" : unread} · ${chatT.title}` : chatT.title} <span className="opacity-60">— {chatT.hint}</span>
         </span>
+
+        {/* Socket alerts — new transmissions raised above the launcher */}
+        <div
+          className="absolute bottom-full right-0 mb-3 flex w-[min(21rem,calc(100vw-2.5rem))] flex-col gap-2"
+          aria-live="polite"
+          onMouseEnter={() => {
+            alertsHoverRef.current = true;
+          }}
+          onMouseLeave={() => {
+            alertsHoverRef.current = false;
+          }}
+        >
+          {alerts.map((a) => (
+            <ChatAlertCard
+              key={a.id}
+              msg={a.msg}
+              locale={locale}
+              tag={chatT.notifyTag}
+              ariaLabel={format(chatT.notifyAria, { name: a.msg.displayName ?? a.msg.username, text: a.msg.content })}
+              onOpen={() => setOpen(true)}
+            />
+          ))}
+        </div>
 
         <div className="relative">
           {/* ping ring when unread */}
