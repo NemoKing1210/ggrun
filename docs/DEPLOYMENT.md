@@ -127,7 +127,7 @@ directly against the DB, for host cron / Task Scheduler.
 
 ## 3. Environment variables (full reference)
 
-See [`.env.example`](./.env.example) — that file is the single source of
+See [`.env.example`](../.env.example) — that file is the single source of
 truth. Highlights:
 
 - `DATABASE_URL` — `postgresql://user:password@host:port/database`. Used by

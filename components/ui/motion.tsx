@@ -4,7 +4,7 @@ import { AnimatePresence, MotionConfig, motion, type Variants } from "framer-mot
 import type { ReactNode } from "react";
 
 /**
- * Shared HUD motion primitives (see DESIGN.md §8).
+ * Shared HUD motion primitives (see docs/DESIGN.md §8).
  *
  * Spare by design: 160–200ms ease-out, opacity + translateY(8px) only.
  * Every helper renders inside `MotionConfig reducedMotion="user"`, so

@@ -19,7 +19,7 @@
 | --- | --- |
 | Version | `0.5.0` |
 | Branch | `main` |
-| Active work | **IEE audit** — [`IEE_AUDIT.md`](./IEE_AUDIT.md) + [`IEE_FIX_PLAN.md`](./IEE_FIX_PLAN.md); stages 1–5 shipped and proved live, stage 6 (content) deferred. UX backlog waves 1 and 2 done; artwork pipeline in place, awaiting art |
+| Active work | **IEE work** — audit and fix plan done (stages 1–5 shipped and proved live, stage 6 (content) deferred). UX backlog waves 1 and 2 done; artwork pipeline in place, awaiting art |
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
@@ -45,6 +45,30 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-04 — Root docs moved into `docs/`
+
+The docs that describe how the platform works were scattered across the repo
+root. Moved into `docs/`: `DESIGN.md`, `DEVELOPMENT.md`, `DEPLOYMENT.md`,
+`RUNBOOK.md`, `ITEMS_EFFECTS_EVENTS.md`, `ITEMS_EFFECTS_SCENARIOS.md` and
+`WORKLOG.md`; added `docs/README.md` as the index. The root now keeps only what
+GitHub and tooling expect: `README.md`, `AGENTS.md`, `CONTRIBUTING.md`,
+`CHANGELOG.md`, `LICENSE`.
+
+The three temporary plans — `IEE_AUDIT.md`, `IEE_FIX_PLAN.md` and
+`UX_BACKLOG_PLAN.md` — were deleted; their work is recorded in the sessions
+below. A stray `Claude outputs/` screenshot dump was also removed and ignored.
+
+**Links.** Updated every relative link in the root docs (`README.md`,
+`AGENTS.md` §11 map, `CONTRIBUTING.md`), both translated READMEs, and inside the
+moved files. The scenario generator (`scripts/scenarios-doc.ts`) now writes
+`docs/ITEMS_EFFECTS_SCENARIOS.md` and points its source link one level up. Code
+comments that named `DESIGN.md` / `ITEMS_EFFECTS_EVENTS.md` now carry the
+`docs/` path; the one comment citing the deleted audit was reworded.
+`pnpm lint`, `tsc --noEmit`, `pnpm test` (635) and `pnpm build` are green, and a
+relative-link scan reports no dangling targets.
 
 ---
 
@@ -155,9 +179,9 @@ re-checks the role, so the gate is not client-only.
 
 Asked for an audit of the items-and-effects subsystem: describe the project,
 describe how a season actually runs, then say where the system can be improved.
-The reading produced [`IEE_AUDIT.md`](./IEE_AUDIT.md) — twelve defects and seven
+The reading produced `IEE_AUDIT.md` — twelve defects and seven
 design notes, each read out of the tree with `file:line` rather than recalled
-from the design document. [`IEE_FIX_PLAN.md`](./IEE_FIX_PLAN.md) turns it into
+from the design document. `IEE_FIX_PLAN.md` turns it into
 six stages. **Stages 1–4 are implemented and verified; 5 and 6 are waiting on
 decisions.**
 
@@ -1007,7 +1031,7 @@ are exactly the class of change `tsc` cannot see, and this project's record
 ## 2026-09-09 — Session 16 · UX backlog, wave 1
 
 Six reported items were analysed against the code before anything was built;
-the verdicts and the phased plan are in [`UX_BACKLOG_PLAN.md`](./UX_BACKLOG_PLAN.md).
+the verdicts and the phased plan are in `UX_BACKLOG_PLAN.md`.
 **Wave 1 (items 1, 5, 6) is done. Waves 2 and 3 are not started.**
 
 Two of the six were argued down rather than built as asked, and that is

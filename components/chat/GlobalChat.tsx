@@ -76,7 +76,7 @@ function txTag(id: string): string {
   return (h >>> 0).toString(16).toUpperCase().padStart(4, "0").slice(0, 4);
 }
 
-/** Role → name ink + origin-rail colour. Danger red for admin is deliberate (DESIGN.md §2). */
+/** Role → name ink + origin-rail colour. Danger red for admin is deliberate (docs/DESIGN.md §2). */
 const ROLE_ACCENT: Record<string, { text: string; rail: string }> = {
   admin: { text: "text-red-400", rail: "bg-red-400" },
   judge: { text: "text-violet-400", rail: "bg-violet-400" },

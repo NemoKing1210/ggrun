@@ -30,7 +30,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   dictionary line.
 - **Items, effects and challenges** — a whole subsystem, opt-in per season
   (`seasons.config.iee`, migration `0016`). Concept, contracts and the
-  decision record live in `ITEMS_EFFECTS_EVENTS.md`.
+  decision record live in `docs/ITEMS_EFFECTS_EVENTS.md`.
   - **Catalog (6 items, 8 effects), hardcoded on purpose.** An effect is
     inseparable from the function that implements it, so the catalog lives in
     `lib/engine/iee/` and its keys are persisted forever — deprecate, never
@@ -67,7 +67,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
     generated rules section listing everything that can drop — including the
     catch-up rule when it is on, because hidden rubber-banding is worse than
     none.
-- **`ITEMS_EFFECTS_SCENARIOS.md`** — a generated reference of what every item
+- **`docs/ITEMS_EFFECTS_SCENARIOS.md`** — a generated reference of what every item
   and effect promises, 57 scenarios written as observable consequences. It is
   built by `pnpm scenarios:doc` from `lib/engine/iee/scenarios.ts`, which is
   the same table the tests run, so the document cannot describe behaviour the
@@ -206,7 +206,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   keeps its glyph, so the catalog is never half-drawn. There is no upload in
   the admin console by design: the app container has no persistent volume, so
   anything written at runtime would not survive a deploy. The recipe is in
-  `AGENTS.md` §5, the visual spec in `DESIGN.md`, and tests check the registry
+  `AGENTS.md` §5, the visual spec in `docs/DESIGN.md`, and tests check the registry
   against the folder in both directions — plus name, case, extension,
   squareness, pixel and byte budgets, and that the file really is a WebP.
 - **Items and effects now have icons.** Every catalog entry has declared a
@@ -247,7 +247,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ### Fixed
 - **A finished season was flagged in danger red, and three status maps
   disagreed about it.** `/admin/seasons` painted `finished` with the `danger`
-  variant reserved by `DESIGN.md` §1.2 for actual danger, while `StatusBadge`
+  variant reserved by `docs/DESIGN.md` §1.2 for actual danger, while `StatusBadge`
   and the season roster painted the same status amber. All three now read one
   source, `lib/shared/ui/status-variants.ts`, and a finished season is neutral
   with a check glyph.
@@ -260,7 +260,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 - **Item and status descriptions were smaller than the names above them.** The
   sentence describing what an entry does rendered at `text-[11px]` under a
   `text-sm` name on five surfaces, inverting the hierarchy — and 11px is not on
-  the `DESIGN.md` §2 type scale. Prose now renders through
+  the `docs/DESIGN.md` §2 type scale. Prose now renders through
   `components/iee/EntryDescription.tsx` at `sm` (player surfaces) or `xs`
   (dense admin tables). HUD mono labels are untouched.
 - **Two season-wizard stage explanations were written but never rendered.**
@@ -367,7 +367,7 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   (`max-w-sm` … `max-w-5xl`) are gone, so content edges always align with
   the crumbs and the gap under the breadcrumbs is identical on every page.
   The dashboard no longer nests a duplicate container (and a nested
-  `<main>`) inside the shell. Documented in `DESIGN.md` (Layout Containers).
+  `<main>`) inside the shell. Documented in `docs/DESIGN.md` (Layout Containers).
 - Settings save no longer falls through to the generic "Unknown error" when
   the payload fails Zod validation; the message targets the first issue
   (e.g. `displayName: String must contain at most 100 character(s)`) and

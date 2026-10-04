@@ -104,24 +104,28 @@ pnpm db:setup               # схема + демо-сезон + перший а
 pnpm dev                    # http://localhost:3000
 ```
 
-Локальна розробка: [`DEVELOPMENT.md`](../DEVELOPMENT.md) ·
-Продакшн-деплой: [`DEPLOYMENT.md`](../DEPLOYMENT.md)
+Локальна розробка: [`DEVELOPMENT.md`](../docs/DEVELOPMENT.md) ·
+Продакшн-деплой: [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
 
 ## Документація
 
 | Документ | Про що |
 | --- | --- |
-| [`DEVELOPMENT.md`](../DEVELOPMENT.md) | Архітектура, команди, конвенції коду, тестування, релізи |
-| [`DEPLOYMENT.md`](../DEPLOYMENT.md) | Docker Compose і ручний деплой у продакшн, довідка по env, усунення проблем |
+| [`docs/`](../docs/README.md) | Повний індекс документації |
+| [`DEVELOPMENT.md`](../docs/DEVELOPMENT.md) | Архітектура, команди, конвенції коду, тестування, релізи |
+| [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md) | Docker Compose і ручний деплой у продакшн, довідка по env, усунення проблем |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Як повідомляти про помилки та надсилати pull request'и |
-| [`DESIGN.md`](../DESIGN.md) | HUD-дизайн-система — прочитати перед написанням будь-якого UI |
-| [`RUNBOOK.md`](../RUNBOOK.md) | Покроковий посібник для хоста на день заходу |
+| [`DESIGN.md`](../docs/DESIGN.md) | HUD-дизайн-система — прочитати перед написанням будь-якого UI |
+| [`RUNBOOK.md`](../docs/RUNBOOK.md) | Покроковий посібник для хоста на день заходу |
+| [`ITEMS_EFFECTS_EVENTS.md`](../docs/ITEMS_EFFECTS_EVENTS.md) | Предмети / ефекти / події: концепція, контракти, рішення |
+| [`ITEMS_EFFECTS_SCENARIOS.md`](../docs/ITEMS_EFFECTS_SCENARIOS.md) | Генерується — що обіцяє кожен предмет і ефект, у вигляді сценаріїв |
+| [`WORKLOG.md`](../docs/WORKLOG.md) | Журнал робіт — що робила кожна сесія |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Історія релізів (Keep a Changelog) |
 
 ## Змінні середовища
 
 Див. [`.env.example`](../.env.example) — секрети ніколи не комітяться. Повна
-довідка — у [`DEPLOYMENT.md`](../DEPLOYMENT.md).
+довідка — у [`DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
 
 ## Ліцензія
 

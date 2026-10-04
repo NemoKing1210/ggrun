@@ -39,7 +39,7 @@ export type CatalogOption = { key: string; label: string };
  * Event template CRUD.
  *
  * The reward is edited as three visual fields (points / item / effect), never
- * as a JSON textarea — `DESIGN.md` §1.4. Item and effect come from the
+ * as a JSON textarea — `docs/DESIGN.md` §1.4. Item and effect come from the
  * hardcoded catalog, so an unknown key cannot be typed in at all.
  */
 export function EventTemplatesManager({

@@ -1,7 +1,7 @@
 # Items & effects — scenario reference
 
 > **Generated file — do not edit.** `pnpm scenarios:doc` rebuilds it from
-> [`lib/engine/iee/scenarios.ts`](./lib/engine/iee/scenarios.ts), which is also what
+> [`lib/engine/iee/scenarios.ts`](../lib/engine/iee/scenarios.ts), which is also what
 > the tests run. A scenario cannot appear here without an implementation:
 > `lib/engine/iee-scenarios.test.ts` and `probe/scenarios.mts` each fail if one of
 > their tier is unimplemented.

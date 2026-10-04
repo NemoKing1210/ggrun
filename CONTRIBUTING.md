@@ -6,9 +6,9 @@ work on the codebase and get your changes merged.
 Read these first:
 
 - [`AGENTS.md`](./AGENTS.md) — repository guidelines (architecture, invariants)
-- [`DEVELOPMENT.md`](./DEVELOPMENT.md) — stack, commands, code conventions
-- [`DESIGN.md`](./DESIGN.md) — the HUD design system (read before writing UI)
-- [`RUNBOOK.md`](./RUNBOOK.md) — how a season runs on event day
+- [`DEVELOPMENT.md`](./docs/DEVELOPMENT.md) — stack, commands, code conventions
+- [`DESIGN.md`](./docs/DESIGN.md) — the HUD design system (read before writing UI)
+- [`RUNBOOK.md`](./docs/RUNBOOK.md) — how a season runs on event day
 
 ---
 
@@ -39,7 +39,7 @@ pnpm dev                    # http://localhost:3000
 ```
 
 Requirements: Node ≥ 20, pnpm 9, PostgreSQL 17. Full setup details in
-`README.md` / `DEVELOPMENT.md`.
+`README.md` / `docs/DEVELOPMENT.md`.
 
 ---
 
@@ -52,7 +52,7 @@ Requirements: Node ≥ 20, pnpm 9, PostgreSQL 17. Full setup details in
   ```bash
    git checkout -b feat/my-change
   ```
-3. **Implement** following the conventions in `DEVELOPMENT.md` (architecture
+3. **Implement** following the conventions in `docs/DEVELOPMENT.md` (architecture
  layers, error-code handling, i18n, audit events — no exceptions).
 4. **Verify locally** — see the checklist below.
 5. **Open a pull request** against `main`. Reference the issue in the PR
@@ -97,7 +97,7 @@ history.
 
 ## 6. Code &amp; design rules (the important ones)
 
-- **UI must follow `DESIGN.md`.** No rounded pills, no soft shadows, no raw
+- **UI must follow `docs/DESIGN.md`.** No rounded pills, no soft shadows, no raw
 checkboxes — use the components from `components/ui/` (`Switch`, `Badge`,
 `Chip`, `Field`, ...) and `hud-*` classes. UI strings go through i18n.
 - `**lib/engine/` stays pure** — no `next/*`, `react`, `drizzle-orm`, `pg`.
@@ -133,7 +133,7 @@ bottom of `CHANGELOG.md`).
 - [ ] `pnpm test` passes
 - [ ] `pnpm build` succeeds
 - [ ] Change verified in a live dev server, admin flow included if affected
-- [ ] New UI follows `DESIGN.md`; new strings added to en/ru/uk dictionaries
+- [ ] New UI follows `docs/DESIGN.md`; new strings added to en/ru/uk dictionaries
 - [ ] `CHANGELOG.md` `[Unreleased]` entry added for user-visible changes
 - [ ] DB schema changes come with a generated migration (`pnpm db:generate`)
 

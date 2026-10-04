@@ -4,7 +4,7 @@ import type { EffectDef } from "../../types/iee";
  * Tracer effect #2 — positive, drops from `bonus` cells.
  *
  * Exists for two reasons beyond being a nice item:
- *  - it is the counter-play `ITEMS_EFFECTS_EVENTS.md` §8.3 demands ("every
+ *  - it is the counter-play `docs/ITEMS_EFFECTS_EVENTS.md` §8.3 demands ("every
  *    negative effect ships with a counter"); without one, a run of penalty
  *    cells is pure frustration;
  *  - it is the only tracer entry that exercises the `beforeCellEffect` veto,

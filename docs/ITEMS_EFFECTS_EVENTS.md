@@ -3,7 +3,7 @@
 > Working design document for the IEE feature set (Items / Effects / Events).
 > Status: **draft for review** — §12 is a decision menu that must be
 > answered before implementation starts; §15 is the tracer-bullet trio to build
-> first. Read [`AGENTS.md`](./AGENTS.md) §2 (golden rules) and
+> first. Read [`AGENTS.md`](../AGENTS.md) §2 (golden rules) and
 > [`DESIGN.md`](./DESIGN.md) before touching code.
 
 ---

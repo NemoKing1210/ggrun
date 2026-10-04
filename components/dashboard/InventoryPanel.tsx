@@ -47,7 +47,7 @@ export type TargetRow = {
   targetable: boolean;
 };
 
-/** Cards use the 6px cut, per DESIGN.md §2. */
+/** Cards use the 6px cut, per docs/DESIGN.md §2. */
 const CARD_CLIP =
   "[clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]";
 

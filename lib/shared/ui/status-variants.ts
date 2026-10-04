@@ -7,7 +7,7 @@
  * achievement. A single shared map cannot colour both correctly, and before
  * this file existed it painted them the same.
  *
- * Colours follow DESIGN.md 1.2: amber = interactive / active, green = success,
+ * Colours follow docs/DESIGN.md 1.2: amber = interactive / active, green = success,
  * red = danger, grey = idle. A finished season is none of those, so it takes
  * the neutral variant; it earns its distinction from the other two grey
  * statuses (`draft`, `archived`) with an icon rather than with a hue, because

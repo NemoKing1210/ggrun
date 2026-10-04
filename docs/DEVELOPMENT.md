@@ -116,7 +116,7 @@ exported in the shell can never shadow the project `.env`.
 
 ### Environment
 
-See [`.env.example`](./.env.example): `DATABASE_URL` (PostgreSQL 17, OSPanel
+See [`.env.example`](../.env.example): `DATABASE_URL` (PostgreSQL 17, OSPanel
 `127.127.126.56:5432`, db `ggrun` in the reference setup), `AUTH_SECRET`,
 `NEXT_PUBLIC_SITE_URL`, `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`; Steam/IGDB/RAWG
 keys are optional.

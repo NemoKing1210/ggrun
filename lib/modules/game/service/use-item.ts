@@ -127,7 +127,7 @@ export async function activateInventoryItem(params: {
     : null;
 
   // A `unique` status that is already on the target rejects the new grant
-  // (ITEMS_EFFECTS_EVENTS.md §5.3). The wheel honours that by never drawing the
+  // (docs/ITEMS_EFFECTS_EVENTS.md §5.3). The wheel honours that by never drawing the
   // slice; here it has to be checked, and it has to be checked *before* the
   // charge is spent — the old code inserted a second row instead, so two
   // `unlucky` statuses stacked and shrank the dice twice. Refusing the use

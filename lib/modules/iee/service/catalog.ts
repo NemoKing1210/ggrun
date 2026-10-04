@@ -22,7 +22,7 @@ async function requireStaff() {
 
 /**
  * Reward shape. Kept as three optional scalars rather than free-form JSON —
- * `DESIGN.md` §1.4 forbids raw-JSON admin controls, and the keys must be
+ * `docs/DESIGN.md` §1.4 forbids raw-JSON admin controls, and the keys must be
  * validated against the hardcoded catalog anyway.
  */
 export const EventRewardSchema = z
