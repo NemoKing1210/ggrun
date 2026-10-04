@@ -15,14 +15,44 @@ vi.mock("@/lib/infrastructure/logger", () => ({
 vi.mock("@/lib/modules/season/repository/seasons", () => ({ getSeasonById: vi.fn() }));
 vi.mock("@/lib/modules/season/repository/players", () => ({ getSeasonPlayerById: vi.fn() }));
 vi.mock("@/lib/modules/player/service/admin", () => ({ getUserById: vi.fn() }));
-vi.mock("@/lib/modules/game", () => ({ rollNewGame: vi.fn(), resolveGameRoll: vi.fn() }));
-vi.mock("@/lib/modules/game/service/helpers", () => ({ getOpenRollRow: vi.fn() }));
-vi.mock("@/lib/engine/bots", () => ({
+vi.mock("@/lib/modules/game", () => ({
+  rollNewGame: vi.fn(),
+  resolveGameRoll: vi.fn(),
+  activateInventoryItem: vi.fn(),
+}));
+vi.mock("@/lib/modules/game/service/helpers", () => ({
+  getOpenRollRow: vi.fn(),
+  parseSeasonConfig: vi.fn(),
+}));
+vi.mock("@/lib/modules/iee/repository", () => ({
+  getHeldItems: vi.fn(),
+  getActiveEffectRows: vi.fn(),
+  toActiveEffectLike: vi.fn(
+    (row: {
+      id: string;
+      effectKey: string;
+      params: unknown;
+      chargesLeft: number | null;
+      expiresAfterRollSeq: number | null;
+      appliedAt: Date;
+    }) => ({
+      id: row.id,
+      effectKey: row.effectKey,
+      params: row.params ?? {},
+      chargesLeft: row.chargesLeft,
+      expiresAfterRollSeq: row.expiresAfterRollSeq,
+      appliedAt: row.appliedAt.getTime(),
+    }),
+  ),
+}));
+vi.mock("@/lib/engine", () => ({
+  activeEffects: vi.fn((rows: unknown[]) => rows),
   nextBotStepKind: vi.fn(),
   pickBotComment: vi.fn(),
   pickBotOutcome: vi.fn(),
   pickBotRating: vi.fn(),
   pickBotReason: vi.fn(),
+  planBotItemUse: vi.fn(),
 }));
 vi.mock("./repository", () => ({
   botUsername: vi.fn((runId: string, index: number) => `bot_${runId.slice(0, 8)}_${index}`),
@@ -31,8 +61,11 @@ vi.mock("./repository", () => ({
   deleteBotUsers: vi.fn(),
   getBotRun: vi.fn(),
   insertBotLog: vi.fn(),
+  listBotItemTargets: vi.fn(),
   listBotOwnedPlayers: vi.fn(),
   listRunningBotRuns: vi.fn(),
+  publishBotActivity: vi.fn(),
+  publishBotRun: vi.fn(),
   updateBotRun: vi.fn(),
 }));
 
@@ -44,15 +77,17 @@ import { users } from "@/db/schema";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getUserById } from "@/lib/modules/player/service/admin";
-import { getOpenRollRow } from "@/lib/modules/game/service/helpers";
-import { resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+import { getOpenRollRow, parseSeasonConfig } from "@/lib/modules/game/service/helpers";
+import { activateInventoryItem, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+import { getActiveEffectRows, getHeldItems } from "@/lib/modules/iee/repository";
 import {
   nextBotStepKind,
   pickBotComment,
   pickBotOutcome,
   pickBotRating,
   pickBotReason,
-} from "@/lib/engine/bots";
+  planBotItemUse,
+} from "@/lib/engine";
 
 import { BotError } from "./errors";
 import * as repo from "./repository";
@@ -111,29 +146,53 @@ beforeEach(() => {
   mocked.isStaff.mockReturnValue(true);
   mocked.insertBotLog.mockResolvedValue(undefined);
   mocked.updateBotRun.mockResolvedValue(undefined);
+  // IEE off by default: the item path is exercised explicitly in its own tests.
+  vi.mocked(parseSeasonConfig).mockReturnValue({
+    iee: { enabled: false, allowTargetingOthers: true, pvpProtectionMoves: 3 },
+  } as never);
+  vi.mocked(getHeldItems).mockResolvedValue([]);
+  vi.mocked(getActiveEffectRows).mockResolvedValue([]);
+  vi.mocked(planBotItemUse).mockReturnValue(null);
+  vi.mocked(repo.listBotItemTargets).mockResolvedValue([]);
 });
 
 describe("parseBotConfig", () => {
   it("falls back to every numeric default when the form carries no fields", () => {
     const config = parseBotConfig(form({}));
-    const { enableRoll, enableResolve, stopOnError, ...numeric } = config;
+    const {
+      enableRoll,
+      enableResolve,
+      stopOnError,
+      enableItems,
+      autoCleanse,
+      targetStrategy,
+      ...numeric
+    } = config;
     const {
       enableRoll: defaultRoll,
       enableResolve: defaultResolve,
       stopOnError: defaultStop,
+      enableItems: defaultItems,
+      autoCleanse: defaultCleanse,
+      targetStrategy: defaultStrategy,
       ...defaultNumeric
     } = DEFAULT_BOT_RUN_CONFIG;
     expect(numeric).toEqual(defaultNumeric);
     // Checkboxes are absent when off, so their default here is false even
     // though the schema default is true.
-    expect({ enableRoll, enableResolve, stopOnError }).toEqual({
+    expect({ enableRoll, enableResolve, stopOnError, enableItems, autoCleanse, targetStrategy }).toEqual({
       enableRoll: false,
       enableResolve: false,
       stopOnError,
+      enableItems: false,
+      autoCleanse: false,
+      targetStrategy: defaultStrategy,
     });
     expect(defaultRoll).toBe(true);
     expect(defaultResolve).toBe(true);
     expect(defaultStop).toBe(false);
+    expect(defaultItems).toBe(true);
+    expect(defaultCleanse).toBe(true);
   });
 
   it("clamps numeric fields into their allowed range", () => {
@@ -176,6 +235,21 @@ describe("parseBotConfig", () => {
   it("accepts a config where exactly one weight is positive", () => {
     const config = parseBotConfig(form({ passWeight: "0", dropWeight: "0", rerollWeight: "1" }));
     expect(config.rerollWeight).toBe(1);
+  });
+
+  it("clamps the item chance and falls back on an unknown target strategy", () => {
+    expect(parseBotConfig(form({ itemChance: "999" })).itemChance).toBe(100);
+    expect(parseBotConfig(form({ itemChance: "-5" })).itemChance).toBe(0);
+    expect(parseBotConfig(form({ targetStrategy: "nonsense" })).targetStrategy).toBe(
+      DEFAULT_BOT_RUN_CONFIG.targetStrategy,
+    );
+    expect(parseBotConfig(form({ targetStrategy: "nearest" })).targetStrategy).toBe("nearest");
+  });
+
+  it("reads the item policy switches", () => {
+    const config = parseBotConfig(form({ enableItems: "on", autoCleanse: "on" }));
+    expect(config.enableItems).toBe(true);
+    expect(config.autoCleanse).toBe(true);
   });
 });
 
@@ -578,6 +652,7 @@ describe("tickBotRunAs", () => {
       lastError: "No active bot players — every bot finished, was eliminated or withdrawn",
     });
     expect(repo.updateBotRun).toHaveBeenCalledWith("run-1", {
+      status: "paused",
       totalTicks: 1,
       totalErrors: 1,
       lastError: summary.lastError,
@@ -626,6 +701,58 @@ describe("tickBotRunAs", () => {
       "run-1",
       expect.objectContaining({ totalTicks: 1, totalActions: 1, totalErrors: 0 }),
     );
+  });
+
+  it("uses an item before the step and journals it", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({
+      iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 },
+    } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({
+      id: "sp-1",
+      status: "active",
+      position: 4,
+      balancePoints: 2,
+      rollSeq: 1,
+    } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(getHeldItems).mockResolvedValue([
+      { id: "inv-1", itemKey: "cleansing_salve", params: {} },
+    ] as never);
+    vi.mocked(planBotItemUse).mockReturnValue({
+      inventoryId: "inv-1",
+      itemKey: "cleansing_salve",
+      targetSeasonPlayerId: "sp-1",
+      targetUsername: null,
+      intent: "cleanse",
+      score: 1000,
+    });
+    vi.mocked(activateInventoryItem).mockResolvedValue({
+      itemKey: "cleansing_salve",
+      targetUsername: null,
+    });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const summary = await tickBotRunAs(activeRun(), "cron");
+
+      expect(summary.actions).toBe(1);
+      expect(activateInventoryItem).toHaveBeenCalledWith(
+        { inventoryId: "inv-1", targetSeasonPlayerId: "sp-1" },
+        { actor: { id: "u-1" } },
+      );
+      expect(repo.insertBotLog).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "item", botUsername: "bot_run-1_0" }),
+      );
+      expect(logAdminAction).toHaveBeenCalledWith(
+        expect.objectContaining({ actionType: "bot_item", actorId: "u-1" }),
+      );
+      expect(rollNewGame).not.toHaveBeenCalled();
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   it("resolves a passed roll with a comment and rating", async () => {

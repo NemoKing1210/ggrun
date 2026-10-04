@@ -20,7 +20,7 @@ import {
 import { subscribeRealtime } from "./bus";
 import { count } from "./metrics";
 import { setRealtimeAttached } from "./state";
-import { CHAT_ROOM, parseSeasonRoom, parseUserRoom, type ChatTypingBroadcast } from "./protocol";
+import { CHAT_ROOM, parseBotsRoom, parseSeasonRoom, parseUserRoom, type ChatTypingBroadcast } from "./protocol";
 
 /**
  * Socket.IO server — the only place that owns the `io` instance.
@@ -76,7 +76,7 @@ interface SocketState {
   joinAttempts: number[];
 }
 
-/** Presence is published for public rooms only — never for the staff room. */
+/** Presence is published for public rooms only — never for the staff rooms. */
 function isPresenceRoom(room: string): boolean {
   return room === CHAT_ROOM || parseSeasonRoom(room) !== null;
 }
@@ -157,7 +157,7 @@ export function attachRealtime(httpServer: HttpServer, deps: RealtimeDeps = {}):
         // a demotion, block, or revoked cookie stops working at the next
         // join instead of living until disconnect. A lookup outage keeps the
         // cached verdict (fail-open): a DB blip must not lock staff out.
-        if (name === "audit") {
+        if (name === "audit" || parseBotsRoom(name) !== null) {
           try {
             const fresh = state.token ? await lookup(state.token) : null;
             if (!isStaffRole(fresh?.role)) {

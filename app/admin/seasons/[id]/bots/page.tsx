@@ -4,7 +4,9 @@ import { CpuChipIcon } from "@heroicons/react/24/outline";
 
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
+import { parseSeasonConfig } from "@/lib/modules/game/service/helpers";
 import { listBotRunRoster, listBotRuns, listSeasonBotLogs } from "@/lib/modules/bots";
+import { normalizeBotConfig } from "@/db/schema/bots";
 import { SeasonTabs } from "@/components/admin/SeasonTabs";
 import { BotsConsole } from "@/components/admin/BotsConsole";
 import { getT } from "@/lib/i18n/server";
@@ -73,10 +75,11 @@ function toJsonObject(value: unknown): Record<string, unknown> {
       <BotsConsole
         seasonId={seasonId}
         seasonActive={season.status === "active"}
+        ieeEnabled={parseSeasonConfig(season.config).iee.enabled}
         runs={runs.map((r) => ({
           id: r.id,
           status: r.status,
-          config: r.config,
+          config: normalizeBotConfig(r.config),
           totalTicks: r.totalTicks,
           totalActions: r.totalActions,
           totalErrors: r.totalErrors,

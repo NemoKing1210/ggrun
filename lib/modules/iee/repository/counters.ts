@@ -151,6 +151,9 @@ export type TargetOption = {
   displayName: string | null;
   avatarUrl: string | null;
   position: number;
+  /** Moves made so far — the raw number behind `targetable`. */
+  moveCount: number;
+  status: string;
   /** False while the newcomer protection window is still open. */
   targetable: boolean;
 };
@@ -171,6 +174,7 @@ export async function listTargetOptions(
       username: users.username,
       displayName: users.displayName,
       avatarUrl: users.avatarUrl,
+      status: seasonPlayers.status,
       moves: sql<number>`(select count(*)::int from ${moves} m where m.season_player_id = ${seasonPlayers.id})`,
     })
     .from(seasonPlayers)
@@ -186,6 +190,8 @@ export async function listTargetOptions(
       displayName: r.displayName,
       avatarUrl: r.avatarUrl,
       position: r.position,
+      moveCount: r.moves,
+      status: r.status,
       targetable: r.moves >= pvpProtectionMoves,
     }));
 }

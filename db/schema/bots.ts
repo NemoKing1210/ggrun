@@ -13,6 +13,15 @@ import { seasons } from "./seasons";
 
 export type BotRunStatus = "running" | "paused" | "stopped";
 
+/**
+ * Who offensive items are aimed at. Kept in sync with the engine's
+ * `BOT_TARGET_STRATEGIES` (a parity test in `lib/modules/bots` asserts it):
+ * the engine may not import the drizzle schema, so the list is stated twice on
+ * purpose and the test is what keeps the two copies honest.
+ */
+export const BOT_TARGET_STRATEGIES = ["leader", "random", "nearest"] as const;
+export type BotTargetStrategy = (typeof BOT_TARGET_STRATEGIES)[number];
+
 export interface BotRunConfig {
   /** How many synthetic players this run owns. */
   botCount: number;
@@ -27,6 +36,18 @@ export interface BotRunConfig {
   /** Which real endpoints the run may call. */
   enableRoll: boolean;
   enableResolve: boolean;
+  /**
+   * Activate held items the way a player would — cleanse a debuff, buff before
+   * a roll, hex a rival. Off means the bots still *collect* items from the
+   * wheel but never spend them.
+   */
+  enableItems: boolean;
+  /** 0-100: chance per step to attempt an item action when one is possible. */
+  itemChance: number;
+  /** Spend a cleanse item as soon as a negative status lands on the bot. */
+  autoCleanse: boolean;
+  /** Who an offensive item is aimed at. */
+  targetStrategy: BotTargetStrategy;
   /** Stop the whole run on the first step error instead of logging on. */
   stopOnError: boolean;
 }
@@ -40,8 +61,57 @@ export const DEFAULT_BOT_RUN_CONFIG: BotRunConfig = {
   rerollWeight: 10,
   enableRoll: true,
   enableResolve: true,
+  enableItems: true,
+  itemChance: 60,
+  autoCleanse: true,
+  targetStrategy: "leader",
   stopOnError: false,
 };
+
+function bool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "on" || value === "true" || value === "1") return true;
+  if (value === "off" || value === "false" || value === "0") return false;
+  return fallback;
+}
+
+function int(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
+/**
+ * Fills in fields added after a run was created. Runs are JSONB, so a row
+ * written before the item policy existed carries no `enableItems` at all —
+ * reading `run.config.enableItems` straight off it would be `undefined` (falsy)
+ * and silently disable the feature for every existing run. Everything that
+ * consumes a stored config goes through here.
+ */
+export function normalizeBotConfig(raw: unknown): BotRunConfig {
+  const source = raw !== null && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const d = DEFAULT_BOT_RUN_CONFIG;
+  const strategy = (BOT_TARGET_STRATEGIES as readonly string[]).includes(
+    String(source.targetStrategy),
+  )
+    ? (source.targetStrategy as BotTargetStrategy)
+    : d.targetStrategy;
+  return {
+    botCount: int(source.botCount, d.botCount, 1, 20),
+    actionsPerTick: int(source.actionsPerTick, d.actionsPerTick, 1, 10),
+    tickIntervalMs: int(source.tickIntervalMs, d.tickIntervalMs, 250, 30000),
+    passWeight: int(source.passWeight, d.passWeight, 0, 100),
+    dropWeight: int(source.dropWeight, d.dropWeight, 0, 100),
+    rerollWeight: int(source.rerollWeight, d.rerollWeight, 0, 100),
+    enableRoll: bool(source.enableRoll, d.enableRoll),
+    enableResolve: bool(source.enableResolve, d.enableResolve),
+    enableItems: bool(source.enableItems, d.enableItems),
+    itemChance: int(source.itemChance, d.itemChance, 0, 100),
+    autoCleanse: bool(source.autoCleanse, d.autoCleanse),
+    targetStrategy: strategy,
+    stopOnError: bool(source.stopOnError, d.stopOnError),
+  };
+}
 
 export const botRuns = pgTable("bot_runs", {
   id: uuid("id").primaryKey().defaultRandom(),

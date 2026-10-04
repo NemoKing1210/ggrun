@@ -209,9 +209,9 @@ describe("loadPoolContext", () => {
 
 describe("listTargetOptions", () => {
   const rows = [
-    { seasonPlayerId: "sp-1", position: 1, username: "alice", displayName: null, avatarUrl: null, moves: 5 },
-    { seasonPlayerId: "sp-2", position: 2, username: "bob", displayName: "Bob", avatarUrl: "u.png", moves: 3 },
-    { seasonPlayerId: "sp-3", position: 3, username: "carol", displayName: null, avatarUrl: null, moves: 1 },
+    { seasonPlayerId: "sp-1", position: 1, username: "alice", displayName: null, avatarUrl: null, status: "active", moves: 5 },
+    { seasonPlayerId: "sp-2", position: 2, username: "bob", displayName: "Bob", avatarUrl: "u.png", status: "active", moves: 3 },
+    { seasonPlayerId: "sp-3", position: 3, username: "carol", displayName: null, avatarUrl: null, status: "active", moves: 1 },
   ];
 
   it("excludes the chooser from their own target list", async () => {
@@ -242,6 +242,8 @@ describe("listTargetOptions", () => {
       displayName: "Bob",
       avatarUrl: "u.png",
       position: 2,
+      moveCount: 3,
+      status: "active",
       targetable: true,
     });
   });

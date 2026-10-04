@@ -7,6 +7,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { updateBotConfigAction } from "@/lib/modules/bots/actions";
 
 import type { BotRunConfig } from "@/db/schema/bots";
+import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 
 import { BotsRunCard, type ConsoleBotRun, type ConsoleRosterRow } from "./BotsRunCard";
 
@@ -39,8 +40,28 @@ const BASE_CONFIG: BotRunConfig = {
   rerollWeight: 10,
   enableRoll: true,
   enableResolve: true,
+  enableItems: true,
+  itemChance: 60,
+  autoCleanse: true,
+  targetStrategy: "leader",
   stopOnError: false,
 };
+
+/** A roster row with every field filled, so tests only state what they vary. */
+function rosterRow(overrides: Partial<ConsoleRosterRow> = {}): ConsoleRosterRow {
+  return {
+    username: "alpha",
+    seasonPlayerId: "p1",
+    status: "active",
+    position: 3,
+    balancePoints: 10,
+    items: [],
+    effects: [],
+    counts: { roll: 0, resolve: 0, item: 0, errors: 0 },
+    lastAction: null,
+    ...overrides,
+  };
+}
 
 function makeRun(overrides: Partial<ConsoleBotRun> = {}): ConsoleBotRun {
   return {
@@ -62,6 +83,7 @@ function setup(overrides: Partial<CardProps> = {}) {
   const props: CardProps = {
     run: makeRun(),
     roster: [],
+    activity: [],
     isTicking: false,
     busy: false,
     tickIntervalMs: null,
@@ -146,7 +168,7 @@ describe("BotsRunCard", () => {
       <I18nProvider locale="en" t={getDictionary("en")}>
         <BotsRunCard
           {...props}
-          roster={[{ username: "alpha", seasonPlayerId: "p1", status: "active", position: 1, balancePoints: 0 }]}
+          roster={[rosterRow({ position: 1, balancePoints: 0 })]}
         />
       </I18nProvider>,
     );
@@ -185,23 +207,67 @@ describe("BotsRunCard", () => {
 
   it("maps roster status labels and falls back to em-dashes for missing values", () => {
     const roster: ConsoleRosterRow[] = [
-      { username: "alpha", seasonPlayerId: "p1", status: "active", position: 3, balancePoints: 10 },
-      { username: "beta", seasonPlayerId: null, status: null, position: null, balancePoints: null },
+      rosterRow(),
+      rosterRow({ username: "beta", seasonPlayerId: null, status: null, position: null, balancePoints: null }),
     ];
     setup({ roster, playerStatusLabels: { active: "Playing" } });
-    expect(screen.getByText("alpha")).not.toBeNull();
-    expect(screen.getByText("Playing")).not.toBeNull();
-    expect(screen.getByText("3")).not.toBeNull();
-    expect(screen.getByText("10")).not.toBeNull();
-    expect(screen.getByText("beta")).not.toBeNull();
-    expect(screen.getByText(t.rosterNoMember)).not.toBeNull();
-    // position and balance both fall back to an em dash
-    expect(screen.getAllByText("—")).toHaveLength(2);
+    const alpha = screen.getByText("alpha").closest("li") as HTMLElement;
+    expect(alpha.textContent).toContain("Playing");
+    expect(alpha.textContent).toContain("3");
+    expect(alpha.textContent).toContain("10");
+    const beta = screen.getByText("beta").closest("li") as HTMLElement;
+    expect(beta.textContent).toContain(t.rosterNoMember);
+    // position and balance each fall back to an em dash
+    expect(beta.textContent).toContain(`${t.rosterPosition} —`);
+    expect(beta.textContent).toContain(`${t.rosterPoints} —`);
+  });
+
+  it("shows the idle label when no bot has acted yet", () => {
+    setup({ roster: [rosterRow()] });
+    expect(screen.getByText(t.rosterIdle)).not.toBeNull();
+  });
+
+  it("renders the live activity line for the bot's newest step", () => {
+    const step = (fields: Partial<BotActivityBroadcast>): BotActivityBroadcast => ({
+      runId: "run-aaaa1111",
+      seasonId: "season-1",
+      seasonPlayerId: "p1",
+      username: "alpha",
+      kind: "roll",
+      outcome: null,
+      itemKey: null,
+      targetUsername: null,
+      position: null,
+      balancePoints: null,
+      detail: "…",
+      at: new Date().toISOString(),
+      ...fields,
+    });
+
+    const cases: Array<[Partial<BotActivityBroadcast>, string]> = [
+      [{ kind: "roll" }, t.actRolled],
+      [{ kind: "resolve", outcome: "passed", position: 12 }, t.actPassed.replace("{position}", "12")],
+      [{ kind: "resolve", outcome: "dropped" }, t.actDropped],
+      [{ kind: "resolve", outcome: "rerolled" }, t.actRerolled],
+      [{ kind: "item", itemKey: "hex_scroll" }, t.actUsedItem.replace("{item}", "Hex Scroll")],
+      [
+        { kind: "item", itemKey: "hex_scroll", targetUsername: "rival" },
+        t.actUsedItemOn.replace("{item}", "Hex Scroll").replace("{target}", "rival"),
+      ],
+      [{ kind: "skip" }, t.actSkipped],
+      [{ kind: "error" }, t.actError],
+    ];
+
+    for (const [fields, expected] of cases) {
+      cleanup();
+      setup({ roster: [rosterRow()], activity: [step(fields)] });
+      expect(screen.getByText(expected)).not.toBeNull();
+    }
   });
 
   it("shows the empty label when the run has no roster", () => {
     setup({ roster: [] });
-    expect(screen.getByText(t.logsEmpty)).not.toBeNull();
+    expect(screen.getByText(t.rosterEmpty)).not.toBeNull();
   });
 
   it("submits the edited settings as FormData through updateBotConfigAction", () => {
@@ -227,6 +293,10 @@ describe("BotsRunCard", () => {
     expect(fd.get("enableRoll")).toBe("");
     expect(fd.get("enableResolve")).toBe("on");
     expect(fd.get("stopOnError")).toBe("");
+    expect(fd.get("enableItems")).toBe("on");
+    expect(fd.get("autoCleanse")).toBe("on");
+    expect(fd.get("itemChance")).toBe("60");
+    expect(fd.get("targetStrategy")).toBe("leader");
     expect(props.onStart).not.toHaveBeenCalled();
   });
 });

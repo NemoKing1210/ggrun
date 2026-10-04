@@ -50,7 +50,7 @@ import { getSeasonById, getSeasonBySlug, listSeasons } from "@/lib/modules/seaso
 import { adminAddPlayer, adminAdjustPlayer, adminRemovePlayer } from "@/lib/modules/season/service/players";
 import { changeSeasonStatus, resetSeason } from "@/lib/modules/season/service/seasons";
 import { AdminError } from "@/lib/modules/season/service/errors";
-import { DEFAULT_BOT_RUN_CONFIG, type BotRun, type BotRunConfig, type CatalogGame, type Season } from "@/db/schema";
+import { DEFAULT_BOT_RUN_CONFIG, normalizeBotConfig, type BotRun, type BotRunConfig, type CatalogGame, type Season } from "@/db/schema";
 import {
   parseInput,
   PLAYER_STATUSES,
@@ -399,7 +399,7 @@ export async function executeAdminCommand(input: string): Promise<CommandOutcome
       case "bot": {
         const run = await resolveBotRun(argTokens[0]);
         const season = await getSeasonById(run.seasonId);
-        const c = run.config;
+        const c = normalizeBotConfig(run.config);
         const rows: CommandRow[] = [
           { text: `run: #${run.id.slice(0, 8)}`, hint: run.id, href: `/admin/seasons/${run.seasonId}/bots` },
           { text: `season: ${season?.title ?? run.seasonId}`, hint: season?.slug ?? "" },
@@ -408,6 +408,9 @@ export async function executeAdminCommand(input: string): Promise<CommandOutcome
           { text: `weights: pass ${c.passWeight} · drop ${c.dropWeight} · reroll ${c.rerollWeight}` },
           {
             text: `roll: ${c.enableRoll ? "on" : "off"} · resolve: ${c.enableResolve ? "on" : "off"} · stopOnError: ${c.stopOnError ? "on" : "off"}`,
+          },
+          {
+            text: `items: ${c.enableItems ? "on" : "off"} · chance ${c.itemChance}% · cleanse ${c.autoCleanse ? "on" : "off"} · target ${c.targetStrategy}`,
           },
           { text: `ticks: ${run.totalTicks} · actions: ${run.totalActions} · errors: ${run.totalErrors}` },
         ];

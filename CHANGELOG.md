@@ -10,6 +10,26 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **Test bots that play with items and effects, and a live console.** Bots now
+  use the real activation path (`activateInventoryItem`) instead of only
+  rolling and resolving: they cleanse a debuff, buff before a roll, and hex a
+  rival, aimed by a per-run strategy (leader / nearest / random) with an
+  auto-cleanse switch and a per-step action chance — all catalog-driven, so a
+  new item or a season param override changes their behaviour with no code.
+  The `/admin/seasons/[id]/bots` console was rebuilt around that:
+  - a **per-bot live panel** — inventory (with artwork), statuses in force,
+    lifetime counters and the step it is taking right now, fed by structured
+    activity events;
+  - the run log, counters and run state now **stream over sockets** into a new
+    staff-only `bots:<seasonId>` room (`bots:run`, `bots:activity`,
+    `bots:log`) instead of the old 3-second page poll; the room is re-checked
+    against a fresh staff session on every join, like `audit`;
+  - the item policy is editable on the create form and per run, and a warning
+    explains when the season has IEE switched off, because then bots have
+    nothing to spend.
+  `bot_runs.config` gains `enableItems`, `itemChance`, `autoCleanse` and
+  `targetStrategy`; it is JSONB, so `normalizeBotConfig` completes a run saved
+  before the fields existed — no migration.
 - **A test gate that cannot be bypassed by accident.** The suite now covers
   every layer, not just `lib/engine`: service/validation logic in
   `lib/modules/`, infrastructure (password hashing, env validation, proxy

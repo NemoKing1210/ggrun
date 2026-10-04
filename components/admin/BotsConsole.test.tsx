@@ -53,6 +53,10 @@ const BASE_CONFIG: BotRunConfig = {
   rerollWeight: 10,
   enableRoll: true,
   enableResolve: true,
+  enableItems: true,
+  itemChance: 60,
+  autoCleanse: true,
+  targetStrategy: "leader",
   stopOnError: false,
 };
 
@@ -111,6 +115,7 @@ function setup(overrides: Partial<ConsoleProps> = {}) {
   const props: ConsoleProps = {
     seasonId: "season-1",
     seasonActive: true,
+    ieeEnabled: true,
     runs: [RUN_A, RUN_B],
     logs: LOGS,
     rosters: {},
@@ -270,6 +275,15 @@ describe("BotsConsole", () => {
     expect(fd.get("enableRoll")).toBe("on");
     expect(fd.get("enableResolve")).toBe("on");
     expect(fd.get("stopOnError")).toBe("on");
+    expect(fd.get("enableItems")).toBe("on");
+    expect(fd.get("autoCleanse")).toBe("on");
+    expect(fd.get("itemChance")).toBe("60");
+    expect(fd.get("targetStrategy")).toBe("leader");
+  });
+
+  it("warns when items and effects are off for the season", () => {
+    setup({ ieeEnabled: false });
+    expect(screen.getByText(t.ieeDisabled)).not.toBeNull();
   });
 
   it("resumes a paused run from its Start button and starts ticking it", async () => {

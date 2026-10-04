@@ -107,7 +107,11 @@ public hostname.
 
 ### Autonomous test bots (no open admin page)
 
-The bots console ticks only while its page is open. For unattended runs, tick
+The bots console also drives its own loop, which only runs while its page is
+open — that loop is a convenience for a single operator watching the result.
+The console itself no longer polls: run state, the journal and each bot's
+current step arrive over the `bots:<seasonId>` socket room, so it can be
+closed at any time without affecting an unattended run. For those, tick
 every `running` run from a scheduler — each run keeps its own cadence
 (`tickIntervalMs`), the ticker skips runs that are not due yet, and
 overlapping callers never double-tick a run (Postgres advisory lock).

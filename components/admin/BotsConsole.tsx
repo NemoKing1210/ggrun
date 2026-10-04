@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { format } from "@/lib/i18n/format";
+import { BOT_TARGET_STRATEGIES, type BotTargetStrategy } from "@/lib/engine";
+import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 import {
   BotsRunCard,
   type BotsText,
@@ -11,6 +13,7 @@ import {
   type ConsoleBotRun,
   type ConsoleRosterRow,
 } from "@/components/admin/BotsRunCard";
+import { useBotsLive } from "@/components/admin/use-bots-live";
 import {
   createBotRunAction,
   pauseBotRunAction,
@@ -25,6 +28,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Range } from "@/components/ui/Range";
+import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 
 function runForm(runId: string): FormData {
@@ -33,9 +37,23 @@ function runForm(runId: string): FormData {
   return fd;
 }
 
+/** Newest-first, deduped by id — the server snapshot plus what arrived live. */
+function mergeLogs(server: readonly ConsoleBotLog[], live: readonly ConsoleBotLog[]): ConsoleBotLog[] {
+  const seen = new Set<string>();
+  const out: ConsoleBotLog[] = [];
+  for (const log of [...live, ...server]) {
+    if (seen.has(log.id)) continue;
+    seen.add(log.id);
+    out.push(log);
+  }
+  out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  return out;
+}
+
 export function BotsConsole({
   seasonId,
   seasonActive,
+  ieeEnabled,
   runs,
   logs,
   rosters,
@@ -44,6 +62,8 @@ export function BotsConsole({
 }: {
   seasonId: string;
   seasonActive: boolean;
+  /** Whether the season runs items/effects at all — bots cannot use them otherwise. */
+  ieeEnabled: boolean;
   runs: ConsoleBotRun[];
   logs: ConsoleBotLog[];
   rosters: Record<string, ConsoleRosterRow[]>;
@@ -51,8 +71,41 @@ export function BotsConsole({
   t: BotsText;
 }) {
   const router = useRouter();
+  const live = useBotsLive(seasonId);
   const [createState, createAction, createPending] = useActionState(createBotRunAction, {});
   const [busy, startBusy] = useTransition();
+
+  // Server snapshot, with live run state laid over it by id.
+  const mergedRuns = useMemo(
+    () =>
+      runs.map((run) => {
+        const liveRun = live.runs[run.id];
+        return liveRun
+          ? {
+              ...run,
+              status: liveRun.status,
+              config: { ...run.config, ...liveRun.config } as ConsoleBotRun["config"],
+              totalTicks: liveRun.totalTicks,
+              totalActions: liveRun.totalActions,
+              totalErrors: liveRun.totalErrors,
+              lastError: liveRun.lastError,
+            }
+          : run;
+      }),
+    [runs, live.runs],
+  );
+
+  const mergedLogs = useMemo(() => mergeLogs(logs, live.logs), [logs, live.logs]);
+
+  const activityByRun = useMemo(() => {
+    const map = new Map<string, BotActivityBroadcast[]>();
+    for (const step of live.activity) {
+      const list = map.get(step.runId);
+      if (list) list.push(step);
+      else map.set(step.runId, [step]);
+    }
+    return map;
+  }, [live.activity]);
 
   const loopOn = useRef(false);
   const timer = useRef<number | undefined>(undefined);
@@ -71,6 +124,10 @@ export function BotsConsole({
   const [rerollWeight, setRerollWeight] = useState(10);
   const [enableRoll, setEnableRoll] = useState(true);
   const [enableResolve, setEnableResolve] = useState(true);
+  const [enableItems, setEnableItems] = useState(true);
+  const [itemChance, setItemChance] = useState(60);
+  const [autoCleanse, setAutoCleanse] = useState(true);
+  const [targetStrategy, setTargetStrategy] = useState<BotTargetStrategy>("leader");
   const [stopOnError, setStopOnError] = useState(false);
 
   // --- ticking loop (one run at a time; ticks are server action calls) ---
@@ -90,12 +147,9 @@ export function BotsConsole({
 
   useEffect(() => () => clearLoop(), []);
 
-  // Live log feed while a run ticks (server re-render, client state kept).
-  useEffect(() => {
-    if (!tickingId) return;
-    const id = setInterval(() => router.refresh(), 3000);
-    return () => clearInterval(id);
-  }, [tickingId, router]);
+  // Log, run state and per-bot activity all arrive over the socket
+  // (`useBotsLive`), so there is no polling fallback left here — the loop only
+  // *drives* ticks, it no longer fetches the page on a timer.
 
   useEffect(() => {
     if (createState.ok) router.refresh();
@@ -206,9 +260,9 @@ export function BotsConsole({
     return null;
   }
 
-  const logActions = [...new Set(logs.map((l) => l.action))].sort().slice(0, 12);
+  const logActions = [...new Set(mergedLogs.map((l) => l.action))].sort().slice(0, 12);
   const query = logQuery.trim().toLowerCase();
-  const visibleLogs = logs.filter(
+  const visibleLogs = mergedLogs.filter(
     (l) =>
       (logRun === "all" || l.runId === logRun) &&
       (logLevel === "all" || l.level === logLevel) &&
@@ -222,7 +276,7 @@ export function BotsConsole({
   // --- stats from the loaded trace ---
   function countBy(get: (l: ConsoleBotLog) => string | null): Array<[string, number]> {
     const counts: Record<string, number> = {};
-    for (const l of logs) {
+    for (const l of mergedLogs) {
       const key = get(l);
       if (key) counts[key] = (counts[key] ?? 0) + 1;
     }
@@ -240,6 +294,26 @@ export function BotsConsole({
           {t.seasonNotActive}
         </p>
       )}
+      {!ieeEnabled && (
+        <p role="alert" className="hud-card border-amber/50 p-4 font-mono text-xs uppercase tracking-widest text-amber">
+          {t.ieeDisabled}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          role="status"
+          aria-live="polite"
+          className={`inline-flex items-center gap-2 border px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${
+            live.connected
+              ? "border-military/40 bg-military/10 text-military"
+              : "border-danger/40 bg-danger/10 text-danger"
+          }`}
+        >
+          <span className={`size-1.5 ${live.connected ? "animate-pulse bg-military" : "bg-danger"}`} aria-hidden />
+          {live.connected ? t.liveOnline : t.liveOffline}
+        </span>
+      </div>
 
       <nav className="flex flex-wrap items-stretch gap-1 border-b border-[#3d3d34]" role="tablist" aria-label="bots console">
         {(
@@ -262,9 +336,9 @@ export function BotsConsole({
             }`}
           >
             {label}
-            {key === "logs" && logs.length > 0 && (
+            {key === "logs" && mergedLogs.length > 0 && (
               <span className="inline-flex min-w-[20px] items-center justify-center border border-[#3d3d34] bg-[#1a1a1a] px-1 py-px font-mono text-[10px] leading-none text-amber [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)]">
-                {logs.length}
+                {mergedLogs.length}
               </span>
             )}
           </button>
@@ -328,6 +402,51 @@ export function BotsConsole({
             <Switch checked={enableResolve} onChange={setEnableResolve} label={t.enableResolveLabel} description={t.enableResolveHint} />
             <Switch checked={stopOnError} onChange={setStopOnError} label={t.stopOnErrorLabel} description={t.stopOnErrorHint} variant="danger" />
           </div>
+          <div className="flex flex-col gap-3 border-t border-[#3d3d34] pt-3 sm:col-span-2">
+            <input type="hidden" name="enableItems" value={enableItems ? "on" : ""} />
+            <input type="hidden" name="autoCleanse" value={autoCleanse ? "on" : ""} />
+            <Switch
+              checked={enableItems}
+              onChange={setEnableItems}
+              label={t.enableItemsLabel}
+              description={t.enableItemsHint}
+            />
+            <Switch
+              checked={autoCleanse}
+              onChange={setAutoCleanse}
+              label={t.autoCleanseLabel}
+              description={t.autoCleanseHint}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={`${t.itemChanceLabel}: ${itemChance}%`}>
+                <Range
+                  name="itemChance"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={itemChance}
+                  onChange={(e) => setItemChance(Number(e.target.value))}
+                />
+              </Field>
+              <Field label={t.targetStrategyLabel}>
+                <Select
+                  name="targetStrategy"
+                  value={targetStrategy}
+                  onChange={(e) => setTargetStrategy(e.target.value as BotTargetStrategy)}
+                >
+                  {BOT_TARGET_STRATEGIES.map((strategy) => (
+                    <option key={strategy} value={strategy}>
+                      {strategy === "leader"
+                        ? t.strategyLeader
+                        : strategy === "nearest"
+                          ? t.strategyNearest
+                          : t.strategyRandom}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </div>
           {createState.error && (
             <p role="alert" className="text-danger text-sm sm:col-span-2">
               {createState.error}
@@ -343,12 +462,13 @@ export function BotsConsole({
       </section>
 
       <section className="flex flex-col gap-4">
-        {runs.length === 0 && <p className="font-mono text-xs uppercase tracking-widest text-dim">{t.noRuns}</p>}
-        {runs.map((run) => (
+        {mergedRuns.length === 0 && <p className="font-mono text-xs uppercase tracking-widest text-dim">{t.noRuns}</p>}
+        {mergedRuns.map((run) => (
           <BotsRunCard
             key={run.id}
             run={run}
             roster={rosters[run.id] ?? []}
+            activity={activityByRun.get(run.id) ?? []}
             isTicking={tickingId === run.id}
             busy={busy}
             tickingActive={tickingId !== null}
@@ -379,7 +499,7 @@ export function BotsConsole({
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-display text-sm uppercase tracking-widest text-amber">{t.logsHeading}</h2>
           <span className="ml-auto font-mono text-[11px] uppercase tracking-widest text-dim">
-            {format(t.logsCount, { shown: visibleLogs.length, total: logs.length })}
+            {format(t.logsCount, { shown: visibleLogs.length, total: mergedLogs.length })}
           </span>
           <button type="button" className="hud-btn !px-3 !py-1 text-xs" onClick={() => router.refresh()}>
             {t.logsRefresh}
@@ -390,7 +510,7 @@ export function BotsConsole({
           <Chip active={logRun === "all"} onClick={() => setLogRun("all")}>
             {t.logsAllRuns}
           </Chip>
-          {runs.map((r) => (
+          {mergedRuns.map((r) => (
             <Chip key={r.id} active={logRun === r.id} onClick={() => setLogRun(r.id)}>
               #{r.id.slice(0, 8)}
             </Chip>
@@ -486,9 +606,9 @@ export function BotsConsole({
       <section className="hud-card p-4 sm:p-6">
         <h2 className="font-display text-sm uppercase tracking-widest text-amber">{t.statsHeading}</h2>
         <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-dim">
-          {format(t.statsNote, { count: logs.length })}
+          {format(t.statsNote, { count: mergedLogs.length })}
         </p>
-        {logs.length === 0 ? (
+        {mergedLogs.length === 0 ? (
           <p className="mt-4 font-mono text-xs uppercase tracking-widest text-dim">{t.statsNoData}</p>
         ) : (
           <div className="mt-4 grid gap-6 md:grid-cols-3">

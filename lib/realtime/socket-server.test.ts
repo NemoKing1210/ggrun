@@ -7,10 +7,11 @@ import type { Server as IOServer } from "socket.io";
 import type { SocketUser } from "./access";
 import { publish } from "./bus";
 import { snapshotRealtimeMetrics } from "./metrics";
-import { AUDIT_ROOM, CHAT_ROOM, seasonRoom } from "./protocol";
+import { AUDIT_ROOM, botsRoom, CHAT_ROOM, seasonRoom } from "./protocol";
 import type {
   AuditEntryBroadcast,
   BoardEventBroadcast,
+  BotActivityBroadcast,
   ChatTypingBroadcast,
   PresenceBroadcast,
 } from "./protocol";
@@ -142,6 +143,15 @@ describe("socket join rules", () => {
     expect(await join(s, AUDIT_ROOM)).toEqual({ ok: true });
   });
 
+  it("keeps players out of the bot console and admits staff", async () => {
+    const srv = await startTestServer(lookupByCookie({ staff: staffUser, a: playerA }));
+    servers.push(srv);
+    const player = await connect(srv.url, "ggrun_session=a");
+    const staff = await connect(srv.url, "ggrun_session=staff");
+    expect(await join(player, botsRoom("bots-test"))).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(await join(staff, botsRoom("bots-test"))).toEqual({ ok: true });
+  });
+
   it("degrades to anonymous when the lookup fails", async () => {
     const srv = await startTestServer({
       lookupUser: () => Promise.reject(new Error("db down")),
@@ -210,6 +220,36 @@ describe("bus fan-in", () => {
     });
     expect(await memberEvents).toHaveLength(1);
     expect(await outsiderEvents).toHaveLength(0);
+  });
+
+  it("delivers bot activity to staff in the console room only", async () => {
+    const srv = await startTestServer(lookupByCookie({ staff: staffUser, a: playerA }));
+    servers.push(srv);
+    const room = botsRoom(`test-${Date.now()}-${nonce}`);
+    const seasonId = room.slice("bots:".length);
+    const staff = await connect(srv.url, "ggrun_session=staff");
+    const player = await connect(srv.url, "ggrun_session=a");
+    expect(await join(staff, room)).toEqual({ ok: true });
+    expect(await join(player, room)).toEqual({ ok: false, error: "FORBIDDEN" });
+
+    const seen = collect<BotActivityBroadcast>(staff, "bots:activity", 600);
+    publish(room, "bots:activity", {
+      runId: "r1",
+      seasonId,
+      seasonPlayerId: "sp-1",
+      username: "bot_x_0",
+      kind: "roll",
+      outcome: null,
+      itemKey: null,
+      targetUsername: null,
+      position: null,
+      balancePoints: null,
+      detail: "Rolled a new game",
+      at: new Date(0).toISOString(),
+    });
+    const events = await seen;
+    expect(events).toHaveLength(1);
+    expect(events[0]?.username).toBe("bot_x_0");
   });
 
   it("stops delivering after leave", async () => {

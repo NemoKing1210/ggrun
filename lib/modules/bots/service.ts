@@ -3,17 +3,30 @@ import { isAppError } from "@/lib/errors/app-error";
 import type { PoolClient } from "pg";
 
 import { db, pool } from "@/lib/infrastructure/db";
-import { seasonPlayers, users } from "@/db/schema";
-import { DEFAULT_BOT_RUN_CONFIG, type BotRun, type BotRunConfig } from "@/db/schema/bots";
+import { seasonPlayers, users, type SeasonPlayer, type User } from "@/db/schema";
 import {
+  BOT_TARGET_STRATEGIES,
+  DEFAULT_BOT_RUN_CONFIG,
+  normalizeBotConfig,
+  type BotRun,
+  type BotRunConfig,
+  type BotTargetStrategy,
+} from "@/db/schema/bots";
+import {
+  activeEffects,
   nextBotStepKind,
   pickBotComment,
   pickBotOutcome,
   pickBotRating,
   pickBotReason,
-} from "@/lib/engine/bots";
-import { getOpenRollRow } from "@/lib/modules/game/service/helpers";
-import { resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+  planBotItemUse,
+  type IeeConfig,
+  type IeeParams,
+} from "@/lib/engine";
+import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
+import { getOpenRollRow, parseSeasonConfig } from "@/lib/modules/game/service/helpers";
+import { activateInventoryItem, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+import { getActiveEffectRows, getHeldItems, toActiveEffectLike } from "@/lib/modules/iee/repository";
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getUserById } from "@/lib/modules/player/service/admin";
@@ -29,8 +42,11 @@ import {
   deleteBotUsers,
   getBotRun,
   insertBotLog,
+  listBotItemTargets,
   listBotOwnedPlayers,
   listRunningBotRuns,
+  publishBotActivity,
+  publishBotRun,
   updateBotRun,
 } from "./repository";
 
@@ -52,6 +68,12 @@ export function parseBotConfig(formData: FormData): BotRunConfig {
     const v = formData.get(key);
     return v === "on" || v === "true" || v === "1";
   };
+  const strategyRaw = String(formData.get("targetStrategy") ?? "");
+  const targetStrategy: BotTargetStrategy = (BOT_TARGET_STRATEGIES as readonly string[]).includes(
+    strategyRaw,
+  )
+    ? (strategyRaw as BotTargetStrategy)
+    : DEFAULT_BOT_RUN_CONFIG.targetStrategy;
   const config: BotRunConfig = {
     botCount: clampInt(formData.get("botCount"), DEFAULT_BOT_RUN_CONFIG.botCount, 1, 20),
     actionsPerTick: clampInt(formData.get("actionsPerTick"), DEFAULT_BOT_RUN_CONFIG.actionsPerTick, 1, 10),
@@ -66,6 +88,10 @@ export function parseBotConfig(formData: FormData): BotRunConfig {
     rerollWeight: clampInt(formData.get("rerollWeight"), DEFAULT_BOT_RUN_CONFIG.rerollWeight, 0, 100),
     enableRoll: truthy("enableRoll"),
     enableResolve: truthy("enableResolve"),
+    enableItems: truthy("enableItems"),
+    itemChance: clampInt(formData.get("itemChance"), DEFAULT_BOT_RUN_CONFIG.itemChance, 0, 100),
+    autoCleanse: truthy("autoCleanse"),
+    targetStrategy,
     stopOnError: truthy("stopOnError"),
   };
   if (config.passWeight + config.dropWeight + config.rerollWeight <= 0) {
@@ -83,6 +109,7 @@ export async function createBotRun(seasonId: string, config: BotRunConfig): Prom
   const ensured = await ensureBotPlayers(run);
   await insertBotLog({
     runId: run.id,
+    seasonId,
     level: "info",
     action: "run_created",
     message: `Run created with ${config.botCount} bots (${ensured} players ensured)`,
@@ -96,15 +123,17 @@ export async function createBotRun(seasonId: string, config: BotRunConfig): Prom
     payload: { runId: run.id, config },
   });
   log.info("bots.run_created", { actorId: actor.id, seasonId, runId: run.id });
+  publishBotRun(run);
   return run;
 }
 
 /** Idempotent: create missing synthetic users and join them to the season. */
 export async function ensureBotPlayers(run: BotRun): Promise<number> {
+  const config = normalizeBotConfig(run.config);
   const owned = await listBotOwnedPlayers(run.id, run.seasonId);
   const byUsername = new Map(owned.map((o) => [o.username, o]));
   let ensured = 0;
-  for (let i = 0; i < run.config.botCount; i++) {
+  for (let i = 0; i < config.botCount; i++) {
     const username = botUsername(run.id, i);
     const existing = byUsername.get(username);
     let userId = existing?.userId ?? null;
@@ -137,11 +166,14 @@ export interface BotTickSummary {
   lastError: string | null;
 }
 /**
- * One tick: up to `actionsPerTick` real player steps (rollNewGame /
- * resolveGameRoll — the same use-cases the dashboard actions call) executed
- * as the staff actor, which the game loop authorizes for any participant.
- * Every step is journaled to bot_logs; failures never throw mid-tick, they
- * accumulate into the summary (unless stopOnError halts the run).
+ * One tick: up to `actionsPerTick` synthetic-player steps, each of which may be
+ * two real actions — an item activation (`activateInventoryItem`) followed by the
+ * roll/resolve the step would have taken anyway. All of them go through the same
+ * use-cases the dashboard actions call, executed as the bot's own user (or as
+ * staff for the console entry), which the game loop authorizes for any
+ * participant. Every step is journaled to bot_logs and broadcast to the console
+ * room; failures never throw mid-tick, they accumulate into the summary (unless
+ * stopOnError halts the run).
  */
 /** Console entry: staff session required (manual step / page-driven loop). */
 export async function tickBotRun(runId: string): Promise<BotTickSummary> {
@@ -159,16 +191,24 @@ export async function tickBotRun(runId: string): Promise<BotTickSummary> {
 export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<BotTickSummary> {
   if (run.status === "stopped") throw new BotError("botRunStopped");
   const runId = run.id;
-  const season = await getSeasonById(run.seasonId);
+  const seasonId = run.seasonId;
+  // Runs are JSONB: a row written before the item policy existed has none of
+  // its fields, so the stored config is completed once here and used throughout.
+  const config = normalizeBotConfig(run.config);
+  const season = await getSeasonById(seasonId);
   if (!season || season.status !== "active") {
     const message = `Season is not active (status: ${season?.status ?? "missing"}) — pausing run`;
-    await insertBotLog({ runId, level: "error", action: "tick", message });
+    await insertBotLog({ runId, seasonId, level: "error", action: "tick", message });
     await updateBotRun(runId, { status: "paused", lastError: message });
     throw new BotError("botSeasonNotActive");
   }
+  const iee = parseSeasonConfig(season.config).iee;
+  // Items only mean something when the season runs the IEE subsystem: a status
+  // granted while it is off would never reach a hook.
+  const itemsEnabled = config.enableItems && iee.enabled;
 
   await ensureBotPlayers(run);
-  const owned = await listBotOwnedPlayers(run.id, run.seasonId);
+  const owned = await listBotOwnedPlayers(runId, seasonId);
   const activeSpIds: Array<{ spId: string; username: string; userId: string }> = [];
   for (const o of owned) {
     if (!o.seasonPlayerId) continue;
@@ -176,22 +216,51 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
     if (sp && sp.status === "active") activeSpIds.push({ spId: sp.id, username: o.username, userId: o.userId });
   }
   if (activeSpIds.length === 0) {
+    // Nothing to tick — and left `running` this would be ticked (and error) on
+    // every cron firing for the rest of the season. Pause it with the reason,
+    // the same way an inactive season does, so the console shows *why* and the
+    // ticker stops spending work on it.
     const message = "No active bot players — every bot finished, was eliminated or withdrawn";
-    await insertBotLog({ runId, level: "error", action: "tick", message });
+    await insertBotLog({ runId, seasonId, level: "error", action: "tick", message });
     await updateBotRun(runId, {
+      status: "paused",
       totalTicks: run.totalTicks + 1,
       totalErrors: run.totalErrors + 1,
       lastError: message,
     });
+    const updated = await getBotRun(runId);
+    if (updated) publishBotRun(updated);
     return { actions: 0, errors: 1, stopped: false, lastError: message };
   }
+
+  /** Structured step broadcast — the console localizes it, the server does not. */
+  const activity = (
+    bot: { spId: string; username: string },
+    kind: BotActivityBroadcast["kind"],
+    fields: Partial<BotActivityBroadcast> & { detail: string },
+  ): void => {
+    publishBotActivity({
+      runId,
+      seasonId,
+      seasonPlayerId: bot.spId,
+      username: bot.username,
+      kind,
+      outcome: null,
+      itemKey: null,
+      targetUsername: null,
+      position: null,
+      balancePoints: null,
+      at: new Date().toISOString(),
+      ...fields,
+    });
+  };
 
   let actions = 0;
   let errors = 0;
   let lastError: string | null = null;
   let stopped = false;
 
-  for (let step = 0; step < run.config.actionsPerTick; step++) {
+  for (let step = 0; step < config.actionsPerTick; step++) {
     const bot = activeSpIds[Math.floor(Math.random() * activeSpIds.length)];
     if (!bot) break;
     // The bot acts as itself (a real player step): explicit actor keeps the
@@ -202,29 +271,89 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
       errors++;
       await insertBotLog({
         runId,
+        seasonId,
         level: "error",
         action: "tick",
         seasonPlayerId: bot.spId,
         botUsername: bot.username,
         message: lastError,
       });
-      if (run.config.stopOnError) {
+      activity(bot, "error", { detail: lastError });
+      if (config.stopOnError) {
         stopped = true;
         break;
       }
       continue;
     }
     const open = await getOpenRollRow(bot.spId);
-    const kind = nextBotStepKind(open !== null, run.config);
+
+    // --- item action: a *pre*-step, so a bot that can act on its inventory
+    //     still rolls or resolves within the same step ---------------------
+    if (itemsEnabled && Math.random() * 100 < config.itemChance) {
+      const sp = await getSeasonPlayerById(bot.spId);
+      if (sp && sp.status === "active") {
+        try {
+          const used = await tryBotItemUse({
+            runId,
+            seasonId,
+            config,
+            iee,
+            bot,
+            sp,
+            botUser,
+            hasOpenRoll: open !== null,
+            triggeredBy,
+          });
+          if (used) {
+            actions++;
+            activity(bot, "item", {
+              itemKey: used.itemKey,
+              targetUsername: used.targetUsername,
+              detail: `Used ${used.itemKey}${used.targetUsername ? ` on ${used.targetUsername}` : ""}`,
+            });
+          }
+        } catch (e) {
+          const errorCode = isAppError(e) ? e.code : e instanceof Error ? e.message : "unknown";
+          lastError = `item failed for ${bot.username}: ${errorCode}`;
+          errors++;
+          await insertBotLog({
+            runId,
+            seasonId,
+            level: "error",
+            action: "item",
+            seasonPlayerId: bot.spId,
+            botUsername: bot.username,
+            message: lastError,
+            payload: { errorCode, step: step + 1 },
+          });
+          activity(bot, "error", { detail: lastError });
+          if (config.stopOnError) {
+            stopped = true;
+            await insertBotLog({
+              runId,
+              seasonId,
+              level: "error",
+              action: "run_stopped",
+              message: `Run stopped on first error (stopOnError): ${lastError}`,
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    const kind = nextBotStepKind(open !== null, config);
     if (!kind) {
       await insertBotLog({
         runId,
+        seasonId,
         level: "info",
         action: "tick",
         seasonPlayerId: bot.spId,
         botUsername: bot.username,
         message: "Skipped: needed endpoint is switched off for this run",
       });
+      activity(bot, "skip", { detail: "Skipped: needed endpoint is switched off for this run" });
       continue;
     }
     // Whatever the step was attempting when it threw — surfaced in bot_logs
@@ -234,15 +363,18 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
       if (kind === "roll") {
         const rollId = await rollNewGame(bot.spId, { actor: botUser });
         actions++;
+        const detail = `Rolled a new game (roll ${rollId.slice(0, 8)})`;
         await insertBotLog({
           runId,
+          seasonId,
           level: "info",
           action: "roll",
           seasonPlayerId: bot.spId,
           botUsername: bot.username,
-          message: `Rolled a new game (roll ${rollId.slice(0, 8)})`,
+          message: detail,
           payload: { rollId },
         });
+        activity(bot, "roll", { detail });
         await logAdminAction({
           actorId: bot.userId,
           actionType: "bot_roll",
@@ -253,9 +385,9 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
       } else {
         const outcome = pickBotOutcome(
           {
-            passed: run.config.passWeight,
-            dropped: run.config.dropWeight,
-            rerolled: run.config.rerollWeight,
+            passed: config.passWeight,
+            dropped: config.dropWeight,
+            rerolled: config.rerollWeight,
           },
           Math.random,
         );
@@ -272,14 +404,22 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
           },
           { actor: botUser },
         );
+        const detail = `Resolved ${outcome}: ${result.fromPosition} → ${result.toPosition} (+${result.newBalancePoints} pts)`;
         await insertBotLog({
           runId,
+          seasonId,
           level: "info",
           action: "resolve",
           seasonPlayerId: bot.spId,
           botUsername: bot.username,
-          message: `Resolved ${outcome}: ${result.fromPosition} → ${result.toPosition} (+${result.newBalancePoints} pts)`,
+          message: detail,
           payload: { rollId: open.id, outcome, ...result },
+        });
+        activity(bot, "resolve", {
+          outcome,
+          position: result.toPosition,
+          balancePoints: result.newBalancePoints,
+          detail,
         });
         await logAdminAction({
           actorId: bot.userId,
@@ -305,6 +445,7 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
       errors++;
       await insertBotLog({
         runId,
+        seasonId,
         level: "error",
         action: kind,
         seasonPlayerId: bot.spId,
@@ -312,10 +453,12 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
         message: lastError,
         payload: { errorCode, ...attempt },
       });
-      if (run.config.stopOnError) {
+      activity(bot, "error", { detail: lastError });
+      if (config.stopOnError) {
         stopped = true;
         await insertBotLog({
           runId,
+          seasonId,
           level: "error",
           action: "run_stopped",
           message: `Run stopped on first error (stopOnError): ${lastError}`,
@@ -332,7 +475,112 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
     lastError,
     ...(stopped ? { status: "stopped" as const } : {}),
   });
+  const updated = await getBotRun(runId);
+  if (updated) publishBotRun(updated);
   return { actions, errors, stopped, lastError };
+}
+
+/**
+ * The item half of a synthetic player's turn.
+ *
+ * It reuses the *real* activation path (`activateInventoryItem`) rather than
+ * hand-writing the effects: charge guard, window/target guards, `unique`
+ * stacking check, ledger writes, expiry anchoring and the public feed row all
+ * happen exactly as they would for a person. The bot only decides *what* to
+ * use and *on whom* — that decision is the pure `planBotItemUse`.
+ *
+ * Returns null when nothing worth doing is available (or the chance roll
+ * skipped it — the caller owns that), or the used item and its target.
+ */
+async function tryBotItemUse(params: {
+  runId: string;
+  seasonId: string;
+  config: BotRunConfig;
+  iee: IeeConfig;
+  bot: { spId: string; username: string };
+  sp: SeasonPlayer;
+  botUser: User;
+  hasOpenRoll: boolean;
+  triggeredBy: string;
+}): Promise<{ itemKey: string; targetUsername: string | null } | null> {
+  const { runId, seasonId, config, iee, bot, sp, botUser, hasOpenRoll, triggeredBy } = params;
+
+  const [held, effectRows, others] = await Promise.all([
+    getHeldItems(bot.spId),
+    getActiveEffectRows(bot.spId),
+    listBotItemTargets(seasonId, bot.spId, iee.pvpProtectionMoves),
+  ]);
+  if (held.length === 0) return null;
+
+  const inForce = activeEffects(effectRows.map(toActiveEffectLike), sp.rollSeq + 1);
+  const polarityById = new Map(effectRows.map((e) => [e.id, e.polarity]));
+  const plan = planBotItemUse(
+    {
+      actor: {
+        seasonPlayerId: sp.id,
+        position: sp.position,
+        balancePoints: sp.balancePoints,
+        rollSeq: sp.rollSeq,
+        // Not read by the guards (they use the target's count); passed for
+        // parity with the snapshot the service builds for a real player.
+        moveCount: 0,
+        rank: 1,
+        status: sp.status,
+      },
+      hasOpenRoll,
+      held: held.map((row) => ({
+        inventoryId: row.id,
+        itemKey: row.itemKey,
+        params: (row.params ?? {}) as IeeParams,
+      })),
+      activeEffects: inForce.map((row) => ({
+        effectKey: row.effectKey,
+        polarity: polarityById.get(row.id) ?? "negative",
+      })),
+      others,
+      allowTargetingOthers: iee.allowTargetingOthers,
+      pvpProtectionMoves: iee.pvpProtectionMoves,
+    },
+    { strategy: config.targetStrategy, autoCleanse: config.autoCleanse },
+  );
+  if (!plan) return null;
+
+  const used = await activateInventoryItem(
+    { inventoryId: plan.inventoryId, targetSeasonPlayerId: plan.targetSeasonPlayerId },
+    { actor: botUser },
+  );
+
+  await insertBotLog({
+    runId,
+    seasonId,
+    level: "info",
+    action: "item",
+    seasonPlayerId: bot.spId,
+    botUsername: bot.username,
+    message: `Used ${used.itemKey}${used.targetUsername ? ` on ${used.targetUsername}` : ""} (${plan.intent})`,
+    payload: {
+      itemKey: used.itemKey,
+      inventoryId: plan.inventoryId,
+      intent: plan.intent,
+      targetSeasonPlayerId: plan.targetSeasonPlayerId,
+      targetUsername: used.targetUsername,
+    },
+  });
+  await logAdminAction({
+    actorId: botUser.id,
+    actionType: "bot_item",
+    targetType: "season_player",
+    targetId: bot.spId,
+    payload: {
+      runId,
+      triggeredBy,
+      botUsername: bot.username,
+      itemKey: used.itemKey,
+      intent: plan.intent,
+      targetSeasonPlayerId: plan.targetSeasonPlayerId,
+    },
+  });
+  return { itemKey: used.itemKey, targetUsername: used.targetUsername };
 }
 
 async function setRunStatus(runId: string, status: BotRun["status"], action: string): Promise<BotRun> {
@@ -342,6 +590,7 @@ async function setRunStatus(runId: string, status: BotRun["status"], action: str
   await updateBotRun(runId, { status, ...(status === "running" ? { lastError: null } : {}) });
   await insertBotLog({
     runId,
+    seasonId: run.seasonId,
     level: "info",
     action,
     message: `Run ${status}`,
@@ -355,6 +604,7 @@ async function setRunStatus(runId: string, status: BotRun["status"], action: str
   });
   const updated = await getBotRun(runId);
   if (!updated) throw new BotError("botRunNotFound");
+  publishBotRun(updated);
   return updated;
 }
 
@@ -401,6 +651,7 @@ export async function cleanupBotRun(runId: string, deleteRun: boolean): Promise<
     await updateBotRun(run.id, { status: "stopped" });
     await insertBotLog({
       runId: run.id,
+      seasonId: run.seasonId,
       level: "info",
       action: "cleanup",
       message: `Removed ${removedPlayers} synthetic players (their rolls, moves and balance entries cascaded)`,
@@ -414,6 +665,9 @@ export async function cleanupBotRun(runId: string, deleteRun: boolean): Promise<
     targetId: run.seasonId,
     payload: { runId, removedPlayers, deleteRun },
   });
+  // The row may be gone; announce the terminal state it reached so the open
+  // console can react before its refresh drops the card.
+  publishBotRun({ ...run, status: "stopped", updatedAt: new Date() });
   log.info("bots.run_cleaned", { actorId: actor.id, runId, removedPlayers, deleteRun });
   return { removedPlayers };
 }
@@ -423,7 +677,14 @@ export async function updateBotRunConfig(runId: string, config: BotRunConfig): P
   const run = await getBotRun(runId);
   if (!run) throw new BotError("botRunNotFound");
   await updateBotRun(runId, { config });
-  await insertBotLog({ runId, level: "info", action: "tick", message: "Run config updated", payload: { config } });
+  await insertBotLog({
+    runId,
+    seasonId: run.seasonId,
+    level: "info",
+    action: "tick",
+    message: "Run config updated",
+    payload: { config },
+  });
   await logAdminAction({
     actorId: actor.id,
     actionType: "bot_run_config_updated",
@@ -433,6 +694,7 @@ export async function updateBotRunConfig(runId: string, config: BotRunConfig): P
   });
   const updated = await getBotRun(runId);
   if (!updated) throw new BotError("botRunNotFound");
+  publishBotRun(updated);
   return updated;
 }
 
@@ -453,7 +715,7 @@ const tickInflight = new Set<string>();
 
 function isTickDue(run: BotRun, now: number): boolean {
   const updated = run.updatedAt instanceof Date ? run.updatedAt.getTime() : new Date(run.updatedAt).getTime();
-  return now - updated >= Math.max(0, run.config.tickIntervalMs);
+  return now - updated >= Math.max(0, normalizeBotConfig(run.config).tickIntervalMs);
 }
 
 /**

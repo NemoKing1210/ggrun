@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { AUDIT_ROOM, CHAT_ROOM, parseSeasonRoom, seasonRoom } from "./protocol";
+import {
+  AUDIT_ROOM,
+  botsRoom,
+  CHAT_ROOM,
+  parseBotsRoom,
+  parseSeasonRoom,
+  seasonRoom,
+} from "./protocol";
 
 describe("seasonRoom", () => {
   it("namespaces the room by season id", () => {
@@ -29,5 +36,20 @@ describe("parseSeasonRoom", () => {
     expect(parseSeasonRoom("season:has.dot")).toBeNull();
     expect(parseSeasonRoom("")).toBeNull();
     expect(parseSeasonRoom("season:" + "x".repeat(65))).toBeNull();
+  });
+});
+
+describe("botsRoom", () => {
+  it("round-trips and never collides with a season room", () => {
+    expect(botsRoom("s-1")).toBe("bots:s-1");
+    expect(parseBotsRoom(botsRoom("s-1"))).toBe("s-1");
+    expect(parseSeasonRoom(botsRoom("s-1"))).toBeNull();
+    expect(parseBotsRoom(seasonRoom("s-1"))).toBeNull();
+  });
+
+  it("rejects malformed bot rooms", () => {
+    for (const room of ["bots:", "bots:two:rooms", "bots:has space", "bots:has.dot", "bots:" + "x".repeat(65)]) {
+      expect(parseBotsRoom(room)).toBeNull();
+    }
   });
 });

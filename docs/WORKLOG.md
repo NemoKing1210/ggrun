@@ -19,11 +19,11 @@
 | --- | --- |
 | Version | `0.5.0` |
 | Branch | `main` |
-| Active work | **Test gate** — the suite now covers every layer (2996 tests / 253 files, 78.9% lines) and is enforced by a Husky `pre-push` hook. IEE stages 1–5 remain shipped, stage 6 (content) deferred |
+| Active work | **Test bots** — bots now spend items/effects through the real activation path, and the console is live over a staff-only socket room (`bots:<seasonId>`). IEE stages 1–5 remain shipped, stage 6 (content) deferred |
 | Design doc | [`ITEMS_EFFECTS_EVENTS.md`](./ITEMS_EFFECTS_EVENTS.md) |
 | Behaviour | [`ITEMS_EFFECTS_SCENARIOS.md`](./ITEMS_EFFECTS_SCENARIOS.md) — 57 scenarios, generated from the table the tests run |
 | Decisions | §12 answered by accepting every ★ recommendation (see 2026-09-07 s2) |
-| Tests | **2996 unit/component/invariant tests / 253 files** — `pnpm verify` (eslint + `tsc --noEmit` + `vitest run --coverage` with thresholds). Coverage ratchet in `vitest.config.mts` |
+| Tests | **3022 unit/component/invariant tests / 255 files** — `pnpm verify` (eslint + `tsc --noEmit` + `vitest run --coverage` with thresholds). Coverage ratchet in `vitest.config.mts` |
 | Uncommitted | **Yes** — the test-gate session (see the entry below) is not committed yet. The `add-sockets` merge (`1de95b5`) and its follow-up fix (`3396c3b`) are in `main` |
 | **Action needed** | Run `pnpm db:push` then `pnpm db:seed` — and note migration `0017` (`season_players.finished_at`) is new as of session 23. Verified end-to-end against a scratch Postgres, **not applied to your database** |
 | Next step | Commit the test-gate work (it is uncommitted as of this entry); the Husky hooks install on the next `pnpm install` via `prepare` |
@@ -45,6 +45,66 @@
   directories under `node_modules/.pnpm/`. Workaround used below: typecheck and
   test the engine in an isolated harness. Running `pnpm install` on Windows
   fixes it for Windows shells; it has not been re-run.
+
+---
+
+## 2026-10-04 — Test bots learn items/effects, and the console goes live
+
+**Goal.** Make the synthetic players behave like real ones (use the IEE
+subsystem, not just roll/resolve) and rebuild the console so staff can tune
+what they may do and watch each bot's current step — updating over sockets,
+not on a poll.
+
+**Done.**
+
+- **Engine** — `lib/engine/bots/items.ts` (new): `planBotItemUse` asks every
+  held item's *pure* `apply` what it would do to each candidate target, scored
+  through the same `checkItemUse` guards the server enforces. Precedence is
+  cleanse > buff > attack > points, so a new catalog entry changes bot
+  behaviour with no code. Strategies: leader / nearest / random.
+- **Config** — `BotRunConfig` gains `enableItems`, `itemChance`, `autoCleanse`
+  and `targetStrategy`. It is JSONB, so a run saved before these existed has
+  `undefined` for them (falsy = silently off) — `normalizeBotConfig` completes
+  every stored config at every read. A parity test pins the engine's strategy
+  list to the schema's, the one fact stated twice by necessity.
+- **Service** — a tick now attempts an item *before* its roll/resolve step and
+  runs it through the real `activateInventoryItem` (now actor-injectable, like
+  `rollNewGame`): charge guard, windows, PvP protection, `unique` stacking, the
+  ledger and the public feed row all behave exactly as for a person. Bots
+  therefore appear in the feed using items — which is the point.
+- **Realtime** — new staff-only `bots:<seasonId>` room with `bots:run`,
+  `bots:activity` and `bots:log`. Access is staff-gated in `access.ts` and
+  re-checked against a fresh session on every join in `socket-server.ts`, like
+  `audit`. The console's 3 s `router.refresh()` poll is gone.
+- **UI** — `BotRoster` shows each bot's inventory (artwork), statuses actually
+  in force, lifetime counters and what it is doing right now; the create form
+  and the per-run settings grew the item policy; a warning fires when the
+  season has IEE switched off.
+
+**Decisions.**
+
+- Reuse `activateInventoryItem` rather than a bot-only write path. A second
+  path would drift from the rules and would stop testing the real one.
+- Publish structured activity (`kind` / `itemKey` / `targetUsername`), not
+  rendered sentences: the server has no locale, the client holds the dictionary.
+- Derive per-bot counters by folding the recent `bot_logs` journal instead of
+  adding a table — one source of truth, no migration.
+
+**Not done / next.**
+
+- The console still drives its own tick loop while open (kept deliberately, as
+  the fallback when no scheduler is configured); autonomous ticks still come
+  from `BOTS_TICK` / cron.
+- `docs/ITEMS_EFFECTS_SCENARIOS.md` is untouched — it documents catalog
+  behaviour, which did not change.
+
+**Files touched.** `lib/engine/bots/{items,index}.ts` + tests,
+`db/schema/bots.ts`, `lib/modules/bots/{service,repository}` + tests,
+`lib/modules/game/service/use-item.ts`, `lib/modules/iee/repository/counters.ts`,
+`lib/realtime/{protocol,access,socket-server}` + tests,
+`components/admin/{BotsConsole,BotsRunCard,BotRoster,use-bots-live}` + tests,
+`app/admin/seasons/[id]/bots/page.tsx`, en/ru/uk `admin.ts`, `CHANGELOG.md`,
+`docs/DEPLOYMENT.md`.
 
 ---
 

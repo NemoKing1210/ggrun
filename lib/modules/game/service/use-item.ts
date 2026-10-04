@@ -12,7 +12,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
-import { ledgerEntries, seasonPlayers, users, type SeasonPlayer } from "@/db/schema";
+import { ledgerEntries, seasonPlayers, users, type SeasonPlayer, type User } from "@/db/schema";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { logEvent } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
@@ -55,11 +55,20 @@ async function getSeasonPlayer(id: string): Promise<SeasonPlayer | null> {
   return rows[0] ?? null;
 }
 
-export async function activateInventoryItem(params: {
-  inventoryId: string;
-  targetSeasonPlayerId?: string | null;
-}): Promise<{ itemKey: string; targetUsername: string | null }> {
-  const actor = await getCurrentUser();
+export async function activateInventoryItem(
+  params: {
+    inventoryId: string;
+    targetSeasonPlayerId?: string | null;
+  },
+  /**
+   * Explicit actor for request-less callers (the bot ticker), mirroring
+   * `rollNewGame(spId, { actor })`. Inside a request it defaults to the cookie
+   * session. The holder-only rule still applies: a caller may act as the
+   * holder, never on their behalf.
+   */
+  opts?: { actor?: User | null },
+): Promise<{ itemKey: string; targetUsername: string | null }> {
+  const actor = opts?.actor ?? (await getCurrentUser());
   if (!actor) throw new GameLoopError("gameLoginRequired");
 
   const row = await getInventoryItem(params.inventoryId);

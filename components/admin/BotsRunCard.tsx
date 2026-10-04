@@ -5,14 +5,18 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { BotRunConfig } from "@/db/schema/bots";
+import { BOT_TARGET_STRATEGIES, type BotTargetStrategy } from "@/lib/engine";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
+import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 import { cleanupBotRunAction, updateBotConfigAction } from "@/lib/modules/bots/actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { BotRoster } from "@/components/admin/BotRoster";
 import { Badge } from "@/components/ui/Badge";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Range } from "@/components/ui/Range";
+import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 
 export interface ConsoleBotRun {
@@ -37,12 +41,35 @@ export interface ConsoleBotLog {
   createdAt: string;
 }
 
+export interface ConsoleRosterItem {
+  inventoryId: string;
+  itemKey: string;
+  chargesLeft: number;
+}
+
+export interface ConsoleRosterEffect {
+  effectId: string;
+  effectKey: string;
+  polarity: string;
+}
+
+export interface ConsoleRosterCounts {
+  roll: number;
+  resolve: number;
+  item: number;
+  errors: number;
+}
+
 export interface ConsoleRosterRow {
   username: string;
   seasonPlayerId: string | null;
   status: string | null;
   position: number | null;
   balancePoints: number | null;
+  items: ConsoleRosterItem[];
+  effects: ConsoleRosterEffect[];
+  counts: ConsoleRosterCounts;
+  lastAction: { action: string; level: string; message: string; createdAt: string } | null;
 }
 
 export type BotsText = Dictionary["admin"]["bots"];
@@ -95,6 +122,7 @@ export function TickCountdown({
 export function BotsRunCard({
   run,
   roster,
+  activity,
   isTicking,
   busy,
   tickIntervalMs: loopIntervalMs,
@@ -112,6 +140,8 @@ export function BotsRunCard({
 }: {
   run: ConsoleBotRun;
   roster: ConsoleRosterRow[];
+  /** Recent steps for this run's bots, oldest first. */
+  activity: readonly BotActivityBroadcast[];
   isTicking: boolean;
   busy: boolean;
   tickIntervalMs: number | null;
@@ -137,7 +167,30 @@ export function BotsRunCard({
   const [rerollWeight, setRerollWeight] = useState(run.config.rerollWeight);
   const [enableRoll, setEnableRoll] = useState(run.config.enableRoll);
   const [enableResolve, setEnableResolve] = useState(run.config.enableResolve);
+  const [enableItems, setEnableItems] = useState(run.config.enableItems);
+  const [itemChance, setItemChance] = useState(run.config.itemChance);
+  const [autoCleanse, setAutoCleanse] = useState(run.config.autoCleanse);
+  const [targetStrategy, setTargetStrategy] = useState<BotTargetStrategy>(run.config.targetStrategy);
   const [stopOnError, setStopOnError] = useState(run.config.stopOnError);
+
+  // Another admin's save (or a socket `bots:run`) arrives as a new prop; keep
+  // the controls honest instead of pinned to whatever was there at mount.
+  const configKey = JSON.stringify(run.config);
+  useEffect(() => {
+    const c = JSON.parse(configKey) as BotRunConfig;
+    setActionsPerTick(c.actionsPerTick);
+    setTickIntervalMs(c.tickIntervalMs);
+    setPassWeight(c.passWeight);
+    setDropWeight(c.dropWeight);
+    setRerollWeight(c.rerollWeight);
+    setEnableRoll(c.enableRoll);
+    setEnableResolve(c.enableResolve);
+    setEnableItems(c.enableItems);
+    setItemChance(c.itemChance);
+    setAutoCleanse(c.autoCleanse);
+    setTargetStrategy(c.targetStrategy);
+    setStopOnError(c.stopOnError);
+  }, [configKey]);
 
   useEffect(() => {
     if (configState.ok) router.refresh();
@@ -170,6 +223,9 @@ export function BotsRunCard({
         pass {run.config.passWeight} / drop {run.config.dropWeight} / reroll {run.config.rerollWeight}
         {!run.config.enableRoll && " · no-roll"}
         {!run.config.enableResolve && " · no-resolve"}
+        {run.config.enableItems
+          ? ` · items ${run.config.itemChance}%/${run.config.targetStrategy}${run.config.autoCleanse ? "+cleanse" : ""}`
+          : " · no-items"}
         {run.config.stopOnError && " · stop-on-error"}
       </p>
       {run.lastError && (
@@ -243,33 +299,16 @@ export function BotsRunCard({
         )}
       </div>
 
-      <details className="mt-3 border border-[#3d3d34] px-3 py-2">
+      <details open className="mt-3 border border-[#3d3d34] px-3 py-2">
         <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-widest text-amber">
           {format(t.rosterHeading, { count: roster.length })}
         </summary>
-        {roster.length === 0 ? (
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-dim">{t.logsEmpty}</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-1">
-            <li className="grid grid-cols-[1fr_auto_auto_auto] gap-3 font-mono text-[10px] uppercase tracking-widest text-dim">
-              <span>{t.rosterBot}</span>
-              <span>{t.rosterStatus}</span>
-              <span>{t.rosterPosition}</span>
-              <span>{t.rosterPoints}</span>
-            </li>
-            {roster.map((b) => (
-              <li
-                key={b.username}
-                className="grid grid-cols-[1fr_auto_auto_auto] gap-3 font-mono text-[11px] text-zinc-300"
-              >
-                <span className="truncate text-amber">{b.username}</span>
-                <span>{b.status ? (playerStatusLabels[b.status] ?? b.status) : t.rosterNoMember}</span>
-                <span>{b.position ?? "—"}</span>
-                <span>{b.balancePoints ?? "—"}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <BotRoster
+          roster={roster}
+          activity={activity}
+          playerStatusLabels={playerStatusLabels}
+          t={t}
+        />
       </details>
 
       <details className="mt-2 border border-[#3d3d34] px-3 py-2">
@@ -314,11 +353,55 @@ export function BotsRunCard({
           <div className="flex flex-col gap-2 sm:col-span-2">
             <input type="hidden" name="enableRoll" value={enableRoll ? "on" : ""} />
             <input type="hidden" name="enableResolve" value={enableResolve ? "on" : ""} />
+            <input type="hidden" name="enableItems" value={enableItems ? "on" : ""} />
+            <input type="hidden" name="autoCleanse" value={autoCleanse ? "on" : ""} />
             <input type="hidden" name="stopOnError" value={stopOnError ? "on" : ""} />
             <Switch checked={enableRoll} onChange={setEnableRoll} label={t.enableRollLabel} size="sm" />
             <Switch checked={enableResolve} onChange={setEnableResolve} label={t.enableResolveLabel} size="sm" />
             <Switch checked={stopOnError} onChange={setStopOnError} label={t.stopOnErrorLabel} size="sm" variant="danger" />
           </div>
+          <div className="flex flex-col gap-2 border-t border-[#3d3d34] pt-3 sm:col-span-2">
+            <Switch
+              checked={enableItems}
+              onChange={setEnableItems}
+              label={t.enableItemsLabel}
+              description={t.enableItemsHint}
+              size="sm"
+            />
+            <Switch
+              checked={autoCleanse}
+              onChange={setAutoCleanse}
+              label={t.autoCleanseLabel}
+              size="sm"
+            />
+          </div>
+          <Field label={`${t.itemChanceLabel}: ${itemChance}%`}>
+            <Range
+              name="itemChance"
+              min={0}
+              max={100}
+              step={5}
+              value={itemChance}
+              onChange={(e) => setItemChance(Number(e.target.value))}
+            />
+          </Field>
+          <Field label={t.targetStrategyLabel}>
+            <Select
+              name="targetStrategy"
+              value={targetStrategy}
+              onChange={(e) => setTargetStrategy(e.target.value as BotTargetStrategy)}
+            >
+              {BOT_TARGET_STRATEGIES.map((strategy) => (
+                <option key={strategy} value={strategy}>
+                  {strategy === "leader"
+                    ? t.strategyLeader
+                    : strategy === "nearest"
+                      ? t.strategyNearest
+                      : t.strategyRandom}
+                </option>
+              ))}
+            </Select>
+          </Field>
           {configState.error && (
             <p role="alert" className="text-danger text-sm sm:col-span-2">
               {configState.error}

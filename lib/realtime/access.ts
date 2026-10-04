@@ -1,4 +1,4 @@
-import { AUDIT_ROOM, CHAT_ROOM, parseSeasonRoom, parseUserRoom } from "./protocol";
+import { AUDIT_ROOM, CHAT_ROOM, parseBotsRoom, parseSeasonRoom, parseUserRoom } from "./protocol";
 
 /**
  * Pure realtime policy — who may join what, who may type, and how the
@@ -55,10 +55,10 @@ export type JoinVerdict =
 
 /**
  * Decides a `join` request. `chat` and `season:*` are public (same
- * visibility as the pages subscribing to them); `audit` is staff-only.
- * `roomsHeld` / `recentJoins` are the socket's current membership count and
- * the timestamps of its recent join attempts — enforced here so the rule is
- * unit-testable and the server stays wiring-only.
+ * visibility as the pages subscribing to them); `audit` and `bots:<seasonId>`
+ * are staff-only. `roomsHeld` / `recentJoins` are the socket's current
+ * membership count and the timestamps of its recent join attempts — enforced
+ * here so the rule is unit-testable and the server stays wiring-only.
  */
 export function authorizeJoin(
   room: unknown,
@@ -69,9 +69,18 @@ export function authorizeJoin(
     return { ok: false, error: "UNKNOWN_ROOM" };
   }
   const known =
-    room === CHAT_ROOM || room === AUDIT_ROOM || parseSeasonRoom(room) !== null || parseUserRoom(room) !== null;
+    room === CHAT_ROOM ||
+    room === AUDIT_ROOM ||
+    parseSeasonRoom(room) !== null ||
+    parseUserRoom(room) !== null ||
+    parseBotsRoom(room) !== null;
   if (!known) return { ok: false, error: "UNKNOWN_ROOM" };
   if (room === AUDIT_ROOM && !isStaffRole(user?.role)) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  // The bot console is a staff surface — bots are indistinguishable from real
+  // players in the public feed, and this room exposes who is synthetic.
+  if (parseBotsRoom(room) !== null && !isStaffRole(user?.role)) {
     return { ok: false, error: "FORBIDDEN" };
   }
   // Private inbox: the socket owner only. Anonymous sockets and other users
@@ -99,7 +108,8 @@ export function isLeavableRoom(room: unknown): room is string {
     (room === CHAT_ROOM ||
       room === AUDIT_ROOM ||
       parseSeasonRoom(room) !== null ||
-      parseUserRoom(room) !== null)
+      parseUserRoom(room) !== null ||
+      parseBotsRoom(room) !== null)
   );
 }
 
