@@ -98,6 +98,17 @@ describe("toError", () => {
     expect(h.error).not.toHaveBeenCalled();
   });
 
+  it("recognises every bound class, not just the first", async () => {
+    class SecondError extends Error {
+      code = "adminSeasonNotFound";
+      params = { id: "s-1" };
+    }
+    const multi = makeToError(AdminError, SecondError);
+    await expect(multi(new SecondError(), "x")).resolves.toMatchObject({
+      error: "Season s-1 not found",
+    });
+  });
+
   it("falls back to formUnknown for a code with no dictionary entry", async () => {
     const state = await toError(new AdminError("totallyUnknown" as never), "createSeason");
     expect(state.error).toBe("Unknown error");

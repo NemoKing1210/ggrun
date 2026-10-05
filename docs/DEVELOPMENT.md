@@ -52,6 +52,11 @@ languages.
 - Two-tier audit: `logAdminAction` → `admin_audit_log` (every staff mutation,
 viewable at `/admin/audit`); `logEvent` → `event_log` (public feed). Both
 are written inside the same use-case transactions.
+- **Uploaded bytes never live in the database.** Files go through
+`lib/infrastructure/storage` (a driver port with `local` and `s3` backends,
+chosen by `STORAGE_DRIVER`) and are described by a row in `files`; the
+`lib/modules/files` slice owns categories, permissions and access links. The
+DB stores a URL, never base64.
 - Realtime (Socket.IO, same process + port via `server.ts`): publishers call
 `publish(room, event, payload)` from `lib/realtime/bus.ts` (fire-and-forget,
 never throws — a socket failure must not break the write it announces);
@@ -80,7 +85,8 @@ already-played) → player marks the outcome → `resolveAction` →
 | `app/(public)/`                     | Public shell: landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/players/[username]`, `/login`, `/register`, `/dashboard`                                        |
 | `app/admin/`                        | Admin console: dashboard, `seasons/` + `seasons/[id]/{board,players}`, `users`, `games-catalog`, `audit`, `moderation`, `settings`                                    |
 | `lib/engine/`                       | Domain (pure TS): `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts`          |
-| `lib/modules/*/`                    | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each with `repository/` + `service/` + `actions/` + `index.ts` barrel |
+| `lib/modules/*/`                    | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings`, `files` — each with `repository/` + `service/` + `actions/` + `index.ts` barrel |
+| `lib/infrastructure/storage/`       | File-storage drivers (`local`, `s3`), key format, HMAC access links, env-resolved config — the only code that touches object bytes          |
 | `lib/use-cases/`                    | Cross-module adapters only: `admin/actions/{helpers,types}`, `shared/action-error`                                                                                    |
 | `lib/api/`                          | API contract: `contract.ts` (HTTP endpoints + Zod body models), `realtime.ts` (Socket.IO events), `spec.ts` (OpenAPI 3.1 builder), `markdown.ts` (`docs/API.md`) — served at `/api-docs`, `/api/openapi.json`, `/api/openapi.md` |
 | `db/schema.ts` (now `db/schema/**`) | Drizzle schema — single source of truth (12 tables, 5 pg enums)                                                                                                       |
@@ -127,6 +133,12 @@ See [`.env.example`](../.env.example): `DATABASE_URL` (PostgreSQL 17, OSPanel
 `127.127.126.56:5432`, db `ggrun` in the reference setup), `AUTH_SECRET`,
 `NEXT_PUBLIC_SITE_URL`, `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`; Steam/IGDB/RAWG
 keys are optional.
+
+File storage is configured by `STORAGE_DRIVER` (`local` by default, writing to
+`STORAGE_LOCAL_ROOT`) or by `S3_BUCKET`/`S3_REGION`/`S3_ENDPOINT`/credentials
+for the `s3` driver. `pnpm files:migrate` moves any legacy inline base64
+avatars/banners into the configured driver — it is idempotent and safe to
+re-run.
 
 ---
 
@@ -199,6 +211,29 @@ transitions (never per-page entrance animations).
 migration.
 - Local DB: PostgreSQL 17 via OSPanel (`127.127.126.56:5432`, database
 `ggrun`); never hardcode absolute paths in code.
+
+### File storage
+
+`lib/infrastructure/storage` is a driver port; `lib/modules/files` is the
+policy on top of it.
+
+- **Driver** — `getStorage()` resolves `STORAGE_DRIVER` once per process and
+  memoizes it; `setStorage()` swaps it in tests. `put`/`get`/`stat`/`delete`
+  return `null` for a missing object and throw `StorageError` only on a real
+  backend failure. Keys are `<category>/<yyyy>/<mm>/<uuid>.<ext>` and are
+  validated before every call — a key can arrive in a URL query string.
+- **Module** — `storeFile()` validates size twice (category and global
+  ceiling), sniffs the MIME type from the bytes, reads image dimensions from
+  the header, hashes the content, writes the object, then inserts the `files`
+  row; if the row cannot be written, the object is removed again.
+  `deleteFile()` soft-deletes the row and removes the object; `fileUrl()` /
+  `fileAccessUrl()` build the renderable or signed link.
+- **Categories** — `lib/modules/files/service/categories.ts` declares allowed
+  MIME types, size limit, visibility, who may upload and who may delete.
+  Adding one means adding an entry there plus a label in the three `admin.files.categories`
+  dictionaries; no migration is needed because a row stores only the id.
+- **Tests** — the storage and module tests inject a fake driver with
+  `setStorage(fake, config)`; nothing touches a real bucket or the network.
 
 ---
 

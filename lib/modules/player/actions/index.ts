@@ -15,6 +15,7 @@ import {
  updateUserSettings,
 } from "@/lib/modules/player/service";
 import { AdminError } from "@/lib/modules/season/service";
+import { FileError } from "@/lib/modules/files/service";
 import { getCurrentUser, SESSION_COOKIE, tokenFingerprint } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { LOCALE_COOKIE } from "@/lib/i18n/config";
@@ -26,7 +27,7 @@ import { sessions } from "@/db/schema";
 export type UserFormState = ActionState;
 export type SettingsFormState = ActionState;
 
-const toError = makeToError(AdminError);
+const toError = makeToError(AdminError, FileError);
 
 export async function createUserAction(
   _prev: UserFormState,

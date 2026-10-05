@@ -10,6 +10,38 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
 ## [Unreleased]
 
 ### Added
+- **A file storage module — uploads no longer live in the database.**
+  `lib/infrastructure/storage` is a driver port (`put`/`get`/`stat`/`delete`/
+  `publicUrl`/`signedUrl`) with two backends selected by `STORAGE_DRIVER`:
+  - `local` — writes under `STORAGE_LOCAL_ROOT` with atomic temp-file renames
+    and a root-containment check on every path;
+  - `s3` — any S3-compatible store (AWS S3, Cloudflare R2, MinIO, B2, Wasabi)
+    through the official AWS SDK, with an optional public base URL
+    (`STORAGE_PUBLIC_URL`) and pre-signed links.
+  Keys are `<category>/<yyyy>/<mm>/<uuid>.<ext>`: unguessable, immutable and
+  validated before every driver call. On top of it, the `files` module
+  (`lib/modules/files`) keeps a metadata row per object — category, owner,
+  MIME type **sniffed from the bytes**, size, SHA-256, image dimensions,
+  visibility — and owns the rules:
+  - a **category registry** (`avatar`, `banner`, `game_cover`, `attachment`)
+    declaring allowed MIME types, size limit, visibility, who may upload and
+    who may delete; adding a category is one entry, no migration;
+  - **permissions** — public files are world-readable, private ones need a
+    signed link or an owner/staff session, and deletion is owner-or-staff
+    (staff-only for staff-managed categories);
+  - **access links** — `fileAccessUrl` returns the permanent URL, an S3
+    pre-signed URL, or an HMAC link for the local driver, capped at 7 days;
+  - `GET /api/files?key=…` serves the bytes (302 to a direct public URL when
+    one is configured), immutable-cached for public files, `no-store` for
+    private ones, `application/octet-stream` bodies documented in the API
+    reference.
+  Failures translate to `FileError` codes (`fileTooLarge`,
+  `fileTypeNotAllowed`, `fileImageDimensions`, `fileStorageUnavailable`, …)
+  rendered in en/ru/uk like every other domain error.
+- **An admin file browser** at `/admin/files`: upload per category (staff-only
+  categories enforced by the service, not the form), filter, preview,
+  copy a working link, delete. It is the enabling tool for custom game covers
+  and any private attachment.
 - **A generated API reference, for humans and for agents.** Every route
   handler and the whole Socket.IO protocol are described once, in `lib/api/`,
   and served three ways: `/api-docs` (interactive Scalar reference),
@@ -126,6 +158,12 @@ and [Semantic Versioning](https://semver.org/). Versioning rules — at the bott
   gaps: `season_reset` and `player_left` were reachable only under "All".
 
 ### Changed
+- **Profile pictures are files, not base64 text.** The profile editor still
+  crops client-side, but saving now stores the bytes through the storage
+  module and keeps only the URL in `users.avatar_url` / `users.banner_url`;
+  replacing or clearing a picture deletes the previous object. Existing inline
+  images are moved by `pnpm files:migrate` (idempotent, one row at a time).
+  Server actions accept up to 8 MB so two cropped images fit in one submit.
 - **The season wizard marks where you are in bright amber.** Stages already
   confirmed glowed bright and the one being edited was pale, the reverse of
   what amber means everywhere else in the editor. The selected tab is now

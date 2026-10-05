@@ -339,6 +339,17 @@ export const errors: Widen<typeof CoreEn.errors> = {
   formConfigInvalidJson: "config — некоректний JSON",
   formTitleRequired: "Вкажіть назву гри",
   formInvalid: "Деякі поля заповнено некоректно",
+  // --- файлове сховище (FileError) ---
+  fileNotFound: "Файл не знайдено",
+  fileForbidden: "Немає прав на керування цим файлом",
+  fileEmpty: "Файл порожній",
+  fileCategoryUnknown: "Такої категорії завантаження не існує",
+  fileTooLarge: "Файл занадто великий — ліміт {max}",
+  fileTypeNotAllowed: "Непідтримуваний тип файлу. Дозволено: {types}",
+  fileInvalidImage: "Зображення пошкоджене й не читається",
+  fileImageDimensions: "Розмір зображення {width}×{height} px поза дозволеним діапазоном",
+  fileStorageUnavailable: "Сховище тимчасово недоступне — спробуйте ще раз",
+
   formUnknown: "Невідома помилка",
 };
 

@@ -38,6 +38,7 @@ Realtime transport constants above are pinned to `lib/realtime/socket-server.ts`
 | Method | Path | Auth | Summary |
 | --- | --- | --- | --- |
 | `GET` | `/api/feed` | public | Season event feed |
+| `GET` | `/api/files` | public | Download an uploaded file |
 | `GET` | `/api/chat` | public | Chat history page |
 | `POST` | `/api/chat` | session | Send a chat message |
 | `GET` | `/api/notifications` | session | Inbox snapshot |
@@ -64,6 +65,10 @@ Every failure returns `{ "error": "CODE" }`. The full literal set:
 | `MISSING_SEASON` | 400 | `GET /api/feed` | No `seasonId` query parameter. |
 | `INVALID_FILTER` | 400 | `GET /api/feed` | `filter` is not one of the known tab keys. |
 | `FAILED` | 500 | `GET /api/feed` | Database or serialization failure. |
+| `MISSING_KEY` | 400 | `GET /api/files` | No `key`, or it is not a well-formed storage key. |
+| `FORBIDDEN` | 403 | `GET /api/files` | Private file, no valid link, and no owner/staff session. |
+| `NOT_FOUND` | 404 | `GET /api/files` | No live row for the key, or the object is missing from the backend. |
+| `FAILED` | 500 | `GET /api/files` | Storage or database failure. |
 | `FAILED` | 500 | `GET /api/chat` | Database failure. |
 | `INVALID_JSON` | 400 | `POST /api/chat` | Body is not valid JSON. |
 | `EMPTY_CONTENT` | 400 | `POST /api/chat` | `content` is missing, empty, or whitespace-only. |
@@ -106,6 +111,44 @@ curl "http://localhost:3000/api/feed?seasonId=<seasonId>&filter=<filter>&limit=<
 | 400 | [ErrorEnvelope](#model-ErrorEnvelope) | No `seasonId` query parameter. `MISSING_SEASON` `{"error":"MISSING_SEASON"}` |
 | 400 | [ErrorEnvelope](#model-ErrorEnvelope) | `filter` is not one of the known tab keys. `INVALID_FILTER` `{"error":"INVALID_FILTER"}` |
 | 500 | [ErrorEnvelope](#model-ErrorEnvelope) | Database or serialization failure. `FAILED` `{"error":"FAILED"}` |
+
+### `GET /api/files` — Download an uploaded file
+
+Serves the bytes of one stored file. Public files (avatars, banners, game covers) are world-readable and cached immutably; private files need either a signed link or the owner/staff session. When a public base URL is configured the request answers with a 302 to the direct object URL instead of streaming. Without one, every kind of object is served here.
+
+**Auth:** public (no credentials) · **operationId:** `getFile` · **tag:** Files
+
+```bash
+curl "http://localhost:3000/api/files?key=<key>&exp=<exp>&sig=<sig>"
+```
+
+**Parameters**
+
+| Name | In | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `key` | query | string | yes | — | Storage key, e.g. `avatar/2026/10/<uuid>.jpg`. Missing or malformed → `MISSING_KEY`. |
+| `exp` | query | integer -9007199254740991…9007199254740991 | no | — | Link expiry as unix seconds — only meaningful for a private file. |
+| `sig` | query | string | no | — | HMAC signature over `key` and `exp` — only meaningful for a private file. |
+
+**Responses**
+
+| Status | Body | Description |
+| --- | --- | --- |
+| 200 | *inline, below* | The stored bytes with the row's MIME type and an immutable cache policy. |
+| 302 | — | Redirect to a direct public URL when `STORAGE_PUBLIC_URL` is configured. |
+| 400 | [ErrorEnvelope](#model-ErrorEnvelope) | No `key`, or it is not a well-formed storage key. `MISSING_KEY` `{"error":"MISSING_KEY"}` |
+| 403 | [ErrorEnvelope](#model-ErrorEnvelope) | Private file, no valid link, and no owner/staff session. `FORBIDDEN` `{"error":"FORBIDDEN"}` |
+| 404 | [ErrorEnvelope](#model-ErrorEnvelope) | No live row for the key, or the object is missing from the backend. `NOT_FOUND` `{"error":"NOT_FOUND"}` |
+| 500 | [ErrorEnvelope](#model-ErrorEnvelope) | Storage or database failure. `FAILED` `{"error":"FAILED"}` |
+
+**200 body** (`application/octet-stream`):
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
 
 ### `GET /api/chat` — Chat history page
 

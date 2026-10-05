@@ -70,5 +70,8 @@ $RECYCLE.BIN/
 *.sqlite3
 *.db
 
+# uploaded files (local storage driver)
+/.storage/
+
 # stray screenshot dumps
 /Claude outputs/

@@ -59,11 +59,12 @@ type CodeError = Error & {
 };
 
 /**
- * Returns a `toError` adapter bound to a domain error class. The adapter is
- * what every server action uses in its catch block.
+ * Returns a `toError` adapter bound to one or more domain error classes. The
+ * adapter is what every server action uses in its catch block; an action that
+ * touches two domains (profile settings storing a file) passes both classes.
  */
-export function makeToError<E extends CodeError>(
-  cls: new (...args: never[]) => E,
+export function makeToError(
+  ...classes: Array<new (...args: never[]) => CodeError>
 ): (e: unknown, action: string, ctx?: LogContext) => Promise<ActionState> {
   return async function toError(e, action, ctx = {}) {
     if (e instanceof ZodError) {
@@ -71,10 +72,12 @@ export function makeToError<E extends CodeError>(
       log.warn("action.validation_failed", { action, ...ctx, issues: e.issues });
       return { error: user, debug };
     }
-    if (e instanceof cls) {
+    if (classes.some((cls) => e instanceof cls)) {
+      // The check above guarantees the shape; `instanceof` cannot narrow a union of classes.
+      const err = e as CodeError;
       const { t } = await getT();
       return {
-        error: errorText(t.core.errors, e.code, e.params),
+        error: errorText(t.core.errors, err.code, err.params),
         debug: devDebug(e),
       };
     }

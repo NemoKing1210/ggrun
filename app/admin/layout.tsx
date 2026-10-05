@@ -37,6 +37,7 @@ export default async function AdminLayout({
       : []),
     { href: "/admin/games", label: t.admin.nav.catalog },
     { href: "/admin/catalog", label: t.iee.admin.navLabel },
+    { href: "/admin/files", label: t.admin.nav.files },
     { href: "/admin/audit", label: t.admin.nav.audit },
     { href: "/admin/moderation", label: t.admin.nav.moderation },
     ...(user.role === "admin"

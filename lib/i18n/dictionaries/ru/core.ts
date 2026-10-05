@@ -341,6 +341,17 @@ export const errors: Widen<typeof CoreEn.errors> = {
   formConfigInvalidJson: "config — некорректный JSON",
   formTitleRequired: "Укажите название игры",
   formInvalid: "Некоторые поля заполнены неверно",
+  // --- файловое хранилище (FileError) ---
+  fileNotFound: "Файл не найден",
+  fileForbidden: "Нет прав на управление этим файлом",
+  fileEmpty: "Файл пустой",
+  fileCategoryUnknown: "Такой категории загрузки не существует",
+  fileTooLarge: "Файл слишком большой — лимит {max}",
+  fileTypeNotAllowed: "Неподдерживаемый тип файла. Допустимо: {types}",
+  fileInvalidImage: "Изображение повреждено и не читается",
+  fileImageDimensions: "Размер изображения {width}×{height} px вне допустимого диапазона",
+  fileStorageUnavailable: "Хранилище временно недоступно — попробуйте ещё раз",
+
   formUnknown: "Неизвестная ошибка",
 };
 

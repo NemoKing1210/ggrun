@@ -2,9 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/infrastructure/db", () => ({ db: { update: vi.fn() } }));
 vi.mock("@/lib/infrastructure/auth/session", () => ({ getCurrentUser: vi.fn() }));
+vi.mock("@/lib/modules/files/service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/modules/files/service")>();
+  return {
+    ...actual,
+    storeFile: vi.fn(),
+    deleteFileByUrl: vi.fn(),
+    fileUrl: vi.fn((row: { key: string }) => `/api/files?key=${encodeURIComponent(row.key)}`),
+  };
+});
 
 import { db } from "@/lib/infrastructure/db";
 import { getCurrentUser } from "@/lib/infrastructure/auth/session";
+import { deleteFileByUrl, fileUrl, storeFile } from "@/lib/modules/files/service";
 
 import { setUserLocale, updateUserSettings, updateUserSettingsSchema, userLinksSchema } from "./settings";
 
@@ -15,6 +25,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   updateWhere.mockResolvedValue(undefined);
   vi.mocked(db.update).mockReturnValue({ set: updateSet } as never);
+  vi.mocked(fileUrl).mockImplementation((row) => `/api/files?key=${encodeURIComponent(row.key)}`);
 });
 
 describe("updateUserSettingsSchema", () => {
@@ -48,6 +59,28 @@ describe("updateUserSettingsSchema", () => {
     expect(() =>
       updateUserSettingsSchema.parse({ ...base, avatarUrl: "not a valid url" }),
     ).toThrow();
+  });
+
+  it("accepts our own relative file link — the value the editor submits back", () => {
+    const key = "avatar/2026/10/123e4567-e89b-42d3-a456-426614174000.jpg";
+    const parsed = updateUserSettingsSchema.parse({
+      ...base,
+      avatarUrl: `/api/files?key=${encodeURIComponent(key)}`,
+      bannerUrl: "https://cdn.example/banner.png",
+    });
+    expect(parsed.avatarUrl).toBe(`/api/files?key=${encodeURIComponent(key)}`);
+    expect(parsed.bannerUrl).toBe("https://cdn.example/banner.png");
+  });
+
+  it("rejects a link that is not one of ours, a javascript: URL and an oversized inline image", () => {
+    for (const bad of [
+      "/api/files?key=../../etc/passwd",
+      "/uploads/avatar.jpg",
+      "javascript:alert(1)",
+      `data:image/png;base64,${"A".repeat(700_001)}`,
+    ]) {
+      expect(() => updateUserSettingsSchema.parse({ ...base, avatarUrl: bad })).toThrow();
+    }
   });
 
   it("rejects an unknown accent or locale", () => {
@@ -108,6 +141,71 @@ describe("updateUserSettings", () => {
     vi.mocked(getCurrentUser).mockResolvedValue({ id: "u1" } as never);
     await updateUserSettings({ ...valid, avatarUrl: "" });
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }));
+  });
+
+  it("turns an inline avatar into a stored file and keeps only its URL", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: "u1",
+      role: "player",
+      avatarUrl: "data:image/png;base64,OLD",
+    } as never);
+    vi.mocked(storeFile).mockResolvedValue({ id: "f1", key: "avatar/2026/10/new.png" } as never);
+    vi.mocked(deleteFileByUrl).mockResolvedValue(false);
+
+    await updateUserSettings({ ...valid, avatarUrl: "data:image/png;base64,AAAA" });
+
+    expect(storeFile).toHaveBeenCalledWith(
+      expect.objectContaining({ category: "avatar", actor: { id: "u1", role: "player" } }),
+    );
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ avatarUrl: `/api/files?key=${encodeURIComponent("avatar/2026/10/new.png")}` }),
+    );
+    // The previous value is offered for cleanup; for inline data that is a no-op.
+    expect(deleteFileByUrl).toHaveBeenCalledWith("data:image/png;base64,OLD", {
+      id: "u1",
+      role: "player",
+    });
+  });
+
+  it("drops the stored file when the picture is cleared", async () => {
+    const previous = `/api/files?key=${encodeURIComponent("avatar/2026/10/old.png")}`;
+    vi.mocked(getCurrentUser).mockResolvedValue({ id: "u1", role: "player", avatarUrl: previous } as never);
+    vi.mocked(deleteFileByUrl).mockResolvedValue(true);
+
+    await updateUserSettings({ ...valid, avatarUrl: "" });
+
+    expect(deleteFileByUrl).toHaveBeenCalledWith(previous, { id: "u1", role: "player" });
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }));
+    expect(storeFile).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unchanged external URL without touching storage", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: "u1",
+      role: "player",
+      avatarUrl: "https://cdn.example/me.png",
+    } as never);
+
+    await updateUserSettings({ ...valid, avatarUrl: "https://cdn.example/me.png" });
+
+    expect(storeFile).not.toHaveBeenCalled();
+    expect(deleteFileByUrl).not.toHaveBeenCalled();
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ avatarUrl: "https://cdn.example/me.png" }),
+    );
+  });
+
+  it("drops our stored file when the user switches to an external URL", async () => {
+    const previous = `/api/files?key=${encodeURIComponent("banner/2026/10/old.png")}`;
+    vi.mocked(getCurrentUser).mockResolvedValue({ id: "u1", role: "player", bannerUrl: previous } as never);
+    vi.mocked(deleteFileByUrl).mockResolvedValue(true);
+
+    await updateUserSettings({ ...valid, bannerUrl: "https://cdn.example/banner.png" });
+
+    expect(deleteFileByUrl).toHaveBeenCalledWith(previous, { id: "u1", role: "player" });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ bannerUrl: "https://cdn.example/banner.png" }),
+    );
   });
 });
 

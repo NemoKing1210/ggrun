@@ -12,6 +12,22 @@ const envSchema = z.object({
   PROXY_URL: z.string().optional().default(""),
   BOOTSTRAP_ADMIN_EMAIL: z.string().optional().default(""),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().optional().default(""),
+  // --- File storage (see lib/infrastructure/storage) ---
+  STORAGE_DRIVER: z.enum(["local", "s3"]).optional().default("local"),
+  /** Directory the `local` driver writes into, relative to the process cwd. */
+  STORAGE_LOCAL_ROOT: z.string().optional().default(".storage"),
+  /** Public base URL for direct object delivery (CDN / public bucket). Empty → the app serves the bytes. */
+  STORAGE_PUBLIC_URL: z.string().optional().default(""),
+  /** HMAC secret for private access links. Empty → AUTH_SECRET is used. */
+  STORAGE_SIGNING_SECRET: z.string().optional().default(""),
+  /** Hard ceiling for any single upload, whatever the category allows. */
+  STORAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional().default(8 * 1024 * 1024),
+  S3_BUCKET: z.string().optional().default(""),
+  S3_REGION: z.string().optional().default("us-east-1"),
+  S3_ENDPOINT: z.string().optional().default(""),
+  S3_ACCESS_KEY_ID: z.string().optional().default(""),
+  S3_SECRET_ACCESS_KEY: z.string().optional().default(""),
+  S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).optional().default("false"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).optional().default("development"),
 });

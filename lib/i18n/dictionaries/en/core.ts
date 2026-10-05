@@ -343,6 +343,17 @@ export const errors = {
   formConfigInvalidJson: "config — invalid JSON",
   formTitleRequired: "Enter the game title",
   formInvalid: "Some fields are invalid",
+  // --- file storage (FileError) ---
+  fileNotFound: "File not found",
+  fileForbidden: "You cannot manage this file",
+  fileEmpty: "The file is empty",
+  fileCategoryUnknown: "This upload category does not exist",
+  fileTooLarge: "File is too large — the limit is {max}",
+  fileTypeNotAllowed: "Unsupported file type. Allowed: {types}",
+  fileInvalidImage: "The image is damaged and could not be read",
+  fileImageDimensions: "Image size {width}×{height} px is outside the allowed range",
+  fileStorageUnavailable: "File storage is temporarily unavailable — try again in a moment",
+
   formUnknown: "Unknown error",
 } as const;
 

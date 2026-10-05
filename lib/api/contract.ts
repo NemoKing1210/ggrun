@@ -277,6 +277,56 @@ export const API_ENDPOINTS: readonly ApiEndpoint[] = [
   },
   {
     method: "get",
+    path: "/api/files",
+    operationId: "getFile",
+    tag: "Files",
+    summary: "Download an uploaded file",
+    description:
+      "Serves the bytes of one stored file. Public files (avatars, banners, game covers) are world-readable and cached immutably; private files need either a signed link or the owner/staff session. When a public base URL is configured the request answers with a 302 to the direct object URL instead of streaming. Without one, every kind of object is served here.",
+    auth: "public",
+    parameters: [
+      {
+        name: "key",
+        in: "query",
+        required: true,
+        schema: z.string(),
+        description:
+          "Storage key, e.g. `avatar/2026/10/<uuid>.jpg`. Missing or malformed → `MISSING_KEY`.",
+      },
+      {
+        name: "exp",
+        in: "query",
+        required: false,
+        schema: z.number().int(),
+        description: "Link expiry as unix seconds — only meaningful for a private file.",
+      },
+      {
+        name: "sig",
+        in: "query",
+        required: false,
+        schema: z.string(),
+        description: "HMAC signature over `key` and `exp` — only meaningful for a private file.",
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "The stored bytes with the row's MIME type and an immutable cache policy.",
+        contentType: "application/octet-stream",
+        schema: { type: "string", format: "binary" },
+      },
+      {
+        status: 302,
+        description: "Redirect to a direct public URL when `STORAGE_PUBLIC_URL` is configured.",
+      },
+      error(400, "MISSING_KEY", "No `key`, or it is not a well-formed storage key."),
+      error(403, "FORBIDDEN", "Private file, no valid link, and no owner/staff session."),
+      error(404, "NOT_FOUND", "No live row for the key, or the object is missing from the backend."),
+      error(500, "FAILED", "Storage or database failure."),
+    ],
+  },
+  {
+    method: "get",
     path: "/api/chat",
     operationId: "getChatHistory",
     tag: "Chat",

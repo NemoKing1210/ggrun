@@ -53,6 +53,13 @@ dice movement, leaderboard, public feed, player HQ and an admin console.
 7. **Design system is law** — raw checkboxes, rounded pills, soft shadows are
    off-policy (see §6).
 
+8. **Uploaded bytes never go in the database.** Files go through
+   `lib/infrastructure/storage` (driver port: `local` or `s3`, chosen by
+   `STORAGE_DRIVER`) and are described by a row in `files`; the
+   `lib/modules/files` slice owns categories, permissions and access links.
+   A column stores a URL, never a `data:` string. `lib/infrastructure/storage`
+   is the only code that touches object bytes.
+
 ## 3. Command line
 
 ```bash
@@ -81,6 +88,9 @@ pnpm db:setup       # push + seed + admin
 
 pnpm api:doc        # regenerate docs/API.md from lib/api/ (API reference;
                     # also served as /api-docs, /api/openapi.json, /api/openapi.md)
+
+pnpm files:migrate  # one-off: move legacy inline base64 avatars/banners from
+                    # the users table into the configured storage driver
 ```
 
 Production/deploy specifics: `Dockerfile` + `compose.yaml` +
@@ -92,16 +102,16 @@ Postgres maps to host port `5433`.
 | Path | Contents |
 | --- | --- |
 | `app/(public)/` | Landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/seasons` + `/seasons/[slug]/{board,leaderboard,feed,rules}`, `/players/[username]`, `/login`, `/register`, `/dashboard`, `/settings` |
-| `app/admin/` | `layout.tsx` (staff guard + nav + moderation-pending badge), dashboard, `seasons` + `seasons/[id]/{board,players}`, `users`, `games`, `audit`, `moderation`, `settings` |
-| `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings` — each `repository/ + service/ + actions/ + index.ts` |
+| `app/admin/` | `layout.tsx` (staff guard + nav + moderation-pending badge), dashboard, `seasons` + `seasons/[id]/{board,players}`, `users`, `games`, `files`, `audit`, `moderation`, `settings` |
+| `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings`, `files` — each `repository/ + service/ + actions/ + index.ts` |
 | `lib/api/` | API contract (single source of truth): `contract.ts` (endpoints + Zod body models), `realtime.ts` (Socket.IO rooms/events), `spec.ts` (OpenAPI 3.1 builder), `markdown.ts` (`docs/API.md`) |
 | `lib/engine/` | Pure domain: `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts` |
-| `lib/infrastructure/` | `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts` scrypt), `events/` (audit + feed), `logger/` |
+| `lib/infrastructure/` | `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts` scrypt), `events/` (audit + feed), `storage/` (file drivers `local` + `s3`, keys, signed links, env config), `logger/` |
 | `lib/use-cases/admin/actions/` | `helpers.ts` (`toError`, `revalidateAdmin`), `types.ts` (`AdminFormState`) |
 | `components/ui/` | `Input, Select, Textarea, Field, Badge, Chip, Switch, Range, Modal, BackLink, PageContainer, status, DebugError, ImageCropper, breadcrumbs…` |
 | `components/admin/`, `components/seasons/`, `components/game/`, `components/board/`, `components/dice/` | Screen-level components |
-| `db/schema/` | 12 tables, 5 pg enums (split files: users, seasons, players, games, moves, moderation, events, settings) |
-| `scripts/` | `seed-demo.ts`, `bootstrap-admin.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts` (tsx + dotenv) |
+| `db/schema/` | 13 tables, 6 pg enums (split files: users, seasons, players, games, moves, moderation, events, settings, files) |
+| `scripts/` | `seed-demo.ts`, `bootstrap-admin.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts`, `migrate-files.ts` (tsx + dotenv) |
 
 Key component/file pointers:
 
@@ -245,6 +255,32 @@ drawn is worse than no field at all. A path a test proves points at a real file
 does not have that problem — which is the whole reason the registry is checked
 against the folder rather than trusted.
 
+### Add a file category (or move an upload to storage)
+
+Files are never stored as text in a column. Bytes go through
+`lib/infrastructure/storage`; a row in `files` describes them.
+
+1. Declare the category in `lib/modules/files/service/categories.ts`:
+   allowed MIME types, `maxBytes`, `visibility` (`public`/`private`),
+   `upload` role (`user`/`staff`/`admin`), `delete` (`owner`/`none`) and
+   optional dimension bounds. The registry is the security boundary — it is
+   code on purpose, not admin-editable data.
+2. Add its label to `admin.files.categories` in the en/ru/uk dictionaries.
+3. Store with `storeFile({ category, data, actor })` from a service — never
+   `File` handling logic in a component. It sniffs the MIME type from the
+   bytes, checks both the category and the global ceiling, reads image
+   dimensions, writes the object and inserts the row; a row that fails to
+   insert removes the object again.
+4. Render with `fileUrl(row)` (public) or `fileAccessUrl(row, { expiresIn })`
+   (signed, for private). Delete with `deleteFile`/`deleteFileByUrl` — they
+   soft-delete the row and remove the object.
+5. Deleting a user or a game must not orphan files: drop the stored URL on
+   replace/removal like `updateUserSettings` does, or run
+   `pnpm files:migrate` for pre-existing inline data.
+
+`/admin/files` is the manual escape hatch: upload per category, filter, copy
+a working link (signed, for private files), delete.
+
 ### Add i18n keys or a language
 
 - Keys: add to `lib/i18n/dictionaries/{en,ru,uk}/<ns>.ts` **all three at once**
@@ -371,6 +407,13 @@ pnpm test:watch        # watch mode; for the inner loop only
   (`DATABASE_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`,
   `BOOTSTRAP_ADMIN_EMAIL/PASSWORD`, optional RAWG/Steam/GameSpot/IGDB keys,
   `PROXY_URL`).
+- File storage: `STORAGE_DRIVER=local|s3` (default `local`, files under
+  `STORAGE_LOCAL_ROOT`, git-ignored; Docker mounts the `storage` volume there).
+  `s3` reads `S3_BUCKET`/`S3_REGION`/`S3_ENDPOINT`/`S3_ACCESS_KEY_ID`/
+  `S3_SECRET_ACCESS_KEY`/`S3_FORCE_PATH_STYLE`; `STORAGE_PUBLIC_URL` makes
+  public objects redirect straight to a CDN/bucket; `STORAGE_SIGNING_SECRET`
+  (default `AUTH_SECRET`) signs private links. Local links and S3 pre-signed
+  links last at most 7 days.
 - Auth: cookie sessions, scrypt password hashes, `sessions` table; blocked
   users are filtered out by `getCurrentUser()`.
 - The public feed filter tabs come from one table,

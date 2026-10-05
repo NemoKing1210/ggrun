@@ -10,6 +10,17 @@ const OPTIONAL_KEYS = [
   "PROXY_URL",
   "BOOTSTRAP_ADMIN_EMAIL",
   "BOOTSTRAP_ADMIN_PASSWORD",
+  "STORAGE_DRIVER",
+  "STORAGE_LOCAL_ROOT",
+  "STORAGE_PUBLIC_URL",
+  "STORAGE_SIGNING_SECRET",
+  "STORAGE_MAX_UPLOAD_BYTES",
+  "S3_BUCKET",
+  "S3_REGION",
+  "S3_ENDPOINT",
+  "S3_ACCESS_KEY_ID",
+  "S3_SECRET_ACCESS_KEY",
+  "S3_FORCE_PATH_STYLE",
   "LOG_LEVEL",
   "NODE_ENV",
 ] as const;
@@ -47,6 +58,17 @@ describe("getEnv", () => {
     expect(env.PROXY_URL).toBe("");
     expect(env.BOOTSTRAP_ADMIN_EMAIL).toBe("");
     expect(env.BOOTSTRAP_ADMIN_PASSWORD).toBe("");
+    expect(env.STORAGE_DRIVER).toBe("local");
+    expect(env.STORAGE_LOCAL_ROOT).toBe(".storage");
+    expect(env.STORAGE_PUBLIC_URL).toBe("");
+    expect(env.STORAGE_SIGNING_SECRET).toBe("");
+    expect(env.STORAGE_MAX_UPLOAD_BYTES).toBe(8 * 1024 * 1024);
+    expect(env.S3_BUCKET).toBe("");
+    expect(env.S3_REGION).toBe("us-east-1");
+    expect(env.S3_ENDPOINT).toBe("");
+    expect(env.S3_ACCESS_KEY_ID).toBe("");
+    expect(env.S3_SECRET_ACCESS_KEY).toBe("");
+    expect(env.S3_FORCE_PATH_STYLE).toBe("false");
   });
 
   it("memoizes the parsed env across calls", async () => {
@@ -80,6 +102,30 @@ describe("getEnv", () => {
     vi.resetModules();
     const { getEnv } = await import("./env");
     expect(() => getEnv()).toThrow(/Invalid environment variables: NODE_ENV/);
+  });
+
+  it("rejects an unknown STORAGE_DRIVER and keeps a valid one", async () => {
+    vi.stubEnv("STORAGE_DRIVER", "gcs");
+    vi.resetModules();
+    const invalid = await import("./env");
+    expect(() => invalid.getEnv()).toThrow(/STORAGE_DRIVER/);
+
+    vi.stubEnv("STORAGE_DRIVER", "s3");
+    vi.resetModules();
+    const valid = await import("./env");
+    expect(valid.getEnv().STORAGE_DRIVER).toBe("s3");
+  });
+
+  it("coerces STORAGE_MAX_UPLOAD_BYTES to a positive integer", async () => {
+    vi.stubEnv("STORAGE_MAX_UPLOAD_BYTES", "1048576");
+    vi.resetModules();
+    const { getEnv } = await import("./env");
+    expect(getEnv().STORAGE_MAX_UPLOAD_BYTES).toBe(1_048_576);
+
+    vi.stubEnv("STORAGE_MAX_UPLOAD_BYTES", "0");
+    vi.resetModules();
+    const invalid = await import("./env");
+    expect(() => invalid.getEnv()).toThrow(/STORAGE_MAX_UPLOAD_BYTES/);
   });
 
   it("rejects an unknown LOG_LEVEL and accepts a valid one", async () => {

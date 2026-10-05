@@ -70,3 +70,4 @@ export const ieeEventStatusEnum = pgEnum("iee_event_status", [
   "rejected",
   "expired",
 ]);
+export const fileVisibilityEnum = pgEnum("file_visibility", ["public", "private"]);

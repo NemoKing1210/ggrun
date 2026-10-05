@@ -70,6 +70,12 @@ and the keyless FreeToGame provider work out of the box).
 Postgres data lives in the named volume `pgdata`. It survives `docker compose down`; `docker compose down -v` destroys it (schema is re-applied on next
 boot via `db:push`).
 
+Uploaded files live in the second named volume, `storage`, mounted at
+`/app/.storage` — the default local storage driver writes there, so uploads
+survive a redeploy. `docker compose down -v` destroys them too. To keep
+uploads off the host entirely, set `STORAGE_DRIVER=s3` (plus `S3_BUCKET` and
+credentials) and the volume stays unused.
+
 ### Custom public URL
 
 `NEXT_PUBLIC_SITE_URL` is inlined at build time — rebuild with the arg when
@@ -142,6 +148,9 @@ variable.
 - `NEXT_PUBLIC_SITE_URL` — absolute links / metadata base URL.
 - `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` — used only by
 `pnpm db:admin`; remove them from `.env` after the first run.
+- `STORAGE_DRIVER` (`local` | `s3`) with its settings — where uploaded files
+  live. See "Data persistence" above and the block in `.env.example`. Existing
+  inline base64 pictures are moved by `pnpm files:migrate`.
 
 ---
 

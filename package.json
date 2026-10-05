@@ -60,9 +60,12 @@
     "db:reset": "tsx scripts/db-reset.ts",
     "scenarios:doc": "tsx scripts/scenarios-doc.ts",
     "api:doc": "tsx scripts/api-doc.ts",
-    "iee:art": "tsx scripts/iee-art.ts"
+    "iee:art": "tsx scripts/iee-art.ts",
+    "files:migrate": "tsx scripts/migrate-files.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
+    "@aws-sdk/s3-request-presigner": "^3.1146.0",
     "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.102.4",
     "clsx": "^2.1.1",
