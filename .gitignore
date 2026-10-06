@@ -75,3 +75,22 @@ $RECYCLE.BIN/
 
 # stray screenshot dumps
 /Claude outputs/
+
+# local testing harness (Playwright probes, scratch-DB fixtures, reports)
+/probe/
+/.scratch/
+/scratch/
+/tmp/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+scripts/_tmp-*
+
+# dev logs & working notes (the journal lives in docs/WORKLOG.md)
+/.dev/
+/PLAN.md
+/*_PLAN.md
+/*_AUDIT.md
+/*_BUG.md
+/*.png
