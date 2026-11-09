@@ -1,9 +1,11 @@
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { boardCells, boards, gameRolls, gamesCatalog, seasonPlayers, seasons, type CatalogGame } from "@/db/schema";
 import { DEFAULT_SEASON_CONFIG, POOL_EMPTY_ERROR, SeasonConfigSchema, splitPoolFilters, type PoolEmptyReason } from "@/lib/engine";
-import type { SeasonConfig } from "@/lib/engine/types";
+import type { GameMatch, PickRequest, SeasonConfig, UsePick } from "@/lib/engine/types";
+import type { GamesView } from "@/lib/engine/iee/dsl";
+import { NO_POOL_SHAPE, drawDistinct, drawWeighted, offersChoice, type PoolShape } from "@/lib/engine/iee/resolve/pool";
 import type { ExternalGame } from "@/lib/modules/catalog/providers/provider";
 
 function parseSeasonConfig(raw: unknown): SeasonConfig {
@@ -53,8 +55,15 @@ async function resolveEffectiveFilters(
   return unlocked;
 }
 
+/**
+ * A game for a roll, or why there is none. `relaxed`: the holder's rules
+ * narrowed the pool to nothing and were set aside (spec §6.16); `favoured`:
+ * the game is one a rule of theirs favoured. `offered`: the games a choice
+ * offers (`chooseOfN`, §7.12) — two or more, `game` the first of them — and
+ * none when there is no choice.
+ */
 export type PoolPick =
-  | { game: CatalogGame; reason: null }
+  | { game: CatalogGame; reason: null; relaxed: boolean; favoured: boolean; offered: CatalogGame[] }
   | { game: null; reason: PoolEmptyReason };
 
 /**
@@ -163,28 +172,56 @@ async function importExternalGames(external: readonly ExternalGame[], provider: 
   );
 }
 
+const textArray = (values: readonly string[]) =>
+  sql`ARRAY[${sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )}]::text[]`;
+
 /**
- * Picks a random game for a roll: excludes blacklisted games and games
- * already rolled for this player in the current season.
- * Respects SeasonConfig.gamePool filters and optionally fetches from external provider.
- * When board.perCellGenre is enabled, overrides genres filter with the current cell's genres.
- *
- * Per source:
- *   - catalog — the local catalog only;
- *   - api     — only games its provider has supplied, and never anything else:
- *               a provider that fails or comes up empty is reported, not
- *               papered over with a local game;
- *   - hybrid  — the local catalog, topped up from the provider.
- *
- * Returns *why* it found nothing rather than a bare null. It also no longer
- * quietly hands back a game the participant has already played: the catalog
- * path used to fall through to "any non-blacklisted game at all" once the
- * unplayed ones ran out, so depending on a setting nobody can see, exhausting
- * the pool either repeated a game in silence or failed with a message naming
- * the wrong cause. The README promises that already-played games never come up;
- * that promise is now kept, and running out is reported instead.
+ * The games a rule of the holder names (spec §6.16), as SQL — what
+ * `gameMatches` in the engine says in TypeScript: a genre in the set in any
+ * case, a release year and a rating within their bounds. A game without a
+ * release date or a rating matches no bound on it.
  */
-export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick> {
+function matchSql(match: GameMatch): SQL {
+  const parts: SQL[] = [];
+  if (match.genres) {
+    parts.push(sql`EXISTS (SELECT 1 FROM unnest(${gamesCatalog.genres}) AS g WHERE lower(g) = ANY(${textArray(match.genres.map((x) => x.toLowerCase()))}))`);
+  }
+  if (match.years) {
+    parts.push(sql`${gamesCatalog.releasedAt} IS NOT NULL`);
+    if (match.years.min !== null) parts.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) >= ${match.years.min}`);
+    if (match.years.max !== null) parts.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) <= ${match.years.max}`);
+  }
+  if (match.rating) {
+    parts.push(sql`${gamesCatalog.rating} IS NOT NULL`);
+    if (match.rating.min !== null) parts.push(sql`${gamesCatalog.rating}::numeric >= ${match.rating.min}`);
+    if (match.rating.max !== null) parts.push(sql`${gamesCatalog.rating}::numeric <= ${match.rating.max}`);
+  }
+  return parts.length > 0 ? sql`(${sql.join(parts, sql` AND `)})` : sql`TRUE`;
+}
+
+/** What the holder's exclusions and requirements narrow the pool to, as SQL conditions. */
+function shapeSql(shape: Pick<PoolShape, "exclude" | "require">): SQL[] {
+  return [...shape.exclude.map((m) => sql`NOT ${matchSql(m)}`), ...shape.require.map((m) => matchSql(m))];
+}
+
+/** The season's pool for a participant: what it may draw from and in which order. */
+interface PoolScope {
+  pool: SeasonConfig["gamePool"];
+  filters: SeasonConfig["gamePool"]["filters"];
+  playedIds: string[];
+  /** The season's filters and the games the participant has had. */
+  whereClause: SQL;
+  orderExpr: SQL;
+  /** The season's primary tag, which even the last resort keeps. */
+  primaryCond: SQL | null;
+  /** What an API season draws from: only what its provider supplied. */
+  drawScope: SQL;
+}
+
+async function poolScope(seasonPlayerId: string): Promise<PoolScope> {
   const played = await db.select({ gameId: gameRolls.gameId }).from(gameRolls).where(eq(gameRolls.seasonPlayerId, seasonPlayerId));
   const playedIds = played.map((r) => r.gameId).filter((id): id is string => id !== null);
 
@@ -194,70 +231,32 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   // Under a primary tag, only it is required; the season's other genres and
   // tags rank instead of filtering (see lib/engine/pool/primary.ts).
   const split = splitPoolFilters(filters, { cellLocked });
-  const textArray = (values: readonly string[]) =>
-    sql`ARRAY[${sql.join(
-      values.map((v) => sql`${v}`),
-      sql`, `,
-    )}]::text[]`;
   // As a genre or as a tag: providers disagree on which is which.
   const primaryCond =
     split.primary.length > 0
       ? sql`(${gamesCatalog.genres} && ${textArray(split.primary)} OR ${gamesCatalog.tags} && ${textArray(split.primary)})`
       : null;
 
-  const conditions: unknown[] = [];
-  conditions.push(eq(gamesCatalog.isBlacklisted, false) as never);
-  if (playedIds.length > 0) {
-    conditions.push(notInArray(gamesCatalog.id, playedIds) as never);
-  }
-
-  const extraSql: unknown[] = [];
-  if (primaryCond) extraSql.push(primaryCond as never);
-  if (split.hardGenres.length) {
-    extraSql.push(sql`${gamesCatalog.genres} && ${textArray(split.hardGenres)}` as never);
-  }
-  if (split.hardTags.length) {
-    extraSql.push(sql`${gamesCatalog.tags} && ${textArray(split.hardTags)}` as never);
-  }
-  if (filters.platforms.length) {
-    extraSql.push(sql`${gamesCatalog.platform} = ANY(ARRAY[${sql.join(
-      filters.platforms.map((p) => sql`${p}`),
-      sql`, `,
-    )}]::text[])` as never);
-  }
-  if (filters.esrb.length) {
-    extraSql.push(sql`${gamesCatalog.esrb} = ANY(ARRAY[${sql.join(
-      filters.esrb.map((e) => sql`${e}`),
-      sql`, `,
-    )}]::text[])` as never);
-  }
+  const conditions: SQL[] = [];
+  conditions.push(eq(gamesCatalog.isBlacklisted, false));
+  if (playedIds.length > 0) conditions.push(notInArray(gamesCatalog.id, playedIds));
+  if (primaryCond) conditions.push(primaryCond);
+  if (split.hardGenres.length) conditions.push(sql`${gamesCatalog.genres} && ${textArray(split.hardGenres)}`);
+  if (split.hardTags.length) conditions.push(sql`${gamesCatalog.tags} && ${textArray(split.hardTags)}`);
+  if (filters.platforms.length) conditions.push(sql`${gamesCatalog.platform} = ANY(${textArray(filters.platforms)})`);
+  if (filters.esrb.length) conditions.push(sql`${gamesCatalog.esrb} = ANY(${textArray(filters.esrb)})`);
   if (filters.searchQuery && filters.searchQuery.trim().length) {
     const q = `%${filters.searchQuery.trim().toLowerCase()}%`;
-    extraSql.push(sql`lower(${gamesCatalog.title}) LIKE ${q}` as never);
+    conditions.push(sql`lower(${gamesCatalog.title}) LIKE ${q}`);
   }
-  if (filters.onlyWithCover) {
-    extraSql.push(sql`${gamesCatalog.coverUrl} IS NOT NULL AND ${gamesCatalog.coverUrl} <> ''` as never);
-  }
-  if (filters.metacriticMin !== null) {
-    extraSql.push(sql`${gamesCatalog.metacritic} >= ${filters.metacriticMin}` as never);
-  }
-  if (filters.metacriticMax !== null) {
-    extraSql.push(sql`${gamesCatalog.metacritic} <= ${filters.metacriticMax}` as never);
-  }
-  if (filters.ratingMin !== null) {
-    extraSql.push(sql`${gamesCatalog.rating}::numeric >= ${filters.ratingMin}` as never);
-  }
-  if (filters.ratingMax !== null) {
-    extraSql.push(sql`${gamesCatalog.rating}::numeric <= ${filters.ratingMax}` as never);
-  }
-  if (filters.yearMin !== null) {
-    extraSql.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) >= ${filters.yearMin}` as never);
-  }
-  if (filters.yearMax !== null) {
-    extraSql.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) <= ${filters.yearMax}` as never);
-  }
-
-  const whereClause = extraSql.length > 0 ? and(...(conditions as never[]), ...extraSql as never[]) : and(...(conditions as never[]));
+  if (filters.onlyWithCover) conditions.push(sql`${gamesCatalog.coverUrl} IS NOT NULL AND ${gamesCatalog.coverUrl} <> ''`);
+  if (filters.metacriticMin !== null) conditions.push(sql`${gamesCatalog.metacritic} >= ${filters.metacriticMin}`);
+  if (filters.metacriticMax !== null) conditions.push(sql`${gamesCatalog.metacritic} <= ${filters.metacriticMax}`);
+  if (filters.ratingMin !== null) conditions.push(sql`${gamesCatalog.rating}::numeric >= ${filters.ratingMin}`);
+  if (filters.ratingMax !== null) conditions.push(sql`${gamesCatalog.rating}::numeric <= ${filters.ratingMax}`);
+  if (filters.yearMin !== null) conditions.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) >= ${filters.yearMin}`);
+  if (filters.yearMax !== null) conditions.push(sql`EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) <= ${filters.yearMax}`);
+  const whereClause = and(...conditions)!;
 
   let baseOrder = sql`random()`;
   if (filters.ordering === "-metacritic") baseOrder = sql`${gamesCatalog.metacritic} DESC NULLS LAST, random()`;
@@ -271,26 +270,97 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   // draw picks among the first `maxCandidates`, so a horror game that is also
   // survival and action comes up more often than a horror game that is neither
   // — but every game drawn is a horror game.
-  const orderExpr: unknown =
+  const orderExpr =
     split.soft.length > 0
       ? sql`cardinality(ARRAY(SELECT unnest(${gamesCatalog.genres} || ${gamesCatalog.tags}) INTERSECT SELECT unnest(${textArray(split.soft)}))) DESC, ${baseOrder}`
       : baseOrder;
 
+  // An API season draws only from what its provider supplied. The draw used
+  // to run over the whole shared catalog with the season's ordering, and
+  // FreeToGame has no Metacritic score — so under the default "-metacritic"
+  // ordering, NULLS LAST put every locally rated game ahead of the provider's
+  // and an "API" season handed out the demo catalog. Rows imported by earlier
+  // rolls still count: they came from this provider, which is what keeps a
+  // season playable through a brief provider outage. A hybrid season mixes
+  // both by definition, so its draw stays unscoped.
+  const drawScope = pool.source === "api" ? and(whereClause, eq(gamesCatalog.externalSource, pool.provider))! : whereClause;
+  return { pool, filters, playedIds, whereClause, orderExpr, primaryCond, drawScope };
+}
+
+/**
+ * Picks a random game for a roll: excludes blacklisted games and games
+ * already rolled for this player in the current season.
+ * Respects SeasonConfig.gamePool filters and optionally fetches from external provider.
+ * When board.perCellGenre is enabled, overrides genres filter with the current cell's genres.
+ *
+ * Per source:
+ *   - catalog — the local catalog only;
+ *   - api     — only games its provider has supplied, and never anything else:
+ *               a provider that fails or comes up empty is reported, not
+ *               papered over with a local game;
+ *   - hybrid  — the local catalog, topped up from the provider.
+ *
+ * The holder's rules (`shape`, spec §6.16, §7.12) narrow what the season
+ * allows and favour games in it. When nothing is left with them, the
+ * exclusions and requirements are set aside and the draw goes on without them
+ * (`relaxed`): a rule never keeps a player from playing. A favoured game the
+ * first candidates do not reach joins them when the pool holds it. A choice
+ * (`shape.choice`) draws that many different games among them, at least that
+ * many candidates deep — `offered`; with fewer than two there is no choice.
+ *
+ * Returns *why* it found nothing rather than a bare null. It also no longer
+ * quietly hands back a game the participant has already played: the catalog
+ * path used to fall through to "any non-blacklisted game at all" once the
+ * unplayed ones ran out, so depending on a setting nobody can see, exhausting
+ * the pool either repeated a game in silence or failed with a message naming
+ * the wrong cause. The README promises that already-played games never come up;
+ * that promise is now kept, and running out is reported instead.
+ */
+export async function pickGameForRoll(
+  seasonPlayerId: string,
+  shape: Pick<PoolShape, "exclude" | "require" | "favor" | "choice"> = NO_POOL_SHAPE,
+  rng: () => number = Math.random,
+): Promise<PoolPick> {
+  const { pool, filters, playedIds, whereClause, orderExpr, primaryCond, drawScope } = await poolScope(seasonPlayerId);
+  const rules = shapeSql(shape);
+  const favouredIds = shape.favor.map((f) => f.gameId);
+  // A choice of n draws among at least n candidates (§7.12).
+  const reach = Math.max(pool.maxCandidates, shape.choice);
+
+  /** The first candidates of a scope, and the favoured games it holds that they do not reach. */
+  const draw = async (scope: SQL): Promise<CatalogGame[]> => {
+    const rows = await db.select().from(gamesCatalog).where(scope).orderBy(orderExpr).limit(reach);
+    const missing = favouredIds.filter((id) => !rows.some((row) => row.id === id));
+    if (missing.length > 0) rows.push(...(await db.select().from(gamesCatalog).where(and(scope, inArray(gamesCatalog.id, missing)))));
+    return rows;
+  };
+  /** The holder's rules first; with nothing left they are set aside. */
+  const drawShaped = async (scope: SQL): Promise<{ rows: CatalogGame[]; relaxed: boolean }> => {
+    if (rules.length > 0) {
+      const rows = await draw(and(scope, ...rules)!);
+      if (rows.length > 0) return { rows, relaxed: false };
+    }
+    return { rows: await draw(scope), relaxed: rules.length > 0 };
+  };
+  const picked = (rows: readonly CatalogGame[], relaxed: boolean): PoolPick => {
+    // A choice offers n different games, each weighing its favour; with fewer than two there is none.
+    if (offersChoice(shape, rows.length)) {
+      const offered = drawDistinct(rows, shape, shape.choice, rng);
+      return { game: offered[0]!, reason: null, relaxed, favoured: offered.some((g) => favouredIds.includes(g.id)), offered };
+    }
+    const game = drawWeighted(rows, shape, rng)!;
+    return { game, reason: null, relaxed, favoured: favouredIds.includes(game.id), offered: [] };
+  };
+
   // ---- catalog + hybrid: local filtered pool first ----
-  let candidates: CatalogGame[] = [];
+  let candidates: { rows: CatalogGame[]; relaxed: boolean } = { rows: [], relaxed: false };
   if (pool.source === "catalog" || pool.source === "hybrid") {
-    candidates = await db
-      .select()
-      .from(gamesCatalog)
-      .where(whereClause as never)
-      .orderBy(orderExpr as never)
-      .limit(pool.maxCandidates);
-    if (candidates.length > 0) {
-      const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
+    candidates = await drawShaped(whereClause);
+    if (candidates.rows.length > 0) {
       if (pool.source === "hybrid" && pool.autoFetchOnRoll && pool.provider !== "internal" && Math.random() < 0.5) {
         // fall through to API fetch attempt
       } else {
-        return { game: pick, reason: null };
+        return picked(candidates.rows, candidates.relaxed);
       }
     }
   }
@@ -307,27 +377,8 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
       console.warn("[pickGameForRoll] provider fetch failed", e);
     }
 
-    // An API season draws only from what its provider supplied. The draw used
-    // to run over the whole shared catalog with the season's ordering, and
-    // FreeToGame has no Metacritic score — so under the default "-metacritic"
-    // ordering, NULLS LAST put every locally rated game ahead of the provider's
-    // and an "API" season handed out the demo catalog. Rows imported by earlier
-    // rolls still count: they came from this provider, which is what keeps a
-    // season playable through a brief provider outage. A hybrid season mixes
-    // both by definition, so its draw stays unscoped.
-    const drawScope =
-      pool.source === "api"
-        ? and(whereClause as never, eq(gamesCatalog.externalSource, pool.provider) as never)
-        : whereClause;
-    const drawn = await db
-      .select()
-      .from(gamesCatalog)
-      .where(drawScope as never)
-      .orderBy(orderExpr as never)
-      .limit(pool.maxCandidates);
-    if (drawn.length > 0) {
-      return { game: drawn[Math.floor(Math.random() * drawn.length)]!, reason: null };
-    }
+    const drawn = await drawShaped(drawScope);
+    if (drawn.rows.length > 0) return picked(drawn.rows, drawn.relaxed);
     if (pool.source === "api") {
       return { game: null, reason: providerFailed ? "provider_unavailable" : await explainEmptyPool(playedIds, pool) };
     }
@@ -343,9 +394,7 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   }
 
   // ---- catalog + hybrid only from here on ----
-  if (candidates.length > 0) {
-    return { game: candidates[Math.floor(Math.random() * candidates.length)]!, reason: null };
-  }
+  if (candidates.rows.length > 0) return picked(candidates.rows, candidates.relaxed);
 
   // Last resort: ignore the season's filters, but never the two rules that are
   // not filters — a blacklisted game and a game this participant has already
@@ -356,22 +405,103 @@ export async function pickGameForRoll(seasonPlayerId: string): Promise<PoolPick>
   //
   // Nor the primary tag: it is not a filter either — it is what the season
   // is. A Horror season that has run out of horror games says so; it does not
-  // start handing out whatever is left.
+  // start handing out whatever is left. The holder's rules are set aside by
+  // now: the season's own filters narrowed the pool to nothing before them.
   const anyFallback = await db
     .select()
     .from(gamesCatalog)
     .where(
       and(
-        eq(gamesCatalog.isBlacklisted, false) as never,
-        ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds) as never] : []),
-        ...(primaryCond ? [primaryCond as never] : []),
+        eq(gamesCatalog.isBlacklisted, false),
+        ...(playedIds.length ? [notInArray(gamesCatalog.id, playedIds)] : []),
+        ...(primaryCond ? [primaryCond] : []),
       ),
     )
     .orderBy(sql`random()`)
-    .limit(1);
-  if (anyFallback[0]) return { game: anyFallback[0], reason: null };
+    .limit(Math.max(1, shape.choice));
+  if (anyFallback[0]) return picked(anyFallback, rules.length > 0);
 
   return { game: null, reason: await explainEmptyPool(playedIds, pool) };
+}
+
+/**
+ * The holder's games, as their rules at `beforeGameRoll` read them (wave C,
+ * spec §6.16): the genres of the last game they passed and of every game they
+ * passed this season, lowercase.
+ */
+export async function gamesViewOf(seasonPlayerId: string): Promise<GamesView> {
+  const rows = await db
+    .select({ genres: gamesCatalog.genres })
+    .from(gameRolls)
+    .innerJoin(gamesCatalog, eq(gamesCatalog.id, gameRolls.gameId))
+    .where(and(eq(gameRolls.seasonPlayerId, seasonPlayerId), eq(gameRolls.status, "passed")))
+    .orderBy(desc(gameRolls.resolvedAt), desc(gameRolls.rolledAt));
+  const lower = (genres: readonly string[]) => [...new Set(genres.map((g) => g.toLowerCase()))];
+  return { lastPassed: rows[0] ? lower(rows[0].genres) : null, passed: lower(rows.flatMap((r) => r.genres)) };
+}
+
+/**
+ * What a use may pick for the next game (wave C, `usage.pick`, spec §6.16),
+ * from what the season's pool offers the participant: the genres of its games,
+ * the decades they were released in. Games are searched for by title.
+ */
+export async function pickOffers(seasonPlayerId: string): Promise<{ genres: string[]; decades: number[] }> {
+  const { drawScope } = await poolScope(seasonPlayerId);
+  const genres = await db.execute<{ genre: string }>(
+    sql`SELECT DISTINCT lower(g) AS genre FROM ${gamesCatalog}, unnest(${gamesCatalog.genres}) AS g WHERE ${drawScope} ORDER BY 1 LIMIT 200`,
+  );
+  const decades = await db.execute<{ decade: number }>(
+    sql`SELECT DISTINCT (floor(EXTRACT(YEAR FROM ${gamesCatalog.releasedAt}) / 10) * 10)::int AS decade FROM ${gamesCatalog} WHERE ${drawScope} AND ${gamesCatalog.releasedAt} IS NOT NULL ORDER BY 1`,
+  );
+  return {
+    genres: genres.rows.map((r) => r.genre).filter((g) => g.length > 0),
+    decades: decades.rows.map((r) => Number(r.decade)).filter((d) => Number.isFinite(d)),
+  };
+}
+
+/** The games catalog's genres, lowercase and sorted — what a rule of the next game may name (wave C, spec §6.16). */
+export async function catalogGenres(): Promise<string[]> {
+  const rows = await db.execute<{ genre: string }>(
+    sql`SELECT DISTINCT lower(g) AS genre FROM ${gamesCatalog}, unnest(${gamesCatalog.genres}) AS g WHERE ${gamesCatalog.isBlacklisted} = false ORDER BY 1 LIMIT 500`,
+  );
+  return rows.rows.map((r) => r.genre).filter((g) => g.length > 0);
+}
+
+/** Games of the pool a participant could be handed, by title — what a pick of a game offers (spec §6.16). */
+export async function pickGames(seasonPlayerId: string, query: string, limit = 30): Promise<{ id: string; title: string }[]> {
+  const { drawScope } = await poolScope(seasonPlayerId);
+  const q = query.trim().toLowerCase();
+  return db
+    .select({ id: gamesCatalog.id, title: gamesCatalog.title })
+    .from(gamesCatalog)
+    .where(q ? and(drawScope, sql`lower(${gamesCatalog.title}) LIKE ${`%${q}%`}`) : drawScope)
+    .orderBy(sql`lower(${gamesCatalog.title})`)
+    .limit(limit);
+}
+
+/**
+ * The pick as it stands when the season's pool offers it to the participant
+ * (spec §6.16): a genre of its games, a decade it has games from, a game it
+ * could hand them — with the game's title; null when it offers no such thing.
+ */
+export async function offeredPick(seasonPlayerId: string, pick: PickRequest): Promise<UsePick | null> {
+  // A cell is the board's to offer, not the pool's (wave D, spec §6.18).
+  if ("cell" in pick) return null;
+  const { drawScope } = await poolScope(seasonPlayerId);
+  if ("genre" in pick) {
+    const genre = pick.genre.trim().toLowerCase();
+    const rows = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(and(drawScope, matchSql({ genres: [genre] }))).limit(1);
+    return rows.length > 0 ? { genre } : null;
+  }
+  if ("years" in pick) {
+    const [from, to] = pick.years;
+    // A decade: 1990–1999.
+    if (from % 10 !== 0 || to !== from + 9) return null;
+    const rows = await db.select({ id: gamesCatalog.id }).from(gamesCatalog).where(and(drawScope, matchSql({ years: { min: from, max: to } }))).limit(1);
+    return rows.length > 0 ? { years: [from, to] } : null;
+  }
+  const rows = await db.select({ id: gamesCatalog.id, title: gamesCatalog.title }).from(gamesCatalog).where(and(drawScope, eq(gamesCatalog.id, pick.gameId))).limit(1);
+  return rows[0] ? { gameId: rows[0].id, title: rows[0].title } : null;
 }
 
 /**

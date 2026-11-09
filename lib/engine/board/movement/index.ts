@@ -29,6 +29,88 @@ export function modifiedDice(
   };
 }
 
+/** What `afterDice` asked of the dice (spec §7.2, steps 3 and 5). */
+export type DiceRules = Pick<
+  IeeModifiers,
+  "rerollValues" | "bestOfTwo" | "worstOfTwo" | "resultDelta" | "resultCap" | "reverseLowerHalf"
+>;
+
+export const NO_DICE_RULES: DiceRules = {
+  rerollValues: [],
+  bestOfTwo: false,
+  worstOfTwo: false,
+  resultDelta: 0,
+  resultCap: null,
+  reverseLowerHalf: false,
+};
+
+export interface ThrownDice {
+  /** The faces that count. */
+  faces: number[];
+  /** Every throw in order — the first, then the second of a best- or worst-of-two — after its rerolls. */
+  throws: number[][];
+}
+
+/** Each die showing one of `values` is thrown again, once. */
+export function rerollFaces(faces: readonly number[], values: readonly number[], sides: number, rng: () => number): number[] {
+  if (values.length === 0) return [...faces];
+  return faces.map((face) => (values.includes(face) ? rollDice(1, sides, rng)[0]! : face));
+}
+
+const sumOf = (faces: readonly number[]) => faces.reduce((acc, die) => acc + die, 0);
+
+/**
+ * Steps 2–3 of the dice pipeline (spec §7.2), once the first throw is known:
+ * the faces asked for are thrown again, once each; a best- or worst-of-two
+ * throws the dice a second time — with the same rerolls — and keeps the throw
+ * better or worse *for the player*: the higher sum on a pass, the lower on a
+ * drop. Asked for both, the two cancel out and the first throw stands.
+ */
+export function finishThrow(
+  first: readonly number[],
+  composition: { count: number; sides: number },
+  outcome: "passed" | "dropped",
+  rng: () => number,
+  rules: DiceRules,
+): ThrownDice {
+  const one = rerollFaces(first, rules.rerollValues, composition.sides, rng);
+  if (rules.bestOfTwo === rules.worstOfTwo) return { faces: one, throws: [one] };
+  const two = rerollFaces(rollDice(composition.count, composition.sides, rng), rules.rerollValues, composition.sides, rng);
+  const higher = sumOf(two) > sumOf(one) ? two : one;
+  const lower = sumOf(two) < sumOf(one) ? two : one;
+  const playerWantsHigh = outcome === "passed";
+  const keep = rules.bestOfTwo === playerWantsHigh ? higher : lower;
+  return { faces: keep, throws: [one, two] };
+}
+
+export interface DiceResult {
+  /** The dice sum after the result modifiers: additions, then the cap, then at least 1. */
+  result: number;
+  /** Set by a direction rule: the dice decide which way the move goes. */
+  direction: "back" | "forward" | null;
+}
+
+/**
+ * Step 5: the result modifiers. Additions first, then the cap (the lowest
+ * asked for), then a minimum of 1 — a move made with dice is never a move of
+ * nothing. A direction rule sends the lower half of the dice range back and
+ * the upper half forward, judged on the faces as thrown.
+ */
+export function diceResult(faces: readonly number[], sides: number, rules: DiceRules): DiceResult {
+  return diceResultOfSum(sumOf(faces), faces.length, sides, rules);
+}
+
+/** `diceResult` for a throw known by its sum and how many dice made it. */
+export function diceResultOfSum(sum: number, count: number, sides: number, rules: DiceRules): DiceResult {
+  if (count === 0) return { result: 0, direction: null };
+  let result = sum + rules.resultDelta;
+  if (rules.resultCap !== null) result = Math.min(result, rules.resultCap);
+  result = Math.max(1, result);
+  // The lower half of count..count·sides: below the middle of the range.
+  const direction = rules.reverseLowerHalf ? (sum * 2 < count * (sides + 1) ? "back" : "forward") : null;
+  return { result, direction };
+}
+
 export function resolveMovement(input: MovementInput): MovementResult {
   const { config, outcome, balancePoints, streakPass, streakDrop, rng } = input;
   const balanceUsable = config.points.bonusAddsToRollOnPass && balancePoints > 0;
@@ -37,25 +119,21 @@ export function resolveMovement(input: MovementInput): MovementResult {
     outcome,
     input.modifiers,
   );
-  let diceResults: number[];
-  let signedStep: number;
-  if (outcome === "passed") {
-    diceResults = rollDice(diceCount, diceSides, rng);
-    signedStep = diceResults.reduce((acc, die) => acc + die, 0);
-    if (balanceUsable) signedStep += balancePoints;
-  } else {
-    diceResults = rollDice(diceCount, diceSides, rng);
-    let magnitude = diceResults.reduce((acc, die) => acc + die, 0);
-    if (config.dice.dropStreakMultiplier && streakDrop > 0) {
-      magnitude *= streakDrop + 1;
-    }
-    if (balanceUsable) magnitude += balancePoints;
-    signedStep = -magnitude;
+  const faces = input.dice?.faces ?? rollDice(diceCount, diceSides, rng);
+  const { result, direction } = input.dice ?? diceResult(faces, diceSides, NO_DICE_RULES);
+  // A pass goes forward and a drop back, unless a direction rule decided.
+  const back = direction === null ? outcome === "dropped" : direction === "back";
+  let magnitude = result;
+  if (outcome === "dropped" && config.dice.dropStreakMultiplier && streakDrop > 0) {
+    magnitude *= streakDrop + 1;
   }
+  // Points lengthen the move in whichever direction it goes.
+  if (balanceUsable) magnitude += balancePoints;
+  const signedStep = back ? -magnitude : magnitude;
   const newPosition = normalizePosition(input.currentPosition + signedStep, config.board);
   const newBalancePoints = balanceUsable && config.points.resetBalanceAfterUse ? 0 : balancePoints;
   return {
-    diceResults,
+    diceResults: [...faces],
     newPosition,
     newBalancePoints,
     newStreakPass: outcome === "passed" ? streakPass + 1 : 0,
@@ -95,7 +173,10 @@ export function applyMovementModifiers(
   const shifted = result.newPosition + modifiers.stepsDelta;
   const moved = result.newPosition - fromPosition;
   const directed = moved >= 0 ? Math.max(fromPosition, shifted) : Math.min(fromPosition, shifted);
-  const target = modifiers.forcedPosition ?? Math.max(0, directed);
+  // A cancelled move (`noMove`) leaves the token where the turn started; an
+  // explicit `forcedPosition` still beats it, as it beats everything else.
+  const settled = modifiers.cancelMove ? fromPosition : Math.max(0, directed);
+  const target = modifiers.forcedPosition ?? settled;
   return {
     ...result,
     newPosition: normalizePosition(target, board),

@@ -12,7 +12,8 @@ import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { getSeasonBySlug } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { EffectBadges } from "@/components/iee/EffectBadges";
-import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
+import { effectBadgesBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
@@ -70,8 +71,8 @@ export default async function SeasonLeaderboardPage({
 
   const kicker = format(t.core.common.seasonKicker, { season: season.title });
   const rows = await getLeaderboard(season.id);
-  // One query for the whole table — see getActiveEffectsBySeason.
-  const effects = await getActiveEffectsBySeason(season.id);
+  // One query for the whole table — see effectBadgesBySeason.
+  const effects = await effectBadgesBySeason(season.id, await getSeasonRegistry(season.id));
 
   return (
     <PageContainer>
@@ -146,7 +147,7 @@ export default async function SeasonLeaderboardPage({
                           {isBotUsername(row.username) ? (
                             <BotBadge label={t.core.common.bot} />
                           ) : null}
-                          <EffectBadges badges={effects.get(row.id) ?? []} t={t} />
+                          <EffectBadges badges={effects.get(row.id) ?? []} locale={locale} />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-sm">

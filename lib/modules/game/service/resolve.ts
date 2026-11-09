@@ -11,15 +11,17 @@ import {
   getApprovedRerollForRoll,
   getPendingCompletionForRoll,
   getPendingRerollForRoll,
-  pickGameForRoll,
   POOL_EMPTY_ERROR,
 } from "@/lib/modules/catalog/repository";
 import { canReroll, type RollOutcome } from "@/lib/engine";
 
 import { GameLoopError } from "./errors";
 import { assertActorAllowed, parseSeasonConfig } from "./helpers";
+import { endGameInFlight, pickNextGame, replacementPayload, startNextGame } from "./pick";
 import { applyResolvedTurn } from "./turn";
 import { notifyStaff, notifyUser } from "@/lib/modules/notifications/service";
+import { announceDecisions, hasPendingDecision } from "@/lib/modules/iee/decisions";
+import type { DecisionNote } from "@/lib/modules/iee/executor";
 import { log } from "@/lib/infrastructure/logger";
 
 export async function resolveGameRoll(
@@ -44,6 +46,8 @@ export async function resolveGameRoll(
    * animates a decision that is finished — a refresh cannot re-spin it.
    */
   wheel?: import("@/lib/engine").WheelOutcome;
+  /** The turn paused for the player's reaction (wave B, spec §7.4): nothing moved yet. */
+  reaction?: { decisionId: string; faces: number[] };
 }> {
   const actor = opts?.actor ?? (await getCurrentUser());
   if (!actor) throw new GameLoopError("gameLoginRequired");
@@ -86,6 +90,9 @@ export async function resolveGameRoll(
 
   const config = parseSeasonConfig(season.config);
 
+  // A turn paused for the player's reaction is answered, not reported again (spec §7.4).
+  if (await hasPendingDecision(sp.id, "reaction_window")) throw new GameLoopError("gameReactionPending");
+
   // Block concurrent pending requests for this roll.
   const pendingReroll = await getPendingRerollForRoll(roll.id);
   if (pendingReroll) throw new GameLoopError("gameRerollPending");
@@ -119,22 +126,27 @@ export async function resolveGameRoll(
       // and could not be resolved, and their reroll count had been spent on it.
       // Refusing costs them nothing and says why — and an approval stays
       // usable, so they can try again once the pool has games.
-      const picked = await pickGameForRoll(sp.id);
-      if (!picked.game) throw new GameLoopError(POOL_EMPTY_ERROR[picked.reason]);
-      const game = picked.game;
+      // The new pick is any pick (spec §7.12): a set-aside game that is due, or
+      // the pool as the holder's rules shape it — a choice they ask for opens.
+      const next = await pickNextGame(sp, config);
+      if (next.kind === "none") throw new GameLoopError(POOL_EMPTY_ERROR[next.reason]);
+      const decisions: DecisionNote[] = [];
       await db.transaction(async (tx) => {
-        await tx.update(gameRolls).set({ status: "rerolled", resolvedAt: new Date() }).where(eq(gameRolls.id, roll.id));
-        await tx.insert(gameRolls).values({ seasonPlayerId: sp.id, gameId: game.id, status: "rolled" });
+        if (!(await endGameInFlight(tx, sp, config, roll.id, null))) throw new GameLoopError("gameRollAlreadyResolved");
+        const started = await startNextGame(tx, sp, config, next, { origin: "reroll", replacedRollId: roll.id, item: null, decisions });
         await tx.update(seasonPlayers).set({ rerollsUsed: sp.rerollsUsed + 1 }).where(eq(seasonPlayers.id, sp.id));
         await tx.insert(eventLog).values({
           seasonId: sp.seasonId,
           seasonPlayerId: sp.id,
           eventType: "game_rerolled",
-          payload: approved
-            ? { oldGameId: roll.gameId, newGameId: game.id, title: game.title, requestId: approved.id }
-            : { oldGameId: roll.gameId, newGameId: game.id, title: game.title, instant: true },
+          payload: {
+            oldGameId: roll.gameId,
+            ...replacementPayload(started),
+            ...(approved ? { requestId: approved.id } : { instant: true }),
+          },
         });
       });
+      await announceDecisions(decisions);
       return {
         fromPosition: sp.position,
         toPosition: sp.position,

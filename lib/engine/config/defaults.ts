@@ -55,7 +55,7 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     autoFetchOnRoll: false,
   },
   iee: {
-    // Off by default: an existing season must opt in, and an empty entry map
+    // Off by default: an existing season must opt in, and an empty catalog
     // falls back to the cell's legacy numeric behaviour either way.
     enabled: false,
     inventorySize: 6,
@@ -64,7 +64,11 @@ export const DEFAULT_SEASON_CONFIG: SeasonConfig = {
     revealDropsInFeed: true,
     nothingWeight: 0,
     catchUp: { enabled: false, maxMultiplier: 1.5 },
-    entries: {},
     events: [],
+    maxActiveEffectsPerPlayer: null,
+    tagLimits: {},
+    disabledTags: [],
+    powerCeiling: null,
+    boardObjectsPerPlayer: 2,
   },
 };

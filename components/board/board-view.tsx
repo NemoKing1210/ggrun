@@ -16,6 +16,7 @@ import {
   FireIcon,
   FlagIcon,
   GiftIcon,
+  MapPinIcon,
   PuzzlePieceIcon,
   QueueListIcon,
   SignalIcon,
@@ -38,7 +39,9 @@ import { AvatarWithPresence } from "@/components/ui/Presence";
 import { BotBadge } from "@/components/ui/BotBadge";
 import { isBotUsername } from "@/lib/shared/utils/bots";
 import { EffectBadges } from "@/components/iee/EffectBadges";
-import type { EffectBadge } from "@/lib/engine";
+import { IeeArtTile } from "@/components/iee/IeeArtTile";
+import { IeeIcon } from "@/components/iee/IeeIcon";
+import type { BoardObjectView, EffectBadge } from "@/lib/engine";
 
 export type BoardPlayer = {
   username: string;
@@ -356,18 +359,41 @@ function MicroEffectBadge({ cell }: { cell: BoardCell }) {
   );
 }
 
+/**
+ * An object standing on a cell (wave D, spec §6.18): its item's picture in a
+ * small frame, tinted by what it does to whoever enters — a trap reads red,
+ * a boost amber.
+ */
+function ObjectMarker({ object, className = "size-5" }: { object: BoardObjectView; className?: string }) {
+  const { locale } = useI18n();
+  const name = object.name[locale] || object.name.ru;
+  const tone = object.polarity === "negative" ? "border-danger/60 bg-danger/15 text-danger" : "border-amber/60 bg-amber/15 text-amber";
+  return (
+    <span
+      title={name}
+      data-object={object.cell}
+      className={`inline-flex shrink-0 items-center justify-center border p-0.5 [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${tone} ${className}`}
+    >
+      <IeeIcon kind="item" glyph={object.glyph} entryKey={object.key} art={object.art} alt={name} className="size-full" />
+    </span>
+  );
+}
+
 export function BoardView({
   cells,
   players,
   rolls,
   stats,
   seasonStartedAt,
+  objects = [],
 }: {
   cells: BoardCell[];
   players: BoardPlayer[];
   rolls: BoardRoll[];
   stats: BoardStats;
   seasonStartedAt: string | null;
+  /** The objects standing on the cells (wave D, spec §6.18); one per cell. */
+  objects?: BoardObjectView[];
 }) {
   const { t, locale } = useI18n();
   const [mode, setMode] = useState<ViewMode>("grid");
@@ -463,6 +489,12 @@ export function BoardView({
     }
     return acc;
   }, [players]);
+
+  const objectAt = useMemo(() => {
+    const acc: Record<number, BoardObjectView> = {};
+    for (const o of objects) acc[o.cell] ??= o;
+    return acc;
+  }, [objects]);
 
   const leader = useMemo(
     () =>
@@ -616,7 +648,7 @@ export function BoardView({
                             {isBotUsername(p.username) ? (
                               <BotBadge label={t.core.common.bot} />
                             ) : null}
-                            <EffectBadges badges={p.effects} t={t} className="mt-1" />
+                            <EffectBadges badges={p.effects} locale={locale} className="mt-1" />
                           </div>
                         </div>
                         <div className="flex items-center gap-2 sm:block">
@@ -854,6 +886,7 @@ export function BoardView({
                                     </span>
                                   </span>
                                   <span className="flex shrink-0 items-center gap-1">
+                                    {objectAt[cell.position] ? <ObjectMarker object={objectAt[cell.position]!} /> : null}
                                     {here.length > 0 ? (
                                       <motion.span
                                         key={here.length}
@@ -951,6 +984,7 @@ export function BoardView({
                             {cell.label ?? t.core.cellTypes[cell.cellType]}
                           </span>
                           {isSpecial ? <MicroEffectBadge cell={cell} /> : null}
+                          {objectAt[cell.position] ? <ObjectMarker object={objectAt[cell.position]!} className="size-6" /> : null}
                           {here.length > 0 ? (
                             <CellAvatarStack occupants={here} ghosts={flying} />
                           ) : null}
@@ -1081,6 +1115,39 @@ export function BoardView({
                           </p>
                         ) : null}
                       </div>
+
+                      {/* What stands on the cell (wave D, spec §6.18): the object, what it does, whose it is. */}
+                      {objectAt[selected.position]
+                        ? (() => {
+                            const object = objectAt[selected.position]!;
+                            const owner = object.owner;
+                            return (
+                              <div className="mt-4 border border-dim/30 bg-background/40 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+                                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-dim">
+                                  <MapPinIcon className="size-3.5" aria-hidden />
+                                  {t.board.cell.object}
+                                </div>
+                                <div className="mt-2 flex items-start gap-2.5">
+                                  <IeeArtTile kind="item" entryKey={object.key} glyph={object.glyph} art={object.art} polarity={object.polarity} size="sm" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-foreground">{object.name[locale] || object.name.ru}</p>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-dim">{object.ruleText[locale] || object.ruleText.ru}</p>
+                                    <p className="mt-1.5 font-mono text-[10px] tracking-wide text-dim">
+                                      {owner ? (
+                                        <Link href={`/players/${owner.username}`} className="hover:text-amber hover:underline">
+                                          {format(t.board.cell.objectBy, { name: owner.displayName ?? owner.username })}
+                                        </Link>
+                                      ) : (
+                                        t.board.cell.objectByGone
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="mt-2 text-xs leading-relaxed text-dim">{t.board.cell.objectHint}</p>
+                              </div>
+                            );
+                          })()
+                        : null}
 
                       <div className="mt-4">
                         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-dim">

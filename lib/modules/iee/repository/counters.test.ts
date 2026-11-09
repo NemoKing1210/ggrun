@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SeasonPlayer } from "@/db/schema";
+import type { IeeInstanceRow, SeasonPlayer } from "@/db/schema";
+
+import { coreRegistry, type SeasonRegistry } from "../registry";
 
 import {
   countActivePlayers,
+  countPlayersBehind,
   getMoveCount,
+  getSeasonPlayerRow,
+  hasOpenRoll,
   getPlayerRank,
   getSeasonRollSeq,
   listTargetOptions,
   loadPoolContext,
   toPlayerSnapshot,
+  snapshotsOf,
 } from "./counters";
 
 /** Minimal thenable Drizzle stand-in: `select()` resolves the next queued rows. */
@@ -44,21 +50,47 @@ const dbFake = vi.hoisted(() => {
 });
 vi.mock("@/lib/infrastructure/db", () => ({ db: dbFake.db }));
 
-const effects = vi.hoisted(() => ({
-  countEffectsPerPlayer: vi.fn(),
-  countEffectsPerSeason: vi.fn(),
-  getActiveEffectRows: vi.fn(),
-  lastEffectDropSeq: vi.fn(),
+const instances = vi.hoisted(() => ({
+  listActiveInstances: vi.fn(),
+  poolCounters: vi.fn(),
 }));
-vi.mock("./effects", () => effects);
+vi.mock("./instances", () => instances);
 
-const inventory = vi.hoisted(() => ({
-  countHeldItems: vi.fn(),
-  countItemsPerPlayer: vi.fn(),
-  countItemsPerSeason: vi.fn(),
-  lastItemDropSeq: vi.fn(),
-}));
-vi.mock("./inventory", () => inventory);
+const REGISTRY = coreRegistry();
+
+/** A live instance of a core entry, as the instances reader returns it. */
+function live(key: string, overrides: Partial<IeeInstanceRow> = {}): IeeInstanceRow {
+  const def = REGISTRY.get(key)!;
+  return {
+    id: `inst-${key}`,
+    seasonId: "season-1",
+    entryId: def.entryId,
+    revisionId: def.revisionId,
+    kind: def.kind,
+    holderKind: "player",
+    holderPlayerId: "sp-1",
+    holderCellIndex: null,
+    holderRollId: null,
+    ownerPlayerId: null,
+    aimedPlayerId: null,
+    chosen: null,
+    params: {},
+    chargesLeft: def.kind === "item" ? 1 : null,
+    remaining: def.kind === "effect" ? 1 : null,
+    remainingUnit: def.kind === "effect" ? "rolls" : null,
+    anchorRollSeq: null,
+    countFromRollSeq: null,
+    status: "active",
+    endReason: null,
+    source: "cell_bonus",
+    sourceMoveId: null,
+    causeJournalId: null,
+    grantedRollSeq: 0,
+    grantedAt: new Date(0),
+    endedAt: null,
+    ...overrides,
+  };
+}
 
 function seasonPlayer(overrides: Partial<SeasonPlayer> = {}): SeasonPlayer {
   return {
@@ -80,8 +112,9 @@ function seasonPlayer(overrides: Partial<SeasonPlayer> = {}): SeasonPlayer {
 
 beforeEach(() => {
   dbFake.reset();
-  for (const fn of Object.values(effects)) fn.mockReset();
-  for (const fn of Object.values(inventory)) fn.mockReset();
+  for (const fn of Object.values(instances)) fn.mockReset();
+  instances.poolCounters.mockResolvedValue({ perSeason: {}, perPlayer: {}, lastDropRollSeq: {} });
+  instances.listActiveInstances.mockResolvedValue([]);
 });
 
 describe("season counters", () => {
@@ -103,6 +136,29 @@ describe("season counters", () => {
   it("reports no active participants when the query returns nothing", async () => {
     dbFake.selectResults.push([]);
     await expect(countActivePlayers("season-1")).resolves.toBe(0);
+  });
+});
+
+describe("participant lookups for the executor", () => {
+  it("reads a participant row, or null", async () => {
+    const row = seasonPlayer();
+    dbFake.selectResults.push([row], []);
+    await expect(getSeasonPlayerRow("sp-1")).resolves.toBe(row);
+    await expect(getSeasonPlayerRow("ghost")).resolves.toBeNull();
+  });
+
+  it("knows whether a game is in flight", async () => {
+    dbFake.selectResults.push([{ id: "roll-1" }], []);
+    await expect(hasOpenRoll("sp-1")).resolves.toBe(true);
+    await expect(hasOpenRoll("sp-1")).resolves.toBe(false);
+  });
+});
+
+describe("countPlayersBehind", () => {
+  it("counts the active rivals behind a cell, and none when no row comes back", async () => {
+    dbFake.selectResults.push([{ n: 2 }], []);
+    await expect(countPlayersBehind("season-1", "sp-1", 12)).resolves.toBe(2);
+    await expect(countPlayersBehind("season-1", "sp-1", 12)).resolves.toBe(0);
   });
 });
 
@@ -132,7 +188,8 @@ describe("getMoveCount", () => {
 
 describe("toPlayerSnapshot", () => {
   it("carries the row plus the rank and move history the guards need", async () => {
-    dbFake.selectResults.push([{ n: 2 }], [{ n: 5 }]);
+    // Rank, moves, rivals behind, the last move's dice.
+    dbFake.selectResults.push([{ n: 2 }], [{ n: 5 }], [{ n: 1 }], [{ dice: [4, 2] }]);
     await expect(toPlayerSnapshot(seasonPlayer())).resolves.toEqual({
       seasonPlayerId: "sp-1",
       position: 3,
@@ -140,61 +197,102 @@ describe("toPlayerSnapshot", () => {
       rollSeq: 4,
       moveCount: 5,
       rank: 3,
+      behind: 1,
+      lastRoll: 6,
       status: "active",
     });
+  });
+
+  it("knows no last roll before the first move (wave A, «Магнит»)", async () => {
+    dbFake.selectResults.push([{ n: 0 }], [{ n: 0 }], [{ n: 0 }], []);
+    await expect(toPlayerSnapshot(seasonPlayer())).resolves.toMatchObject({ rank: 1, behind: 0, lastRoll: null });
+  });
+});
+
+describe("snapshotsOf", () => {
+  it("reads where each remembered player stands, once each (spec §6.11)", async () => {
+    dbFake.selectResults.push([seasonPlayer()], [{ n: 0 }], [{ n: 3 }], [{ n: 2 }], [{ dice: [5] }]);
+    const snapshots = await snapshotsOf(["sp-1", "sp-1"]);
+    expect([...snapshots.keys()]).toEqual(["sp-1"]);
+    expect(snapshots.get("sp-1")).toMatchObject({ rank: 1, behind: 2, lastRoll: 5 });
+  });
+
+  it("asks nothing for nobody", async () => {
+    await expect(snapshotsOf([])).resolves.toEqual(new Map());
+    expect(dbFake.selectResults).toEqual([]);
   });
 });
 
 describe("loadPoolContext", () => {
-  it("merges the item and effect counters under their shared keys", async () => {
-    inventory.countItemsPerSeason.mockResolvedValue({ hex_scroll: 1 });
-    effects.countEffectsPerSeason.mockResolvedValue({ shield: 2 });
-    inventory.countItemsPerPlayer.mockResolvedValue({ hex_scroll: 1 });
-    effects.countEffectsPerPlayer.mockResolvedValue({ shield: 1 });
-    inventory.lastItemDropSeq.mockResolvedValue({ hex_scroll: 3 });
-    effects.lastEffectDropSeq.mockResolvedValue({ shield: 4 });
-    effects.getActiveEffectRows.mockResolvedValue([{ effectKey: "shield" }, { effectKey: "slowed" }]);
-    inventory.countHeldItems.mockResolvedValue(2);
+  it("passes the wheel's counters through, keyed by entry key", async () => {
+    const counters = { perSeason: { hex_scroll: 1, ward: 2 }, perPlayer: { ward: 1 }, lastDropRollSeq: { ward: 4 } };
+    instances.poolCounters.mockResolvedValue(counters);
     dbFake.selectResults.push([{ n: 9 }], [{ n: 3 }], [{ n: 1 }], [{ n: 7 }]);
 
-    const ctx = await loadPoolContext(seasonPlayer());
+    const ctx = await loadPoolContext(seasonPlayer(), REGISTRY);
 
-    expect(ctx.counters.perSeason).toEqual({ hex_scroll: 1, shield: 2 });
-    expect(ctx.counters.perPlayer).toEqual({ hex_scroll: 1, shield: 1 });
-    expect(ctx.counters.lastDropRollSeq).toEqual({ hex_scroll: 3, shield: 4 });
-    expect(ctx.activeEffectKeys).toEqual(["shield", "slowed"]);
-    expect(ctx.heldItemCount).toBe(2);
+    expect(instances.poolCounters).toHaveBeenCalledWith("season-1", "sp-1", REGISTRY);
+    expect(ctx.counters).toBe(counters);
     expect(ctx.seasonRollSeq).toBe(9);
     expect(ctx.playerCount).toBe(3);
   });
 
-  it("lets the effect counters win a key both pools happen to share", async () => {
-    inventory.countItemsPerSeason.mockResolvedValue({ shared: 1 });
-    effects.countEffectsPerSeason.mockResolvedValue({ shared: 2 });
-    inventory.countItemsPerPlayer.mockResolvedValue({});
-    effects.countEffectsPerPlayer.mockResolvedValue({});
-    inventory.lastItemDropSeq.mockResolvedValue({});
-    effects.lastEffectDropSeq.mockResolvedValue({});
-    effects.getActiveEffectRows.mockResolvedValue([]);
-    inventory.countHeldItems.mockResolvedValue(0);
+  it("names the statuses in force and counts the bonus items held", async () => {
+    instances.listActiveInstances.mockResolvedValue([
+      live("ward"),
+      live("swamp"),
+      live("hex_scroll", { id: "inv-1" }),
+      live("speed_boots", { id: "inv-2" }),
+    ]);
     dbFake.selectResults.push([{ n: 0 }], [{ n: 0 }], [{ n: 0 }], [{ n: 0 }]);
 
-    const ctx = await loadPoolContext(seasonPlayer());
-    expect(ctx.counters.perSeason).toEqual({ shared: 2 });
+    const ctx = await loadPoolContext(seasonPlayer(), REGISTRY);
+    expect(instances.listActiveInstances).toHaveBeenCalledWith("sp-1");
+    expect(ctx.activeEffectKeys).toEqual(["ward", "swamp"]);
+    expect(ctx.heldItemCount).toBe(2);
+    // Every active instance counts towards its tags, items and effects alike.
+    expect(ctx.activeTagCounts).toEqual({ protection: 1, movement: 2, directed: 1 });
+  });
+
+  it("does not let a planted penalty item fill the bonus inventory cap", async () => {
+    const hex = REGISTRY.get("hex_scroll")!;
+    const cursed = { ...hex, key: "cursed_scroll", revisionId: "rev-cursed", character: "penalty" as const };
+    const registry: SeasonRegistry = {
+      ...REGISTRY,
+      get: (ref) => (ref === "rev-cursed" ? cursed : REGISTRY.get(ref)),
+    };
+    instances.listActiveInstances.mockResolvedValue([
+      live("hex_scroll", { id: "inv-1" }),
+      live("hex_scroll", { id: "inv-2", revisionId: "rev-cursed" }),
+    ]);
+    dbFake.selectResults.push([{ n: 0 }], [{ n: 0 }], [{ n: 0 }], [{ n: 0 }]);
+
+    const ctx = await loadPoolContext(seasonPlayer(), registry);
+    expect(ctx.heldItemCount).toBe(1);
+  });
+
+  it("skips an instance whose revision the season does not play", async () => {
+    instances.listActiveInstances.mockResolvedValue([
+      live("ward", { revisionId: "00000000-0000-4000-8000-00000000dead" }),
+      live("swamp"),
+    ]);
+    dbFake.selectResults.push([{ n: 0 }], [{ n: 0 }], [{ n: 0 }], [{ n: 0 }]);
+
+    const ctx = await loadPoolContext(seasonPlayer(), REGISTRY);
+    expect(ctx.activeEffectKeys).toEqual(["swamp"]);
+  });
+
+  it("counts the rivals behind in the same round — the wheel hides what needs one", async () => {
+    // Season clock, players, then the snapshot's four (rank, moves, behind now, last roll), then behind the landing.
+    dbFake.selectResults.push([{ n: 11 }], [{ n: 2 }], [{ n: 1 }], [{ n: 4 }], [{ n: 0 }], [], [{ n: 3 }]);
+    const ctx = await loadPoolContext(seasonPlayer(), REGISTRY, 17);
+    expect(ctx.playersBehind).toBe(3);
   });
 
   it("builds the player snapshot from the same round of queries", async () => {
-    inventory.countItemsPerSeason.mockResolvedValue({});
-    effects.countEffectsPerSeason.mockResolvedValue({});
-    inventory.countItemsPerPlayer.mockResolvedValue({});
-    effects.countEffectsPerPlayer.mockResolvedValue({});
-    inventory.lastItemDropSeq.mockResolvedValue({});
-    effects.lastEffectDropSeq.mockResolvedValue({});
-    effects.getActiveEffectRows.mockResolvedValue([]);
-    inventory.countHeldItems.mockResolvedValue(0);
-    dbFake.selectResults.push([{ n: 11 }], [{ n: 2 }], [{ n: 1 }], [{ n: 4 }]);
+    dbFake.selectResults.push([{ n: 11 }], [{ n: 2 }], [{ n: 1 }], [{ n: 4 }], [{ n: 1 }], [{ dice: [3] }]);
 
-    const ctx = await loadPoolContext(seasonPlayer());
+    const ctx = await loadPoolContext(seasonPlayer(), REGISTRY);
     expect(ctx.player).toEqual({
       seasonPlayerId: "sp-1",
       position: 3,
@@ -202,6 +300,8 @@ describe("loadPoolContext", () => {
       rollSeq: 4,
       moveCount: 4,
       rank: 2,
+      behind: 1,
+      lastRoll: 3,
       status: "active",
     });
   });

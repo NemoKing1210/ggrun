@@ -10,3 +10,6 @@ docker/entrypoint.sh text eol=lf
 Dockerfile text eol=lf
 compose.yaml text eol=lf
 .dockerignore text eol=lf
+
+# Item packs are zip archives: their bytes are never touched.
+*.ggpack binary

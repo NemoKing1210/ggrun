@@ -101,36 +101,67 @@ function catalogWheres(fn: ts.Node): string[] {
   return out;
 }
 
-describe("every game drawn carries the primary tag", () => {
-  const fn = functionNode("lib/modules/catalog/repository/pool.ts", "pickGameForRoll");
-  const body = fn?.body?.getText() ?? "";
+/** The arguments of every call to `name` inside a function, as text. */
+function callArguments(fn: ts.Node, name: string): string[] {
+  const out: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name) {
+      out.push(node.arguments.map((a) => a.getText()).join(", "));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(fn);
+  return out;
+}
 
-  it("finds the picker and its catalog queries (a scan of nothing proves nothing)", () => {
+describe("every game drawn carries the primary tag", () => {
+  const POOL = "lib/modules/catalog/repository/pool.ts";
+  const fn = functionNode(POOL, "pickGameForRoll");
+  const body = fn?.body?.getText() ?? "";
+  // The season's pool is built in one place; the picker and the pick's offers draw from it.
+  const scopeFn = functionNode(POOL, "poolScope");
+  const scope = scopeFn?.body?.getText() ?? "";
+
+  it("finds the picker, its pool and its catalog queries (a scan of nothing proves nothing)", () => {
     expect(body.length).toBeGreaterThan(500);
+    expect(scope.length).toBeGreaterThan(500);
     expect(catalogWheres(fn!).length).toBeGreaterThanOrEqual(3);
   });
 
   it("matches it as a genre or as a tag", () => {
-    expect(body).toMatch(/gamesCatalog\.genres\} && \$\{textArray\(split\.primary\)\} OR \$\{gamesCatalog\.tags\} && \$\{textArray\(split\.primary\)\}/);
-    expect(body).toMatch(/if \(primaryCond\) extraSql\.push\(primaryCond/);
+    expect(scope).toMatch(/gamesCatalog\.genres\} && \$\{textArray\(split\.primary\)\} OR \$\{gamesCatalog\.tags\} && \$\{textArray\(split\.primary\)\}/);
+    expect(scope).toMatch(/if \(primaryCond\) conditions\.push\(primaryCond\)/);
+    expect(scope).toMatch(/const whereClause = and\(\.\.\.conditions\)/);
   });
 
   /**
    * The last resort ignores the season's filters — and must not ignore the
    * primary tag with them, or a Horror season that ran out of horror games
-   * would quietly start handing out anything.
+   * would quietly start handing out anything. Every other query draws from the
+   * season's pool: the draw takes a scope, and is only ever handed the pool's.
    */
   it("in every query, the last resort included", () => {
-    const offenders = catalogWheres(fn!).filter((w) => !/whereClause|drawScope|primaryCond/.test(w));
+    const offenders = catalogWheres(fn!).filter((w) => !/\bscope\b|whereClause|drawScope|primaryCond/.test(w));
     expect(offenders).toEqual([]);
+    expect(callArguments(fn!, "drawShaped").sort()).toEqual(["drawScope", "whereClause"]);
+    for (const arg of callArguments(fn!, "draw")) expect(arg).toMatch(/^(scope|and\(scope, \.\.\.rules\)!?)$/);
     const lastResort = catalogWheres(fn!).find((w) => /isBlacklisted/.test(w) && !/whereClause/.test(w));
     expect(lastResort, "the last-resort query").toBeDefined();
     expect(lastResort).toMatch(/primaryCond/);
   });
 
+  it("what a use may pick for the next game comes from the same pool", () => {
+    for (const name of ["pickGames", "offeredPick"]) {
+      const picker = functionNode(POOL, name);
+      expect(catalogWheres(picker!).length, name).toBeGreaterThan(0);
+      for (const where of catalogWheres(picker!)) expect(where, name).toMatch(/drawScope/);
+    }
+    expect(functionNode(POOL, "pickOffers")?.body?.getText() ?? "").toMatch(/WHERE \$\{drawScope\}[\s\S]*WHERE \$\{drawScope\}/);
+  });
+
   it("ranks by the season's other genres and tags instead of requiring them", () => {
-    expect(body).toMatch(/splitPoolFilters\(filters, \{ cellLocked \}\)/);
-    expect(body).toMatch(/INTERSECT SELECT unnest\(\$\{textArray\(split\.soft\)\}\)\)\) DESC/);
-    expect(body, "the old hard filters on the raw lists").not.toMatch(/textArray\(filters\.(genres|tags)\)/);
+    expect(scope).toMatch(/splitPoolFilters\(filters, \{ cellLocked \}\)/);
+    expect(scope).toMatch(/INTERSECT SELECT unnest\(\$\{textArray\(split\.soft\)\}\)\)\) DESC/);
+    expect(scope, "the old hard filters on the raw lists").not.toMatch(/textArray\(filters\.(genres|tags)\)/);
   });
 });

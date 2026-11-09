@@ -132,17 +132,23 @@ the wheel result, the inventory and status panels, the rules page, the admin
 catalog, and the season wizard's pools and drop table. An entry with no artwork
 keeps its glyph, so the catalog is never half-drawn while art is in progress.
 
+What draws an entry, first match wins (spec §12, `iconSource`): its uploaded
+**icon** (any pack; PNG or WebP, square, 64–512 px) → the **shipped artwork**
+above (system pack only) → its **glyph** → its **pack's icon** → the kind's
+glyph (`CubeIcon` / `BoltIcon`). Icons and artwork sit in the same frame, so
+the square/hexagon rule below holds for both.
+
 ### Square is carried, hex is inflicted
 
 The catalog pairs items and effects almost one to one — `lead_weights` grants
-`heavy_boots`, `lodestone` grants `tailwind`, `spare_die` grants `lucky`,
+`heavy_boots`, `speed_boots` grants `tailwind`, `spare_die` grants `lucky`,
 `jinx` grants `unlucky`. Any "heavy object" drawn for one reads identically as
 the other, so the distinction cannot be left to the artwork. It is structural,
 in `components/iee/IeeArtTile.tsx`:
 
 |                                 | Frame                                                                            | Tint                         |
 | ------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
-| **Item** — a thing in your bag  | 4px clipped square, the house cut used by every other control: an inventory slot | amber                        |
+| **Item** — a thing in your bag  | 4px clipped square, the house cut used by every other control: an inventory slot | amber; danger when cursed    |
 | **Effect** — a state you are in | **hexagon**                                                                      | polarity (danger / military) |
 
 The hexagon is the one shape in the interface that is deliberately _not_ the
@@ -153,6 +159,52 @@ carry meaning rather than decoration.
 **Consequence for the artwork: keep content inside the central ~75%.** An
 effect's image is hex-cropped, so anything in the corners is lost. This is the
 usual icon safe-area rule; it is not optional here.
+
+**Items that are never used** (wave A). A cursed item is carried but
+inflicted: in the inventory its card takes the penalty's frame and stripe
+(`border-danger/40 bg-danger/10`, `bg-danger`), its square tile the danger
+tint, a `danger` "Cursed" badge and a `FireIcon` "Works by itself" meta — and
+no Use button. A passive item keeps the amber card with a `military`
+"Passive" badge and a `BoltIcon` "Works while you hold it". An item that asks
+the player to pick (spec §6.10, «Амулет очищения») opens the same modal as the
+target picker, listing the player's own statuses and items it may take — each
+a row with its `sm` tile (hexagon or square) and name; an item with a target
+filter lists only the players the filter allows. A status that lasts until
+the next game shows its meter full, labelled "Until your next game is over".
+
+**The next game** (wave C). An item that asks for a pick for the next game
+opens the same modal: a genre or a decade as a grid of rows — genre names as
+the catalog spells them, decades as `1990–1999` in the counter face — and a
+game as a search box over a list of titles, searched as the player types,
+from what the season's pool could hand them. A choice of games (spec §7.12)
+is a `hud-card` panel of its own above the inventory, `CubeIcon` and the count
+in its heading: one card per game — the cover (128px tall; a `PhotoIcon`
+placeholder without one), the title in the display face, the platform,
+`GameMetaBadges` and `GameCategoryChips` as on the roll card — and a
+full-width primary "Take this one". While it waits, the roll card's button is
+disabled and its hint, in amber, points at the panel.
+
+**Completion conditions** (wave C, spec §6.17) are one block wherever a game
+is shown with what it must be passed with — the roll card under the game's
+chips, each game of the history, the judge's completion request: an
+amber-ruled aside, `FlagIcon` and "Completion conditions" in the display face
+at 10px, then one line per condition in the reader's language (Russian where
+the entry has none) and, in the counter face, "from «Entry»". The roll card
+adds the one-line hint that the game counts as passed only with them; the
+history and the request show the list alone.
+
+**Objects on the board** (wave D, spec §6.18) are drawn where the cell is: on
+the grid tile a 20px marker — the item's glyph in a clipped square frame,
+amber, red for a cursed item — sits at the top right, before the occupants
+count; the list row shows it at 24px before the avatars, and the dashboard's
+track at 16px in the cell's top-left corner, its tooltip naming the object
+and its owner. The marker is the
+one place `IeeIcon` appears outside the tuning surfaces: a board cell has no
+room for a tile, and the marker only says something stands there. The cell's
+modal introduces it properly — `MapPinIcon` and "Object on the cell" in the
+counter face, `IeeArtTile` `sm`, the name, the rule text and "Placed by …"
+linking the owner's profile, then the one-line hint that a move meets it
+first.
 
 ### Sizes: discovery vs tuning
 
@@ -191,6 +243,139 @@ appear thirty at a time down a leaderboard where a repeated glyph is noise.
 
 The glyph, not a sixth hue, is what separates the three idle statuses. Adding a
 status colour outside 1.2 dilutes the four that already carry meaning.
+
+### Season catalog rows (wizard, "Items & Effects")
+
+One row per library entry, in the pool it drops from. The `Switch` means
+**drops from the wheel**; an entry attached only because another hands it out
+stays switched off and says so on a `text-dim` mono line with a `LinkIcon`
+("Handed out by … — attached, does not drop"). Badges after the name, in this
+order: kind (`emerald` item / `violet` effect), the pack (`dim`, only when the
+library offers more than one pack — the pack filter chips appear with it), the
+pinned revision (`neutral` mono `r{n}`, only for an entry with several), and
+an over-power warning (`danger` with `ExclamationTriangleIcon`, a warning, not
+a block). A newer revision is offered under the rule text as an
+`border-l-2 border-amber/40` block: the label in amber mono caps, what changes
+(below), and a small `hud-btn` with `ArrowPathIcon` to switch — the old text stays
+visible above it until the admin does. An entry the library no longer offers
+keeps its row with a `text-dim` note; once detached, its switch is disabled.
+The season-wide limits sit in their own `hud-card` above the pools.
+
+Switching a pinned revision is never silent: the newer-revision block lists
+**what changes** — name, rule text, flavor, character, rarity, usage, duration,
+stacking, tags, power — each as `old` (dim, struck through) → `new`
+(`components/admin/RevisionDiff.tsx`), and the revision picker in the advanced
+row opens the same list in a `Modal` before anything is switched.
+
+Under each pool, the **drop table**: one line per slice — the entry's icon and
+name, an amber bar, its share as an `ammo-counter`, and after "Simulate 1000
+spins" the observed share beside it in `text-dim`. The mono line under the
+table says how many spins ran and the largest gap from the table, `military`
+"within chance" when every slice is within four standard deviations of its
+share and `danger` when chance does not explain it.
+
+### Constructor (`/admin/catalog`, admin only)
+
+Three screens behind the catalog tabs — **Library**, **Pack**, **Entry** — the
+last two appearing as tabs only while one is open (`Pack: <name>`,
+`Entry: <name>`), separated from the browse tabs by a 1px rule.
+
+- **Library.** Pack cards (`hud-card hud-lift`, a `PackTile`: the house square,
+  amber, the pack's icon or `Square3Stack3DIcon`) and one dense row per entry
+  (`IeeArtTile sm`, name, mono slug, the rule text at `dense`), badges in this
+  order: kind (`emerald`/`violet`), character (`military`/`danger`), rarity,
+  pack (only with several), **state** — `dim` "Not published", `amber`
+  "Changed since rN", `neutral` mono `rN` — then errors (`danger`). Filters are
+  the shared `IeeFilterBar`.
+- **Pack.** A header card (large `PackTile` with upload/remove, name, slug,
+  badges; Publish pack as the primary button, Export with a "Full history"
+  switch, Archive as `hud-btn-danger` behind a confirmation). Left column:
+  entries with their revisions, then **what publishing would do** — ready
+  entries, and blocked ones with the checks' sentences in `danger`. Right
+  column: the metadata form, "Attach to a season" (opens the wizard on the IEE
+  stage filtered to the pack), dependencies as small link buttons.
+- **Entry editor.** Forms on the left, one `hud-card` block each with an
+  anchor (`block-basics`, `-usage`, `-rules`, `-duration`, `-limits`,
+  `-interaction`, `-scenarios`, `-sandbox`) and an error count badge in its heading. A **rule** is a card
+  with the 6px cut: rows **When · If · Do** with amber labels; every field is a
+  typed control (select, chips, number, the `Number | Parameter | Random`
+  chips of a value, an entry picker grouped by pack). Where the rule text can
+  list it (an out-of-turn move) a fourth chip, **Die table**, turns the value
+  into a die and its rows: "Die: d" with a mono number, then one row per
+  stretch of faces — "up to" a mono number (the last row's follows the die and
+  is disabled), `→`, the value — with a `TrashIcon` per row past the second
+  and "Add a row" (`PlusIcon`, small `hud-btn`) under them. Where a number
+  may read the game (wave A: the distance, points, the dice result, an
+  out-of-turn move) and the moment knows something, a chip **From the game**
+  turns it into a select of what it reads — the dice result, items held, the
+  chosen player's last roll — and, for items held, a select of which (all,
+  bonus, cursed) and a mono "per item" number. An **instant**
+  duration hides the count and the stacking chips behind one `zinc-400` line
+  ("an instant effect keeps nothing…"), and its rules offer only "When
+  applied"; **Until the next game** hides the count only. What a moment cannot
+  hold is never offered; what no longer fits after a change stays, marked: a
+  `danger` left border on the condition or action and the check's sentence
+  under it. Each card ends with **Reads** — the rule's generated sentence, or an
+  `amber` note while it does not check. On the right, sticky: the preview — the
+  dashboard's own card (`PlayerEntryCard`), square for an item, hexagon for an
+  effect, with a RU/EN/UK switch — the rule text in all three languages, power
+  (`font-display` number, then "By power alone: Rare" and, when the power is
+  more than the entry's rarity carries, an `amber` badge; rarity also marks
+  what is unique, so nothing flags an entry weaker than its rarity), checks (`military` "no errors", `danger` errors,
+  `amber` warnings, each a button that scrolls to its field), revisions and
+  seasons. Save and Publish sit in the header and on top of the panel; unsaved
+  work shows an `amber` badge.
+- **Scenarios** (`block-scenarios`, last on the left). The block's heading
+  carries **Run scenarios** (`PlayIcon`, plain `hud-btn`, enabled in read-only
+  too — running reads nothing back) and the mono count "N of M green"
+  (`military` when all are, `danger` when any is red). Each scenario is a card
+  with the 6px cut, its border `military/40` when green and `danger/50` when
+  red; the header holds "Scenario N", a status `Badge` — `military` Green,
+  `danger` Red, `dim` Not run, `amber` Changed since the run — the mono code
+  input and duplicate / up / down / remove. Under the promise (three inputs)
+  and the optional note come two amber-labelled rows: **Given** — the holder
+  and the rival side by side (cell, points, last roll, the two switches, what each
+  carries as entry + copies rows) above the season's three settings — and
+  **When · Then**, a list of steps with the rules' left border (`danger` when
+  a check misses, `military/60` when all hold). A turn's step is five inputs in
+  a row — who rolls, the game, the dice total, **Then the dice draw** (a text
+  input of faces, "1, 4": the dice thrown again and a second throw, in order;
+  empty means none) and the cell. A step's checks include where each player
+  stands after it ("The holder stands on cell", "The rival stands on cell",
+  0–39) — what shows an out-of-turn move. Each check is a row: label,
+  typed control, and under it the last run's word — `military`
+  `CheckCircleIcon` "Holds", or `danger` "Expected X, got Y" with **Take what
+  happened** as an underlined text button. A step that could not run says why
+  in `danger` with `XCircleIcon`; **What happened** is a closed `<details>`
+  listing everything the step did, the material for its next check. The card
+  ends with **Reads**, the scenario as sentences. The verdicts are re-read
+  against the form as it changes: editing an expectation never needs a run,
+  editing Given, When or the rules turns the card to Not run / Changed. The
+  panel's checks add a "Scenarios" line with the same count, and say in
+  `danger` that scenarios are red instead of "no errors".
+- **Sandbox** (`block-sandbox`, after Scenarios). One row of controls — bots
+  (select 2–4), rounds (mono number, 1–50), seed (mono input with an
+  `ArrowPathIcon` "new seed" button that empties it), two small switches
+  (start with the entry, `core` on the wheels) — and **Play** as the primary
+  button on the right. After a run: a mono line "Seed · bots · rounds played",
+  then two tables side by side on wide screens (Bots: cell, points, status,
+  holds; Entries: dropped, handed out, used, fired, ran out, cells — numbers in
+  mono, right-aligned, the entry under test in `amber`), then **Turns**: one
+  `<details>` per round with the rules' left border, the first three open,
+  each turn a line — the bot, a `military`/`danger` passed/dropped badge, mono
+  dice and "from → to", the cell type, the wheel in `amber`, the points — with
+  its item uses under it (`danger` when refused) and its journal rows in small
+  mono `zinc-500`. A switch shows only the turns the entry took part in (on by
+  default). A change to what the entry plays shows an `amber` "Changed since
+  the run" badge in the block's heading; the seed stays in its box, so Play
+  repeats the run.
+- **Read-only** (the system pack in production, anything archived): the same
+  screens, controls disabled, an `amber` notice strip with `LockClosedIcon`,
+  and "Copy to my pack" as the way to change it.
+
+A player card shows the entry's hand-written **flavor** line under its rule
+text, `italic text-zinc-400`; it is never the rule text and never says what the
+entry does.
 
 ---
 

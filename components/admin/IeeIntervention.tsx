@@ -1,5 +1,7 @@
 import { ShieldExclamationIcon } from "@heroicons/react/24/outline";
 
+import type { IeeLocaleText } from "@/lib/engine";
+import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { revokeEffectAction, revokeItemAction } from "@/lib/modules/iee/actions";
 import { FormShell } from "@/components/admin/FormShell";
@@ -19,14 +21,19 @@ import { Input } from "@/components/ui/Input";
  * to compensate someone can adjust their balance, which is already audited.
  */
 
-export interface CarriedItem {
+/** What the staff panel draws an instance with — its name and glyph come from the registry. */
+interface CarriedBase {
   id: string;
+  name: IeeLocaleText;
+  glyph: string | null;
+}
+
+export interface CarriedItem extends CarriedBase {
   itemKey: string;
   chargesLeft: number;
 }
 
-export interface CarriedEffect {
-  id: string;
+export interface CarriedEffect extends CarriedBase {
   effectKey: string;
   polarity: string;
 }
@@ -38,28 +45,23 @@ export interface CarryingPlayer {
   effects: CarriedEffect[];
 }
 
-/** Catalog names live in the dictionaries; the tables only store keys. */
-function entryName(t: Dictionary, kind: "items" | "effects", key: string): string {
-  const camel = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
-  const node = (t.iee as unknown as Record<string, Record<string, { name?: string }>>)[kind]?.[
-    camel
-  ];
-  return node?.name ?? key;
-}
-
 function RevokeRow({
   seasonId,
   t,
+  locale,
   kind,
   entryKey,
+  entry,
   hidden,
   action,
   meta,
 }: {
   seasonId: string;
   t: Dictionary;
+  locale: Locale;
   kind: "item" | "effect";
   entryKey: string;
+  entry: CarriedBase;
   /** The id field this form submits, named as its action expects it. */
   hidden: { name: string; value: string };
   action: typeof revokeItemAction;
@@ -70,11 +72,10 @@ function RevokeRow({
       <IeeIcon
         kind={kind}
         entryKey={entryKey}
+        glyph={entry.glyph}
         className={kind === "effect" ? "size-5 text-violet-400" : "size-5 text-amber"}
       />
-      <span className="text-base text-zinc-200">
-        {entryName(t, kind === "item" ? "items" : "effects", entryKey)}
-      </span>
+      <span className="text-base text-zinc-200">{entry.name[locale]}</span>
       {meta ? (
         <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{meta}</span>
       ) : null}
@@ -103,10 +104,12 @@ export function IeeIntervention({
   seasonId,
   carrying,
   t,
+  locale,
 }: {
   seasonId: string;
   carrying: CarryingPlayer[];
   t: Dictionary;
+  locale: Locale;
 }) {
   return (
     <section className="hud-card overflow-hidden p-0 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
@@ -143,8 +146,10 @@ export function IeeIntervention({
                   key={e.id}
                   seasonId={seasonId}
                   t={t}
+                  locale={locale}
                   kind="effect"
                   entryKey={e.effectKey}
+                  entry={e}
                   hidden={{ name: "effectId", value: e.id }}
                   action={revokeEffectAction}
                   meta={t.iee.admin.intervene.status}
@@ -155,8 +160,10 @@ export function IeeIntervention({
                   key={i.id}
                   seasonId={seasonId}
                   t={t}
+                  locale={locale}
                   kind="item"
                   entryKey={i.itemKey}
+                  entry={i}
                   hidden={{ name: "inventoryId", value: i.id }}
                   action={revokeItemAction}
                   meta={i.chargesLeft > 1 ? `×${i.chargesLeft}` : undefined}

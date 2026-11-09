@@ -12,7 +12,7 @@
  * can be widened from a form is a boundary that will be widened by mistake.
  */
 
-export const FILE_CATEGORY_IDS = ["avatar", "banner", "game_cover", "attachment"] as const;
+export const FILE_CATEGORY_IDS = ["avatar", "banner", "game_cover", "attachment", "iee_icon"] as const;
 
 export type FileCategoryId = (typeof FILE_CATEGORY_IDS)[number];
 
@@ -42,6 +42,8 @@ export type FileCategory = {
     minHeight?: number;
     maxWidth?: number;
     maxHeight?: number;
+    /** Width must equal height. */
+    square?: boolean;
   };
 };
 
@@ -82,6 +84,20 @@ export const FILE_CATEGORIES: Record<FileCategoryId, FileCategory> = {
     visibility: "private",
     upload: "user",
     delete: "owner",
+  },
+  /**
+   * Item, effect and pack icons (docs/IEE_CONSTRUCTOR_SPEC.md §12). Admin-only
+   * like the rest of the library; removed by the library when nothing points
+   * at it any more, never by hand.
+   */
+  iee_icon: {
+    id: "iee_icon",
+    mimeTypes: ["image/png", "image/webp"],
+    maxBytes: 256 * 1024,
+    visibility: "public",
+    upload: "admin",
+    delete: "none",
+    dimensions: { minWidth: 64, minHeight: 64, maxWidth: 512, maxHeight: 512, square: true },
   },
 };
 

@@ -14,9 +14,13 @@ import {
   ArrowRightIcon,
   BoltIcon,
   CheckCircleIcon,
+  ClockIcon,
   CubeIcon,
   GiftIcon,
   FlagIcon,
+  ScaleIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
   StarIcon,
   TrophyIcon,
   UserMinusIcon,
@@ -53,14 +57,56 @@ function diceStr(payload: Record<string, unknown>): string | null {
 
 type Variant = "amber" | "military" | "danger" | "sky" | "violet" | "dim" | "neutral";
 
-/** Catalog names live in the dictionaries; the log only stores keys. */
-function ieeName(t: Dictionary, kind: "items" | "effects", key: string | null): string {
-  if (!key) return "—";
-  const camel = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
-  const node = (t.iee as unknown as Record<string, Record<string, { name?: string }>>)[kind]?.[
-    camel
-  ];
-  return node?.name ?? key;
+/**
+ * An item's or effect's name as the row recorded it. The executor snapshots
+ * the entry's names into the payload (spec §9.3), so history reads the same
+ * after an entry is renamed or leaves the season; a row without a snapshot
+ * shows its key.
+ */
+function entryName(p: Record<string, unknown>, key: string | null, locale: Locale): string {
+  const name = p.name;
+  if (name && typeof name === "object") {
+    const text = name as Partial<Record<Locale, unknown>>;
+    const local = text[locale] ?? text.ru;
+    if (typeof local === "string" && local.length > 0) return local;
+  }
+  return key ?? "—";
+}
+
+const facesOf = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === "number") : []);
+const sameFaces = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * What a reaction item did to the dice (wave B, spec §7.4, §9.3): a throw
+ * again shows the faces before and after; a second throw that lost, both
+ * throws; a change to the result, the result before and after. A row from
+ * before the throws were recorded shows the faces.
+ */
+function reactionText(value: unknown, a: Dictionary["feed"]["actions"]): string | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as { before?: unknown; thrown?: unknown; after?: unknown; result?: { before?: unknown; after?: unknown } };
+  const before = facesOf(r.before);
+  const after = facesOf(r.after);
+  if (before.length === 0) return null;
+  const join = (faces: readonly number[]) => faces.join(" + ");
+  const thrown = Array.isArray(r.thrown) ? r.thrown.map(facesOf).filter((t) => t.length > 0) : null;
+  if (thrown && thrown.length === 0 && typeof r.result?.before === "number" && typeof r.result?.after === "number") {
+    return format(a.reactedResult, { before: String(r.result.before), after: String(r.result.after) });
+  }
+  const last = thrown?.at(-1);
+  if (last && sameFaces(after, before) && !sameFaces(last, after)) {
+    return format(a.reactedKept, { before: join(before), thrown: join(last) });
+  }
+  return format(a.reacted, { before: join(before), after: join(after) });
+}
+
+/** The names a row recorded — the items a choice took or kept — in the reader's language. */
+function namesIn(value: unknown, locale: Locale): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((name) => {
+    const local = entryName({ name }, null, locale);
+    return local === "—" ? [] : [local];
+  });
 }
 
 function eventMeta(type: string): {
@@ -73,11 +119,14 @@ function eventMeta(type: string): {
     case "game_rerolled":
     case "reroll_requested":
       return { variant: "amber", Icon: CubeIcon, label: type };
+    case "game_postponed":
+      return { variant: "amber", Icon: ClockIcon, label: type };
     case "game_passed":
       return { variant: "military", Icon: CheckCircleIcon, label: type };
     case "game_dropped":
       return { variant: "danger", Icon: XCircleIcon, label: type };
     case "moved":
+    case "moved_out_of_turn":
       return { variant: "sky", Icon: ArrowsRightLeftIcon, label: type };
     case "player_joined":
       return { variant: "violet", Icon: UserPlusIcon, label: type };
@@ -97,6 +146,16 @@ function eventMeta(type: string): {
       return { variant: "military", Icon: GiftIcon, label: type };
     case "item_used":
       return { variant: "amber", Icon: BoltIcon, label: type };
+    case "item_moved":
+      return { variant: "amber", Icon: ArrowsRightLeftIcon, label: type };
+    case "intercepted":
+      return { variant: "sky", Icon: ShieldCheckIcon, label: type };
+    case "decision_made":
+      return { variant: "amber", Icon: ScaleIcon, label: type };
+    case "object_placed":
+      return { variant: "amber", Icon: MapPinIcon, label: type };
+    case "object_triggered":
+      return { variant: "danger", Icon: MapPinIcon, label: type };
     case "item_expired":
     case "item_revoked":
       return { variant: "dim", Icon: XCircleIcon, label: type };
@@ -173,10 +232,12 @@ function EventLine({
   entry,
   t,
   dict,
+  locale,
 }: {
   entry: SerializedFeedRow;
   t: Dictionary["feed"];
   dict: Dictionary;
+  locale: Locale;
 }) {
   const p = payloadOf(entry);
   const dice = diceStr(p);
@@ -184,19 +245,71 @@ function EventLine({
   switch (entry.eventType) {
     case "game_rolled": {
       const title = str(p.title) ?? t.unknownTitle;
+      // From a choice, or a set-aside game come back (wave C, IEE spec §7.12).
+      const line =
+        p.chosen === true
+          ? format(t.actions.rolledChosen, { title, count: String(num(p.offered) ?? "?") })
+          : p.returned === true
+            ? format(t.actions.rolledReturned, { title })
+            : format(t.actions.rolled, { title });
       return (
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
-          {format(t.actions.rolled, { title })}
+          {line}
         </>
       );
     }
     case "game_rerolled": {
       const title = str(p.title) ?? t.unknownTitle;
+      const key = str(p.itemKey);
+      // What came instead: a new game, one set aside earlier, or a choice (wave C, §7.12).
+      const choosing = num(p.choosing);
+      const into = choosing !== null ? format(t.actions.rerolledChoosing, { count: String(choosing) }) : format(t.actions.rerolledInto, { title });
+      const returned = p.returned === true ? t.actions.returnedMark : null;
+      if (key) {
+        return (
+          <>
+            <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+            {t.actions.rerolledWith}
+            <span className="font-bold text-amber">{entryName(p, key, locale)}</span>
+            {into}
+            {returned}
+          </>
+        );
+      }
       return (
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
-          {format(t.actions.rerolled, { title })}
+          {choosing !== null ? (
+            <>
+              {t.actions.rerolledBare}
+              {into}
+            </>
+          ) : (
+            format(t.actions.rerolled, { title })
+          )}
+          {returned}
+        </>
+      );
+    }
+    case "game_postponed": {
+      // A game set aside with an item (wave C, IEE spec §6.16): when it comes back, and what came now.
+      const key = str(p.itemKey);
+      const roll = num(p.comesBackOn);
+      const choosing = num(p.choosing);
+      const next = str(p.newTitle);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {format(t.actions.postponed, { title: str(p.title) ?? t.unknownTitle })}
+          <span className="font-bold text-amber">{entryName(p, key, locale)}</span>
+          {roll !== null ? format(t.actions.postponedBack, { roll: String(roll) }) : null}
+          {choosing !== null
+            ? format(t.actions.postponedChoosing, { count: String(choosing) })
+            : next
+              ? format(t.actions.postponedNext, { title: next })
+              : null}
+          {p.returned === true ? t.actions.returnedMark : null}
         </>
       );
     }
@@ -254,6 +367,20 @@ function EventLine({
         </>
       );
     }
+    case "moved_out_of_turn": {
+      // An item or effect moved them (spec §7.3); the entry is named where the season reveals it.
+      const from = num(p.from);
+      const to = num(p.to);
+      const key = str(p.key);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {format(t.actions.movedOutOfTurn, { from: from ?? "?" })}
+          <span className="ammo-counter font-bold text-amber">{to ?? "?"}</span>
+          {key ? format(t.actions.movedBy, { name: entryName(p, key, locale) }) : null}
+        </>
+      );
+    }
     case "season_started":
       return <>{t.seasonStarted}</>;
     case "player_joined":
@@ -279,22 +406,27 @@ function EventLine({
       );
     case "item_granted": {
       const key = str(p.itemKey);
+      // A cursed item is inflicted, not found (spec §7.5).
+      const cursed = p.polarity === "negative";
       return (
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
-          {t.actions.itemGranted}
-          <span className="font-bold text-military">{ieeName(dict, "items", key)}</span>
+          {cursed ? t.actions.itemCursed : t.actions.itemGranted}
+          <span className={`font-bold ${cursed ? "text-danger" : "text-military"}`}>{entryName(p, key, locale)}</span>
         </>
       );
     }
     case "item_used": {
       const key = str(p.itemKey);
       const target = str(p.targetUsername);
+      // A reaction item's use (wave B, spec §7.4): what it did to the dice.
+      const reacted = reactionText(p.reaction, t.actions);
       return (
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {t.actions.itemUsed}
-          <span className="font-bold text-amber">{ieeName(dict, "items", key)}</span>
+          <span className="font-bold text-amber">{entryName(p, key, locale)}</span>
+          {reacted ? <span className="font-mono text-xs text-dim">{reacted}</span> : null}
           {target ? (
             <>
               {t.actions.itemUsedOn}
@@ -309,14 +441,165 @@ function EventLine({
         </>
       );
     }
-    case "item_expired":
-    case "item_revoked": {
+    case "item_moved": {
+      // A bonus item changed hands (spec §6.12): on the receiver's line, named where the season reveals it.
       const key = str(p.itemKey);
+      const from = str(p.fromUsername);
+      // Taken by the rival who ended a move on the holder's cell (wave D, «Корона», spec §6.19).
+      const verb =
+        p.how === "stolen" ? t.actions.itemStolen : p.how === "traded" ? t.actions.itemTraded : p.how === "taken" ? t.actions.itemTaken : t.actions.itemReceived;
+      const fromWord =
+        p.how === "stolen"
+          ? t.actions.itemStolenFrom
+          : p.how === "traded"
+            ? t.actions.itemTradedFrom
+            : p.how === "taken"
+              ? t.actions.itemTakenFrom
+              : t.actions.itemReceivedFrom;
       return (
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
-          {t.actions.itemExpired}
-          <span className="text-dim">{ieeName(dict, "items", key)}</span>
+          {verb}
+          <span className="font-bold text-military">{key ? entryName(p, key, locale) : t.actions.itemUnnamed}</span>
+          {from ? (
+            <>
+              {fromWord}
+              <Link href={`/players/${from}`} className="font-bold text-amber hover:underline">
+                {from}
+              </Link>
+              {isBotUsername(from) ? <BotBadge label={dict.core.common.bot} className="ml-1.5 align-middle" /> : null}
+            </>
+          ) : null}
+        </>
+      );
+    }
+    case "intercepted": {
+      // A player's entry answered what reached them (spec §6.13): on their line, the rival who sent it named.
+      const key = str(p.key);
+      const from = str(p.fromUsername);
+      const words = t.actions.intercepted;
+      const how =
+        p.how === "reflected"
+          ? words.reflected
+          : p.how === "amplified"
+            ? format(words.amplified, { factor: String(p.factor ?? 2) })
+            : p.how === "replaced"
+              ? Number(p.with ?? 0) > 0
+                ? format(words.replaced, { cells: String(p.with) })
+                : words.stayed
+              : words.blocked;
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {words.lead}
+          <span className="font-bold text-sky-400">{entryName(p, key, locale)}</span>
+          {how}
+          {from ? (
+            <>
+              {words.from}
+              <Link href={`/players/${from}`} className="font-bold text-amber hover:underline">
+                {from}
+              </Link>
+              {isBotUsername(from) ? <BotBadge label={dict.core.common.bot} className="ml-1.5 align-middle" /> : null}
+            </>
+          ) : null}
+        </>
+      );
+    }
+    case "object_placed": {
+      // An item placed itself on the board (wave D, spec §6.18): on its owner's line, the cell named.
+      const words = t.actions.object;
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {words.placed}
+          <span className="font-bold text-amber">{entryName(p, str(p.itemKey), locale)}</span>
+          {format(words.placedOn, { cell: String(p.cell ?? "?") })}
+        </>
+      );
+    }
+    case "object_triggered": {
+      // An object acted on the move that entered its cell, and is gone (§6.18): on the mover's line, its owner named.
+      const words = t.actions.object;
+      const owner = str(p.ownerUsername);
+      const extended = Number(p.extended ?? 0);
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {words.entered}
+          <span className="font-bold text-danger">{entryName(p, str(p.itemKey), locale)}</span>
+          {format(words.enteredOn, { cell: String(p.cell ?? "?") })}
+          {p.stopped === true ? words.stopped : null}
+          {p.stopped === true && typeof p.to === "number" ? format(words.pushedTo, { to: String(p.to) }) : null}
+          {extended > 0 ? format(words.extended, { n: String(extended) }) : null}
+          {p.spun === "negative" ? words.spunPenalty : p.spun === "positive" ? words.spunBonus : null}
+          {owner ? (
+            <>
+              {words.owner}
+              <Link href={`/players/${owner}`} className="font-bold text-amber hover:underline">
+                {owner}
+              </Link>
+              {words.ownerEnd}
+            </>
+          ) : null}
+        </>
+      );
+    }
+    case "decision_made": {
+      // A choice an entry put to the player, answered (spec §7.6): what went, what stayed, and who chose.
+      const words = t.actions.decision;
+      const discarded = namesIn(p.discarded, locale);
+      const burned = namesIn(p.burned, locale);
+      const kept = namesIn(p.kept, locale);
+      const list = (names: string[]) =>
+        names.map((name, i) => (
+          <span key={i}>
+            {i > 0 ? ", " : ""}
+            <span className="font-bold text-military">{name}</span>
+          </span>
+        ));
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {words.lead}
+          <span className="font-bold text-amber">{entryName(p, str(p.key), locale)}</span>
+          {p.option === "retain" ? (
+            <>
+              {kept.length > 0 ? (
+                <>
+                  {words.kept}
+                  {list(kept)}
+                </>
+              ) : null}
+              {burned.length > 0 ? (
+                <>
+                  {words.burned}
+                  {list(burned)}
+                </>
+              ) : null}
+            </>
+          ) : discarded.length > 0 ? (
+            <>
+              {words.discarded}
+              {list(discarded)}
+            </>
+          ) : (
+            words.endured
+          )}
+          {p.how === "defaulted" ? words.defaulted : p.how === "judged" ? words.judged : null}
+        </>
+      );
+    }
+    case "item_expired":
+    case "item_revoked": {
+      const key = str(p.itemKey);
+      // A cursed item that did its work is shaken off, not lost.
+      const shed = p.character === "penalty";
+      return (
+        <>
+          <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
+          {shed ? t.actions.effectExpired : t.actions.itemExpired}
+          <span className="text-dim">{entryName(p, key, locale)}</span>
         </>
       );
     }
@@ -327,7 +610,7 @@ function EventLine({
         <>
           <PlayerLink entry={entry} fallback={t.fallbackPlayer} botLabel={dict.core.common.bot} />
           {refreshed ? t.actions.effectRefreshed : t.actions.effectApplied}
-          <span className="font-bold text-violet-400">{ieeName(dict, "effects", key)}</span>
+          <span className="font-bold text-violet-400">{entryName(p, key, locale)}</span>
         </>
       );
     }
@@ -341,7 +624,7 @@ function EventLine({
           {entry.eventType === "effect_expired"
             ? t.actions.effectExpired
             : t.actions.effectCleansed}
-          <span className="text-dim">{ieeName(dict, "effects", key)}</span>
+          <span className="text-dim">{entryName(p, key, locale)}</span>
         </>
       );
     }
@@ -567,7 +850,7 @@ export function FeedTimelineView({
                     {/* main message */}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm leading-snug text-zinc-200">
-                        <EventLine entry={entry} t={t.feed} dict={t} />
+                        <EventLine entry={entry} t={t.feed} dict={t} locale={locale} />
                       </p>
 
                       {/* payload chips */}

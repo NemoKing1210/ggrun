@@ -14,17 +14,22 @@
 
 /** Which event types each tab collects. "all" is the absence of a filter. */
 export const FEED_FILTER_TYPES = {
-  rolled: ["game_rolled", "game_rerolled", "reroll_requested", "reroll_approved", "reroll_rejected"],
+  rolled: ["game_rolled", "game_rerolled", "game_postponed", "reroll_requested", "reroll_approved", "reroll_rejected"],
   passed: ["game_passed"],
   dropped: ["game_dropped"],
   // Reaching the finish is the last thing a move can do, so it files here
   // rather than under the roster or the season's own milestones.
-  moved: ["moved", "player_finished"],
+  moved: ["moved", "moved_out_of_turn", "player_finished"],
   iee: [
     "item_granted",
     "item_used",
     "item_expired",
     "item_revoked",
+    "item_moved",
+    "intercepted",
+    "decision_made",
+    "object_placed",
+    "object_triggered",
     "effect_applied",
     "effect_expired",
     "effect_cleansed",

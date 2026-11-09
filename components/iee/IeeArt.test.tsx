@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { IEE_ART_DIR, IEE_ART_KEYS, ieeArtSrc, type IeeArtKind } from "@/components/iee/art";
 import { IeeIcon } from "@/components/iee/IeeIcon";
-import { listEffects, listItems } from "@/lib/engine";
+import { coreRegistry } from "@/lib/modules/iee/registry";
 import { renderManifest, scanArtKeys } from "@/scripts/iee-art";
 
 /**
@@ -33,9 +33,10 @@ const MAX_BYTES = 24 * 1024;
 const MAX_SIDE = 512;
 const RECOMMENDED_SIDE = 128;
 
+const VIEWS = coreRegistry().views();
 const catalogKeys: Record<IeeArtKind, Set<string>> = {
-  item: new Set(listItems().map((d) => d.key)),
-  effect: new Set(listEffects().map((d) => d.key)),
+  item: new Set(VIEWS.filter((v) => v.kind === "item").map((v) => v.key)),
+  effect: new Set(VIEWS.filter((v) => v.kind === "effect").map((v) => v.key)),
 };
 
 function dirFor(kind: IeeArtKind) {
@@ -155,14 +156,14 @@ describe("IEE artwork — the naming rule", () => {
 describe("IeeIcon — art wins, glyph covers", () => {
   it("renders the glyph for an entry with no artwork", () => {
     const html = renderToStaticMarkup(
-      <IeeIcon heroIcon="BeakerIcon" kind="item" entryKey="definitely_not_registered" />,
+      <IeeIcon glyph="BeakerIcon" kind="item" entryKey="definitely_not_registered" />,
     );
     expect(html).toContain("<svg");
     expect(html).not.toContain("<img");
   });
 
   it("renders the glyph when no key is passed at all", () => {
-    expect(renderToStaticMarkup(<IeeIcon heroIcon="BoltIcon" kind="effect" />)).toContain("<svg");
+    expect(renderToStaticMarkup(<IeeIcon glyph="BoltIcon" kind="effect" />)).toContain("<svg");
   });
 
   /**
@@ -171,17 +172,14 @@ describe("IeeIcon — art wins, glyph covers", () => {
    * to a glyph, and as art lands it asserts those entries switch to an <img>
    * pointing at the derived path. There is no state in which it tests nothing.
    */
-  const ALL = [
-    ...listItems().map((d) => ["item", d.key, d.heroIcon] as const),
-    ...listEffects().map((d) => ["effect", d.key, d.heroIcon] as const),
-  ];
+  const ALL = VIEWS.map((v) => [v.kind, v.key, v.glyph] as const);
 
   it("covers every catalog entry", () => {
     expect(ALL.length).toBeGreaterThanOrEqual(14);
   });
 
-  it.each(ALL)("%s %s renders art when it has some, its glyph when it does not", (kind, key, heroIcon) => {
-    const html = renderToStaticMarkup(<IeeIcon heroIcon={heroIcon} kind={kind} entryKey={key} />);
+  it.each(ALL)("%s %s renders art when it has some, its glyph when it does not", (kind, key, glyph) => {
+    const html = renderToStaticMarkup(<IeeIcon glyph={glyph} kind={kind} entryKey={key} />);
     if (IEE_ART_KEYS[kind].has(key)) {
       expect(html).toContain(`/iee/${IEE_ART_DIR[kind]}/${key}.webp`);
       expect(html).toContain("<img");

@@ -23,6 +23,16 @@ export type PlayerActionState = ActionState & {
    * the server. The client animates onto this result — it never picks one.
    */
   wheel?: WheelOutcome;
+  /**
+   * The turn paused for the player's reaction (wave B, spec §7.4): the faces
+   * the window shows. Nothing moved yet.
+   */
+  reactionFaces?: number[];
+  /**
+   * The roll opened a choice of games instead (wave C, IEE spec §7.12): how
+   * many it offers. No roll yet — the player takes one on the dashboard.
+   */
+  choosing?: number;
 };
 
 const toError = makeToError(GameLoopError);
@@ -49,12 +59,15 @@ export async function rollAction(
   if (!seasonPlayerId) {
     return { error: errorText(t.core.errors, "gameParticipantNotFound") };
   }
+  let choosing: number | undefined;
   try {
-    const rollId = await rollNewGame(seasonPlayerId);
+    const rolled = await rollNewGame(seasonPlayerId);
+    choosing = rolled.choice?.offered;
     log.info("game.roll", {
       actorId: actor?.id ?? null,
       seasonPlayerId,
-      rollId,
+      rollId: rolled.rollId,
+      choice: rolled.choice?.decisionId ?? null,
     });
   } catch (e) {
     return await toError(e, "game.roll", {
@@ -63,7 +76,7 @@ export async function rollAction(
     });
   }
   revalidatePath("/dashboard");
-  return {};
+  return choosing === undefined ? {} : { choosing };
 }
 
 export async function resolveAction(
@@ -91,6 +104,7 @@ export async function resolveAction(
   const rating = ratingRaw !== undefined && ratingRaw !== "" ? Number(ratingRaw) : undefined;
 
   let wheel: WheelOutcome | undefined;
+  let reactionFaces: number[] | undefined;
   try {
     const resolved = await resolveGameRoll({
       rollId,
@@ -100,6 +114,7 @@ export async function resolveAction(
       rating,
     });
     wheel = resolved.wheel;
+    reactionFaces = resolved.reaction?.faces;
     log.info("game.resolve", {
       actorId: actor?.id ?? null,
       seasonPlayerId,
@@ -116,5 +131,5 @@ export async function resolveAction(
   }
   revalidatePath("/dashboard");
   revalidatePath("/board");
-  return wheel === undefined ? {} : { wheel };
+  return { ...(wheel === undefined ? {} : { wheel }), ...(reactionFaces === undefined ? {} : { reactionFaces }) };
 }

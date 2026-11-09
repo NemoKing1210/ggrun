@@ -6,4 +6,5 @@ export * from "./service/turn";
 export * from "./service/use-item";
 export * from "./service/iee";
 export * from "./service/events";
+export * from "./service/decisions";
 export * from "./moderation";

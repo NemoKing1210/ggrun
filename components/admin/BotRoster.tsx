@@ -1,10 +1,9 @@
 "use client";
 
-import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useI18n } from "@/lib/i18n/client";
-import { dictText } from "@/lib/i18n/dict-text";
+import type { Locale } from "@/lib/i18n/config";
 import { format } from "@/lib/i18n/format";
-import { getItem } from "@/lib/engine";
+import type { EntryView } from "@/lib/engine";
 import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 import { Badge } from "@/components/ui/Badge";
 import { EffectBadges } from "@/components/iee/EffectBadges";
@@ -22,9 +21,10 @@ const PLAYER_VARIANT: Record<string, "emerald" | "sky" | "danger" | "dim"> = {
   withdrawn: "dim",
 };
 
-function itemLabel(dict: Dictionary, itemKey: string): string {
-  const def = getItem(itemKey);
-  return def ? dictText(dict, def.i18n.name) : itemKey;
+type Entries = Readonly<Record<string, EntryView>>;
+
+function entryName(entries: Entries, locale: Locale, key: string): string {
+  return entries[key]?.name[locale] ?? key;
 }
 
 /** Localized word for a journal action, for the "last action" line. */
@@ -36,6 +36,8 @@ function actionWord(t: BotsText, action: string): string {
       return t.actionResolve;
     case "item":
       return t.actionItem;
+    case "decide":
+      return t.actionDecide;
     case "tick":
       return t.actionTick;
     case "run_created":
@@ -53,7 +55,7 @@ function actionWord(t: BotsText, action: string): string {
 }
 
 /** Human-readable "what is this bot doing right now", from a structured step. */
-function activityText(t: BotsText, dict: Dictionary, step: BotActivityBroadcast): string {
+function activityText(t: BotsText, entries: Entries, locale: Locale, step: BotActivityBroadcast): string {
   switch (step.kind) {
     case "roll":
       return t.actRolled;
@@ -62,13 +64,15 @@ function activityText(t: BotsText, dict: Dictionary, step: BotActivityBroadcast)
       if (step.outcome === "dropped") return t.actDropped;
       return t.actRerolled;
     case "item": {
-      const name = step.itemKey ? itemLabel(dict, step.itemKey) : "";
+      const name = step.itemKey ? entryName(entries, locale, step.itemKey) : "";
       return step.targetUsername
         ? format(t.actUsedItemOn, { item: name, target: step.targetUsername })
         : format(t.actUsedItem, { item: name });
     }
     case "skip":
       return t.actSkipped;
+    case "decide":
+      return t.actDecided;
     case "error":
       return t.actError;
     default:
@@ -100,22 +104,23 @@ function latestFor(
  * Per-bot live panel: who the bot is, what it holds, what is on it, how much it
  * has done and — the point of the whole thing — what it is doing right now.
  *
- * Item and effect names come from `useI18n()` rather than a prop because the
- * catalog stores dictionary *paths*; passing the whole dictionary through the
- * console would duplicate a payload the client already has.
+ * Item and effect names and glyphs come from the season's entry views, which
+ * the page prepares once — the roster and the live steps carry only keys.
  */
 export function BotRoster({
   roster,
   activity,
   playerStatusLabels,
+  entries,
   t,
 }: {
   roster: readonly ConsoleRosterRow[];
   activity: readonly BotActivityBroadcast[];
   playerStatusLabels: Record<string, string>;
+  entries: Entries;
   t: BotsText;
 }) {
-  const { t: dict } = useI18n();
+  const { locale } = useI18n();
   const now = useNow();
 
   if (roster.length === 0) {
@@ -156,7 +161,7 @@ export function BotRoster({
               }`}
               title={step?.detail ?? bot.lastAction?.message ?? ""}
             >
-              {step ? activityText(t, dict, step) : t.rosterIdle}
+              {step ? activityText(t, entries, locale, step) : t.rosterIdle}
               {step && now !== null && (
                 <span className="ml-2 text-dim">{relative(t, now, step.at)}</span>
               )}
@@ -171,10 +176,11 @@ export function BotRoster({
                         <IeeArtTile
                           kind="item"
                           entryKey={item.itemKey}
-                          heroIcon={getItem(item.itemKey)?.heroIcon}
+                          glyph={entries[item.itemKey]?.glyph ?? null}
+                          art={entries[item.itemKey]?.art}
                           size="sm"
                         />
-                        {item.chargesLeft > 1 && (
+                        {item.chargesLeft !== null && item.chargesLeft > 1 && (
                           <span className="font-mono text-[10px] text-dim">×{item.chargesLeft}</span>
                         )}
                       </span>
@@ -187,8 +193,9 @@ export function BotRoster({
                       badges={bot.effects.map((e) => ({
                         effectKey: e.effectKey,
                         polarity: e.polarity === "positive" ? "positive" : "negative",
+                        name: entries[e.effectKey]?.name ?? { ru: e.effectKey, en: e.effectKey, uk: e.effectKey },
                       }))}
-                      t={dict}
+                      locale={locale}
                       max={4}
                     />
                   </span>

@@ -7,6 +7,8 @@ import { getActiveSeason, getSeasonById } from "@/lib/modules/season/repository/
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
 import { listAvailableProviders } from "@/lib/modules/catalog/providers/keys";
 import { listEventTemplates } from "@/lib/modules/iee/repository";
+import { catalogEditor } from "@/lib/modules/iee/catalog";
+import { SEASON_STAGES } from "@/lib/modules/catalog/pool/season-setup";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
@@ -30,8 +32,10 @@ export async function generateMetadata({
 
 export default async function SeasonSettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ stage?: string; pack?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user || !isStaff(user)) redirect("/login");
@@ -40,9 +44,15 @@ export default async function SeasonSettingsPage({
   const { id } = await params;
   const season = await getSeasonById(id);
   if (!season) notFound();
+  // The library's "attach to a season" opens the IEE stage filtered to a pack.
+  const query = await searchParams;
+  const initialStage = SEASON_STAGES.find((s) => s === query.stage);
+  const initialPack = query.pack && /^[0-9a-f-]{36}$/i.test(query.pack) ? query.pack : undefined;
 
   const parsed = SeasonConfigSchema.safeParse(season.config);
   const config = parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
+  // The library the IEE stage attaches from, and what the season attaches now.
+  const catalog = await catalogEditor(season.id);
   const availableProviders = await listAvailableProviders();
   // Only active templates are offered as a season's event pool.
   const eventOptions = (await listEventTemplates(true)).map((tpl) => ({
@@ -143,6 +153,10 @@ export default async function SeasonSettingsPage({
         seasonStatus={season.status}
         availableProviders={availableProviders}
         eventOptions={eventOptions}
+        ieeCatalog={{ options: catalog.options }}
+        initialCatalog={catalog.rows}
+        initialStage={initialStage}
+        initialPack={initialPack}
       />
     </div>
   );

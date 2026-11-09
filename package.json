@@ -54,6 +54,7 @@
     "db:status": "tsx scripts/db-status.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push --force",
+    "db:seed": "tsx scripts/seed-demo.ts",
     "db:setup": "pnpm db:push && pnpm db:seed && pnpm db:admin",
     "bots:tick": "tsx scripts/bots-tick.ts",
     "db:admin": "tsx scripts/bootstrap-admin.ts",
@@ -61,6 +62,9 @@
     "scenarios:doc": "tsx scripts/scenarios-doc.ts",
     "api:doc": "tsx scripts/api-doc.ts",
     "iee:art": "tsx scripts/iee-art.ts",
+    "iee:core": "tsx scripts/iee-core.ts",
+    "iee:import": "tsx scripts/iee-pack.ts import",
+    "iee:export": "tsx scripts/iee-pack.ts export",
     "files:migrate": "tsx scripts/migrate-files.ts"
   },
   "dependencies": {

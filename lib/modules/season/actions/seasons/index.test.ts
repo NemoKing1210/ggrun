@@ -190,6 +190,15 @@ describe("updateSeasonSettingsAction", () => {
     expect(cache.revalidatePath).toHaveBeenCalledWith("/board");
   });
 
+  it("hands the service the season's catalog when the wizard sent one, and only then", async () => {
+    const rows = [{ entryId: "e1", revisionId: "r1" }];
+    await updateSeasonSettingsAction(EMPTY, formData({ seasonId: "season-1", structured: "1", ieeCatalog: JSON.stringify(rows) }));
+    expect(service.updateSeasonSettings).toHaveBeenLastCalledWith(expect.objectContaining({ catalog: rows }));
+
+    await updateSeasonSettingsAction(EMPTY, formData({ seasonId: "season-1", structured: "1" }));
+    expect(service.updateSeasonSettings.mock.lastCall![0]).not.toHaveProperty("catalog");
+  });
+
   it("reports malformed legacy JSON without calling the service", async () => {
     const result = await updateSeasonSettingsAction(
       EMPTY,

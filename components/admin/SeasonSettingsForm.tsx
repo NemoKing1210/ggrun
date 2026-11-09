@@ -41,7 +41,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format } from "@/lib/i18n/format";
 import { DebugError } from "@/components/ui/DebugError";
 import { useActionToast } from "@/components/ui/toast";
-import type { SeasonConfig } from "@/lib/engine/types";
+import type { SeasonCatalogEntry, SeasonConfig } from "@/lib/engine/types";
 import { GAME_POOL_TEMPLATES } from "@/lib/modules/catalog/pool/templates";
 import {
   BOARD_DISTRIBUTIONS,
@@ -54,7 +54,7 @@ import {
 } from "@/lib/modules/catalog/pool/constants";
 import { f2gFilterSupport } from "@/lib/modules/catalog/pool/freetogame-taxonomy";
 import { DEFAULT_SEASON_CONFIG } from "@/lib/engine";
-import { IeeStage, type EventOption } from "@/components/admin/IeeStage";
+import { IeeStage, type EventOption, type IeeStageCatalog } from "@/components/admin/IeeStage";
 import {
   applyTemplate as applyTemplateToConfig,
   captureTemplateSnapshot,
@@ -95,12 +95,23 @@ type Props = {
   availableProviders?: Array<{ id: string; label: string }>;
   /** Active event templates, offered as the season's event pool. */
   eventOptions?: EventOption[];
+  /** The library the IEE stage attaches from, prepared on the server. */
+  ieeCatalog: IeeStageCatalog;
+  /** The season's catalog rows as stored — which entries it plays, tuned. */
+  initialCatalog: SeasonCatalogEntry[];
+  /** The stage to open on (`?stage=` — the library's "attach to a season" opens `iee`). */
+  initialStage?: SeasonStage;
+  /** A pack the IEE stage filters to on arrival. */
+  initialPack?: string;
 };
 
-export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, seasonStatus, availableProviders = [], eventOptions = [] }: Props) {
+export default function SeasonSettingsForm({ seasonId, initialConfig, initialRulesMd, seasonStatus, availableProviders = [], eventOptions = [], ieeCatalog, initialCatalog, initialStage, initialPack }: Props) {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<SeasonStage>("templates");
+  const [activeTab, setActiveTab] = useState<SeasonStage>(initialStage ?? "templates");
   const [cfg, setCfg] = useState<SeasonConfig>(initialConfig);
+  // The season's catalog is not config (spec §4.2), but the IEE stage edits it
+  // with the config and both are saved together.
+  const [catalogRows, setCatalogRows] = useState<SeasonCatalogEntry[]>(initialCatalog);
   const [poolAdvancedOpen, setPoolAdvancedOpen] = useState(false);
   const [rulesMd, setRulesMd] = useState(initialRulesMd ?? "");
   const [rulesMode, setRulesMode] = useState<SeasonConfig["rules"]["mode"]>(initialConfig.rules.mode);
@@ -131,7 +142,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const pendingSaveRef = useRef<{
     stage: SeasonStage | null;
     next: SeasonStage | null;
-    snapshot: { config: SeasonConfig; rulesMd: string };
+    snapshot: { config: SeasonConfig; rulesMd: string; catalog: SeasonCatalogEntry[] };
   } | null>(null);
   // The external provider last chosen, so flipping the source to "catalog" and
   // back does not throw the admin's explicit choice away.
@@ -144,9 +155,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const router = useRouter();
   // What the season looked like when loaded, refreshed on every save. Stages
   // are "changed" relative to this, so the bar goes quiet again once saved.
-  const [baseline, setBaseline] = useState<{ config: SeasonConfig; rulesMd: string }>({
+  const [baseline, setBaseline] = useState<{ config: SeasonConfig; rulesMd: string; catalog: SeasonCatalogEntry[] }>({
     config: initialConfig,
     rulesMd: initialRulesMd ?? "",
+    catalog: initialCatalog,
   });
   const storageKey = `ggrun:season-setup:${seasonId}`;
   // Initial setup has nothing to compare against — every stage would read as
@@ -158,6 +170,10 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
   const updateCfg: typeof setCfg = (updater) => {
     markTouched();
     setCfg(updater);
+  };
+  const updateCatalog = (next: SeasonCatalogEntry[]) => {
+    markTouched();
+    setCatalogRows(next);
   };
   const updateRulesMd = (value: string) => {
     markTouched();
@@ -189,7 +205,9 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     }
   }, [storageKey, confirmedStages]);
 
-  const dirtyStages = isNewSeason ? [] : editedStages(baseline, { config: cfg, rulesMd }, touchedStages);
+  const dirtyStages = isNewSeason
+    ? []
+    : editedStages(baseline, { config: cfg, rulesMd, catalog: catalogRows }, touchedStages);
   // Commit the wizard's progress only once the server has accepted the save.
   // A refused save leaves the admin on the stage they were on, with the toast
   // saying why.
@@ -261,6 +279,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     }
     updateCfg((c) => resetStageOfConfig(c, activeTab));
     if (activeTab === "templates") setTplSnapshot(null);
+    if (activeTab === "iee") updateCatalog([]);
     if (activeTab === "rules") {
       updateRulesMd("");
       updateRulesMode(DEFAULT_SEASON_CONFIG.rules.mode);
@@ -285,7 +304,7 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     pendingSaveRef.current = {
       stage,
       next: stage ? nextPendingStage(stage, confirmedStages) : null,
-      snapshot: { config: cfg, rulesMd },
+      snapshot: { config: cfg, rulesMd, catalog: catalogRows },
     };
     formData.set("structured", "1");
     formData.set("seasonId", seasonId);
@@ -336,10 +355,11 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
     // from the template, undoing a host who cleared it on purpose.
     formData.set("filters_primaryTag", cfg.gamePool.filters.primaryTag ?? "");
     formData.set("filters_ordering", cfg.gamePool.filters.ordering);
-    // `entries` is keyed by catalog key, so it cannot be flattened into named
-    // inputs at compile time. The controls above are all visual; this is only
-    // the wire format.
+    // `tagLimits` is keyed by tag and the catalog is a list of rows, so neither
+    // flattens into named inputs at compile time. The controls are all visual;
+    // this is only the wire format.
     formData.set("iee", JSON.stringify(cfg.iee));
+    formData.set("ieeCatalog", JSON.stringify(catalogRows));
     formAction(formData);
   };
 
@@ -527,8 +547,8 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                   />
                   <div className="hud-card p-3 bg-black/30 text-xs text-zinc-400">
                     {format(t.admin.settings.movementInfo, {
-                      balance: cfg.points.bonusAddsToRollOnPass ? " + balance" : "",
-                      streak: cfg.dice.dropStreakMultiplier ? " × streak" : "",
+                      balance: cfg.points.bonusAddsToRollOnPass ? t.admin.settings.movementBalance : "",
+                      streak: cfg.dice.dropStreakMultiplier ? t.admin.settings.movementStreak : "",
                     })}
                   </div>
                 </div>
@@ -694,7 +714,15 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
             </div>
           )}
           {activeTab === "iee" && (
-            <IeeStage cfg={cfg} onChange={updateCfg} events={eventOptions} />
+            <IeeStage
+              cfg={cfg}
+              onChange={updateCfg}
+              events={eventOptions}
+              catalog={ieeCatalog}
+              rows={catalogRows}
+              onRowsChange={updateCatalog}
+              initialPack={initialPack}
+            />
           )}
 
           {activeTab === "rules" && (
@@ -745,11 +773,29 @@ export default function SeasonSettingsForm({ seasonId, initialConfig, initialRul
                 </div>
                 <div>
                   <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.dice}</strong>
-                  <p className="text-zinc-300">d{cfg.dice.sides} · pass {cfg.dice.passDiceCount} / drop {cfg.dice.dropDiceCount}{cfg.dice.dropStreakMultiplier ? " · streak ×" : ""}</p>
+                  <p className="text-zinc-300">
+                    {format(t.rules.diceDetails, {
+                      sides: String(cfg.dice.sides),
+                      pass: String(cfg.dice.passDiceCount),
+                      drop: String(cfg.dice.dropDiceCount),
+                      streak: cfg.dice.dropStreakMultiplier ? t.rules.streakOn : t.rules.streakOff,
+                    })}
+                  </p>
                 </div>
                 <div>
                   <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.points}</strong>
-                  <p className="text-zinc-300">start {cfg.points.startingBalance} · {cfg.points.bonusAddsToRollOnPass ? "bonus+" : "no bonus"} · {cfg.points.resetBalanceAfterUse ? "reset" : "retain"} · rerolls {cfg.rerolls.allowed ? `up to ${cfg.rerolls.limitPerGame}` : "off"}</p>
+                  <p className="text-zinc-300">
+                    {format(t.rules.pointsDetails, {
+                      balance: String(cfg.points.startingBalance),
+                      bonus: !cfg.points.bonusAddsToRollOnPass
+                        ? t.rules.bonusOff
+                        : cfg.points.resetBalanceAfterUse
+                          ? t.rules.bonusSpent
+                          : t.rules.bonusKept,
+                    })}
+                    {" · "}
+                    {cfg.rerolls.allowed ? format(t.rules.rerollsOn, { limit: String(cfg.rerolls.limitPerGame) }) : t.rules.rerollsOff}
+                  </p>
                 </div>
                 <div>
                   <strong className="font-display uppercase tracking-wide text-amber">{t.rules.sections.board}</strong>

@@ -178,6 +178,23 @@ export interface NotificationReadBroadcast {
   seq?: number;
 }
 
+/**
+ * A decision of one player's opened or settled (wave B,
+ * docs/IEE_CONSTRUCTOR_SPEC.md §7.6) — pushed into their `user:<id>` room so
+ * their dashboard refreshes: a question to answer, or one answered by a judge
+ * or by default. What it asks is read from the page, never from the event.
+ */
+export interface DecisionBroadcast {
+  decisionId: string;
+  seasonId: string;
+  seasonPlayerId: string;
+  /** reaction_window | victim_choice | game_choice */
+  kind: string;
+  /** pending | resolved | judged | defaulted */
+  status: string;
+  seq?: number;
+}
+
 /** A bot run's live state: status, counters, config. Published on every tick
  *  and lifecycle transition into `bots:<seasonId>`. `config` stays loose here
  *  because the protocol module must not import the DB schema; the console
@@ -205,7 +222,7 @@ export interface BotActivityBroadcast {
   seasonId: string;
   seasonPlayerId: string | null;
   username: string | null;
-  /** roll | resolve | item | skip | error */
+  /** roll | resolve | item | decide | skip | error */
   kind: string;
   /** passed | dropped | rerolled, for a resolve. */
   outcome: string | null;
@@ -243,6 +260,7 @@ export interface RealtimeEventMap {
   "bots:log": BotLogBroadcast;
   "notifications:created": NotificationBroadcast;
   "notifications:read": NotificationReadBroadcast;
+  "decisions:update": DecisionBroadcast;
   "presence:update": PresenceBroadcast;
 }
 

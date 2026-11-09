@@ -1,17 +1,26 @@
 /**
  * Demo data for local development / smoke testing.
- * Usage: pnpm exec tsx scripts/seed-demo.ts
- * Creates the run-1 season (active), a 40-cell board, a games catalog and the
- * IEE tracer set (one item, one effect, one event), if they don't exist yet.
+ * Usage: pnpm db:seed
+ * Loads the system item pack (`seed/iee/core.ggpack`), then creates the run-1
+ * season (active), a 40-cell board, a games catalog and the IEE tracer set
+ * (one item, one effect, one event), if they don't exist yet.
  * Idempotent.
  */
+import "./lib/load-env";
+
 import { Pool } from "pg";
 
-import "./lib/load-env";
+import { CORE_ENTRY_IDS } from "@/lib/engine/iee/core-docs";
+import { pool as appPool } from "@/lib/infrastructure/db";
+
+import { describeImport, importCorePack } from "./lib/iee-core-pack";
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
+    // The items and effects a season plays come from the library.
+    console.log(`IEE ${describeImport(await importCorePack())}`);
+
     const season = await pool.query(
       `insert into seasons (slug, title, status, config, started_at)
        values (
@@ -145,20 +154,40 @@ async function main() {
             // 0 guarantees a drop, which makes the tracer testable by hand.
             nothingWeight: 0,
             catchUp: { enabled: false, maxMultiplier: 1.5 },
-            entries: {
-              hex_scroll: { enabled: true, weight: 100, maxPerPlayer: 2 },
-              slowed: { enabled: true, weight: 100 },
-            },
             events: ["screenshot_of_the_day"],
           },
         }),
       ],
     );
-    if (ieeSeeded.rowCount) console.log("IEE tracer pool enabled on run-1");
+    if (ieeSeeded.rowCount) console.log("IEE settings enabled on run-1");
+
+    // The tracer pool: «Свиток порчи» on bonus cells, «Болото» on penalty
+    // cells — the scroll hands out the swamp, so the two play together. Only
+    // when the season attaches nothing yet: never clobber a tuned catalog.
+    const attached = await pool.query("select 1 from season_catalog where season_id = $1 limit 1", [seasonId]);
+    if (attached.rowCount === 0) {
+      const tracer = [
+        { entryId: CORE_ENTRY_IDS.hex_scroll, maxPerPlayer: 2 },
+        { entryId: CORE_ENTRY_IDS.swamp, maxPerPlayer: null },
+      ];
+      for (const t of tracer) {
+        await pool.query(
+          `insert into season_catalog (season_id, entry_id, revision_id, enabled, pool, weight, max_per_player)
+           select $1, e.id, e.latest_revision_id, true, (r.doc->>'character')::iee_character, 100, $3
+             from iee_entries e
+             join iee_entry_revisions r on r.id = e.latest_revision_id
+            where e.id = $2
+           on conflict (season_id, entry_id) do nothing`,
+          [seasonId, t.entryId, t.maxPerPlayer],
+        );
+      }
+      console.log("IEE tracer catalog attached to run-1");
+    }
 
     console.log(`Demo season ready: ${seasonId}`);
   } finally {
     await pool.end();
+    await appPool.end();
   }
 }
 

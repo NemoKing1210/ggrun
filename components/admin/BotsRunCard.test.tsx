@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { I18nProvider } from "@/lib/i18n/client";
+import { coreRegistry } from "@/lib/modules/iee/registry";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { updateBotConfigAction } from "@/lib/modules/bots/actions";
 
@@ -91,6 +92,7 @@ function setup(overrides: Partial<CardProps> = {}) {
     tickingActive: false,
     lastTick: null,
     playerStatusLabels: {},
+    entries: coreRegistry().viewsByKey(),
     t,
     onStart: vi.fn(),
     onRestart: vi.fn(),

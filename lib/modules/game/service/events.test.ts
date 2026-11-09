@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayerEventRow, SeasonPlayer } from "@/db/schema";
 import type { Season } from "@/db/schema";
+import { IeeConfigSchema } from "@/lib/engine";
+import { grant, type ExecContext } from "@/lib/modules/iee/executor";
+import type { ContextInput } from "@/lib/modules/iee/executor/context";
+import { memoryStore } from "@/lib/modules/iee/executor/memory-store.test-helpers";
+import { coreRegistry, type SeasonRegistry } from "@/lib/modules/iee/registry";
+import { catalogRegistry } from "@/lib/modules/iee/registry/catalog.test-helpers";
 
 import { GameLoopError } from "./errors";
 import { assignEventFromCell, resolveEventUseCase, submitEventProofUseCase } from "./events";
@@ -100,8 +106,41 @@ const repo = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/modules/iee/repository", () => repo);
 
-const grants = vi.hoisted(() => ({ grantEffect: vi.fn(), grantInventoryItem: vi.fn() }));
-vi.mock("./grant", () => grants);
+const context = vi.hoisted(() => ({ executionContext: vi.fn() }));
+vi.mock("@/lib/modules/iee/executor/context", () => context);
+
+const REGISTRY = coreRegistry();
+
+/**
+ * Reward grants run through the real executor over an in-memory store; the
+ * context's anchor rule is `executionContext`'s, stubbed here per test. The
+ * season plays `seasonRegistry` — the whole fixture unless a test tunes it.
+ */
+let mem = memoryStore();
+let inFlight = false;
+let seasonRegistry: SeasonRegistry = REGISTRY;
+
+function contextFor(input: ContextInput): ExecContext {
+  return {
+    store: mem.store,
+    seasonId: input.seasonId,
+    registry: input.registry ?? seasonRegistry,
+    config: input.config,
+    seasonRollSeq: input.seasonRollSeq ?? 0,
+    actorUserId: input.actorUserId ?? null,
+    rng: () => 0.5,
+    snapshot: async (id) => ({
+      seasonPlayerId: id,
+      position: 3,
+      balancePoints: 10,
+      rollSeq: 4,
+      moveCount: 4,
+      rank: 1,
+      status: "active",
+    }),
+    anchorFor: async () => ({ anchorRollSeq: inFlight ? 5 : 4 }),
+  };
+}
 
 const ACTOR = { id: "admin-1", role: "admin" };
 const TX = dbFake.db as unknown as Parameters<typeof assignEventFromCell>[0];
@@ -182,8 +221,11 @@ beforeEach(() => {
   repo.getSeasonRollSeq.mockReset();
   repo.resolveEvent.mockReset();
   repo.submitEventProof.mockReset();
-  grants.grantEffect.mockReset();
-  grants.grantInventoryItem.mockReset();
+  mem = memoryStore();
+  inFlight = false;
+  seasonRegistry = REGISTRY;
+  context.executionContext.mockReset();
+  context.executionContext.mockImplementation(async (input: ContextInput) => contextFor(input));
 });
 
 describe("assignEventFromCell", () => {
@@ -410,48 +452,72 @@ describe("resolveEventUseCase", () => {
     );
   });
 
-  it("grants an item reward with the season's tuning at the current season clock", async () => {
+  it("grants an item reward through the executor, with the season's tuning at the current season clock", async () => {
     session.getCurrentUser.mockResolvedValue(ACTOR);
     repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { itemKey: "hex_scroll" } }));
     dbFake.selectResults.push([seasonPlayer()]);
     seasons.getSeasonById.mockResolvedValue(season());
+    seasonRegistry = catalogRegistry({ hex_scroll: { durationOverride: 2 } });
     repo.getSeasonRollSeq.mockResolvedValue(12);
     repo.resolveEvent.mockResolvedValue(playerEvent({ status: "approved" }));
 
     await resolveEventUseCase({ playerEventId: "pe-1", outcome: "approved" });
 
-    expect(grants.grantInventoryItem).toHaveBeenCalledWith(
-      dbFake.db,
-      expect.objectContaining({
-        seasonId: "season-1",
-        seasonPlayerId: "sp-1",
-        itemKey: "hex_scroll",
-        seasonRollSeq: 12,
-        source: "event_reward",
-      }),
+    expect(context.executionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ tx: dbFake.db, seasonId: "season-1", seasonRollSeq: 12, actorUserId: "admin-1" }),
     );
+    expect(mem.instances).toEqual([
+      expect.objectContaining({
+        kind: "item",
+        revisionId: REGISTRY.get("hex_scroll")!.revisionId,
+        holderPlayerId: "sp-1",
+        chargesLeft: 2,
+        source: "event_reward",
+        grantedRollSeq: 12,
+      }),
+    ]);
+    // Rewards are announced by the verdict, not as a drop.
+    expect(mem.journal[0]).toMatchObject({ op: "grant", visibility: "staff" });
   });
 
-  it("anchors an effect reward to the turn that already finished", async () => {
+  it("starts an effect reward with the player's next roll", async () => {
     session.getCurrentUser.mockResolvedValue(ACTOR);
-    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { effectKey: "shield" } }));
+    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { effectKey: "ward" } }));
     dbFake.selectResults.push([seasonPlayer({ rollSeq: 4 })]);
     seasons.getSeasonById.mockResolvedValue(season());
     repo.getSeasonRollSeq.mockResolvedValue(12);
     repo.resolveEvent.mockResolvedValue(playerEvent({ status: "approved" }));
-    grants.grantEffect.mockResolvedValue({ state: "granted" });
 
     await resolveEventUseCase({ playerEventId: "pe-1", outcome: "approved" });
 
-    expect(grants.grantEffect).toHaveBeenCalledWith(
-      dbFake.db,
-      expect.objectContaining({ effectKey: "shield", anchorRollSeq: 4, seasonRollSeq: 12, source: "event_reward" }),
-    );
+    expect(mem.instances).toEqual([
+      expect.objectContaining({
+        kind: "effect",
+        revisionId: REGISTRY.get("ward")!.revisionId,
+        anchorRollSeq: 4,
+        grantedRollSeq: 12,
+        source: "event_reward",
+      }),
+    ]);
+  });
+
+  it("never lets an effect reward touch a game the player has in flight", async () => {
+    session.getCurrentUser.mockResolvedValue(ACTOR);
+    inFlight = true;
+    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { effectKey: "swamp" } }));
+    dbFake.selectResults.push([seasonPlayer({ rollSeq: 4 })]);
+    seasons.getSeasonById.mockResolvedValue(season());
+    repo.getSeasonRollSeq.mockResolvedValue(12);
+    repo.resolveEvent.mockResolvedValue(playerEvent({ status: "approved" }));
+
+    await resolveEventUseCase({ playerEventId: "pe-1", outcome: "approved" });
+
+    expect(mem.instances[0]).toMatchObject({ anchorRollSeq: 5 });
   });
 
   it("grants nothing and logs a rejection when the outcome is rejected", async () => {
     session.getCurrentUser.mockResolvedValue(ACTOR);
-    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { points: 7, itemKey: "hex_scroll", effectKey: "shield" } }));
+    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { points: 7, itemKey: "hex_scroll", effectKey: "ward" } }));
     dbFake.selectResults.push([seasonPlayer()]);
     seasons.getSeasonById.mockResolvedValue(season());
     repo.getSeasonRollSeq.mockResolvedValue(12);
@@ -459,8 +525,8 @@ describe("resolveEventUseCase", () => {
 
     await resolveEventUseCase({ playerEventId: "pe-1", outcome: "rejected" });
 
-    expect(grants.grantInventoryItem).not.toHaveBeenCalled();
-    expect(grants.grantEffect).not.toHaveBeenCalled();
+    expect(context.executionContext).not.toHaveBeenCalled();
+    expect(mem.instances).toEqual([]);
     expect(dbFake.updates).toEqual([]);
     expect(eventsInfra.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: "event_rejected", payload: expect.objectContaining({ reward: {} }) }),
@@ -472,20 +538,46 @@ describe("resolveEventUseCase", () => {
 
   it("still lands the rest of a reward when a unique effect is already held", async () => {
     session.getCurrentUser.mockResolvedValue(ACTOR);
-    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { points: 2, effectKey: "shield" } }));
+    await grant(contextFor({ tx: dbFake.db as never, seasonId: "season-1", config: IeeConfigSchema.parse({}) }), {
+      entry: "lucky",
+      to: "sp-1",
+      source: "cell_bonus",
+      reveal: false,
+    });
+    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { points: 2, effectKey: "lucky" } }));
     dbFake.selectResults.push([seasonPlayer({ balancePoints: 3 })]);
     seasons.getSeasonById.mockResolvedValue(season());
     repo.getSeasonRollSeq.mockResolvedValue(12);
     repo.resolveEvent.mockResolvedValue(playerEvent({ status: "approved" }));
-    grants.grantEffect.mockResolvedValue({ state: "blocked_unique" });
 
     await expect(resolveEventUseCase({ playerEventId: "pe-1", outcome: "approved" })).resolves.toBeUndefined();
 
+    expect(mem.instances).toHaveLength(1);
     expect(logger.log.debug).toHaveBeenCalledWith(
       "iee.event.reward_blocked_unique",
-      expect.objectContaining({ playerEventId: "pe-1", effectKey: "shield" }),
+      expect.objectContaining({ playerEventId: "pe-1", effectKey: "lucky" }),
     );
     expect(dbFake.updates).toContainEqual(expect.objectContaining({ values: expect.objectContaining({ balancePoints: 5 }) }));
+  });
+
+  it("notes a reward the season does not play, and still lands the rest", async () => {
+    session.getCurrentUser.mockResolvedValue(ACTOR);
+    seasonRegistry = catalogRegistry({ ward: {} });
+    repo.getPlayerEvent.mockResolvedValue(playerEvent({ reward: { points: 1, itemKey: "hex_scroll", effectKey: "ward" } }));
+    dbFake.selectResults.push([seasonPlayer()]);
+    seasons.getSeasonById.mockResolvedValue(season());
+    repo.getSeasonRollSeq.mockResolvedValue(12);
+    repo.resolveEvent.mockResolvedValue(playerEvent({ status: "approved" }));
+
+    await resolveEventUseCase({ playerEventId: "pe-1", outcome: "approved" });
+
+    expect(mem.instances.map((i) => i.kind)).toEqual(["effect"]);
+    expect(logger.log.warn).toHaveBeenCalledWith("iee.event.reward_not_granted", {
+      playerEventId: "pe-1",
+      itemKey: "hex_scroll",
+      state: "unknown_entry",
+    });
+    expect(dbFake.updates).toContainEqual(expect.objectContaining({ values: expect.objectContaining({ balancePoints: 11 }) }));
   });
 
   it("fails the whole verdict when the guarded resolve matched no row", async () => {

@@ -11,8 +11,13 @@ import {
 
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
-import { listPendingEventSubmissions } from "@/lib/modules/iee/repository";
-import { listEffects, listItems } from "@/lib/engine";
+import { listHeldItems, listPendingEventSubmissions, listRollConditions } from "@/lib/modules/iee/repository";
+import { RollConditions } from "@/components/dashboard/RollConditions";
+import { listPendingDecisionsForStaff, listPendingReactionsForStaff } from "@/lib/modules/iee/decisions";
+import { getSeasonRegistry, type SeasonRegistry } from "@/lib/modules/iee/registry";
+import { DecisionPanel, type DecisionCard, type DecisionItem } from "@/components/dashboard/DecisionPanel";
+import { ReactionPanel, type ReactionWindowCard } from "@/components/dashboard/ReactionPanel";
+import { libraryKeys } from "@/lib/modules/iee/catalog";
 import { EventModerationList, type EventSubmission } from "@/components/admin/EventModerationList";
  import { approveRerollAction, rejectRerollAction, approveCompletionAction, rejectCompletionAction, approveAllRerollsAction, rejectAllRerollsAction, approveAllCompletionsAction, rejectAllCompletionsAction } from "@/lib/modules/moderation/actions/moderation";
  import { approveAllEventsAction, rejectAllEventsAction } from "@/lib/modules/iee/actions/events";
@@ -152,26 +157,65 @@ export default async function AdminRerollsPage({
 
   const { tab } = await searchParams;
   const activeTab =
-    tab === "completions" ? "completions" : tab === "events" ? "events" : "rerolls";
-  const [pending, pendingCompletions, pendingEvents] = await Promise.all([
+    tab === "completions" ? "completions" : tab === "events" ? "events" : tab === "decisions" ? "decisions" : "rerolls";
+  const [pending, pendingCompletions, pendingEvents, pendingDecisions, pendingReactions] = await Promise.all([
     listPendingRerollRequests(),
     listPendingCompletionRequests(),
     listPendingEventSubmissions(),
+    listPendingDecisionsForStaff(),
+    listPendingReactionsForStaff(),
   ]);
-  const totalPending = pending.length + pendingCompletions.length + pendingEvents.length;
+  const totalPending =
+    pending.length + pendingCompletions.length + pendingEvents.length + pendingDecisions.length + pendingReactions.length;
+  // What each game reported was to be passed with (wave C, spec §6.17): the judge holds it to them.
+  const completionConditions = await listRollConditions(pendingCompletions.map((req) => req.gameRollId));
 
-  // Catalog names come from the dictionaries; a reward only stores keys.
-  const catalogName = (path: string): string => {
-    const parts = path.split(".");
-    let node: unknown = t;
-    for (const part of parts) {
-      if (typeof node !== "object" || node === null) return path;
-      node = (node as Record<string, unknown>)[part];
+  // The choices players have not made yet (spec §7.6): a judge may make them — over what each player holds now.
+  const registries = new Map<string, SeasonRegistry>();
+  const decisionCards: DecisionCard[] = [];
+  const decisionItems: Record<string, DecisionItem[]> = {};
+  if (activeTab === "decisions") {
+    for (const row of pendingDecisions) {
+      let registry = registries.get(row.seasonId);
+      if (!registry) {
+        registry = await getSeasonRegistry(row.seasonId);
+        registries.set(row.seasonId, registry);
+      }
+      const asker = row.view.revisionId ? registry.instanceView(row.view.revisionId) : null;
+      decisionCards.push({
+        id: row.view.id,
+        name: row.view.name,
+        ruleText: asker?.ruleText ?? null,
+        then: row.view.then,
+        count: row.view.count,
+        orKeep: row.view.orKeep,
+        defaultChoice: row.view.defaultChoice,
+        player: `${row.displayName ?? row.username} · ${row.seasonTitle}`,
+      });
+      const held = await listHeldItems(row.view.seasonPlayerId, registry);
+      decisionItems[row.view.id] = held.flatMap((item) => {
+        const view = registry.instanceView(item.revisionId);
+        return view && view.character === "bonus" ? [{ id: item.id, view }] : [];
+      });
     }
-    return typeof node === "string" ? node : path;
-  };
-  const itemNames = Object.fromEntries(listItems().map((d) => [d.key, catalogName(d.i18n.name)]));
-  const effectNames = Object.fromEntries(listEffects().map((d) => [d.key, catalogName(d.i18n.name)]));
+  }
+
+  // Turns paused for a player's reaction (spec §7.4): a judge may accept the dice for them.
+  const reactionCards: ReactionWindowCard[] = pendingReactions.map((row) => ({
+    id: row.view.id,
+    outcome: row.view.outcome,
+    faces: row.view.faces,
+    result: row.view.result,
+    from: row.view.from,
+    to: row.view.to,
+    offers: [],
+    player: `${row.displayName ?? row.username} · ${row.seasonTitle}`,
+  }));
+
+  // A reward only stores keys; the names come from the library.
+  const keys = await libraryKeys();
+  const itemNames = Object.fromEntries(Object.entries(keys.items).map(([key, name]) => [key, name[locale]]));
+  const effectNames = Object.fromEntries(Object.entries(keys.effects).map(([key, name]) => [key, name[locale]]));
   const eventSubmissions: EventSubmission[] = pendingEvents.map((row) => ({
     id: row.id,
     title: row.title,
@@ -194,7 +238,7 @@ export default async function AdminRerollsPage({
     tooShortError: t.core.errors.formReasonRequired,
   };
 
-  const tabLink = (tabName: "rerolls" | "completions" | "events", count: number) => {
+  const tabLink = (tabName: "rerolls" | "completions" | "events" | "decisions", count: number) => {
     const active = activeTab === tabName;
     return (
       <a
@@ -211,7 +255,9 @@ export default async function AdminRerollsPage({
           ? t.admin.completions.tabs.rerolls
           : tabName === "completions"
             ? t.admin.completions.tabs.completions
-            : t.iee.events.moderation.tab}
+            : tabName === "decisions"
+              ? t.iee.decision.tab
+              : t.iee.events.moderation.tab}
         <span
           className={`inline-flex min-w-4 items-center justify-center px-1 font-mono text-[10px] [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${
             active ? "bg-black/15 text-black" : "bg-raised text-dim"
@@ -250,9 +296,19 @@ export default async function AdminRerollsPage({
         {tabLink("rerolls", pending.length)}
         {tabLink("completions", pendingCompletions.length)}
         {tabLink("events", pendingEvents.length)}
+        {tabLink("decisions", pendingDecisions.length + pendingReactions.length)}
       </div>
 
-      {activeTab === "events" ? (
+      {activeTab === "decisions" ? (
+        decisionCards.length === 0 && reactionCards.length === 0 ? (
+          <EmptyState icon={InboxIcon} title={t.admin.moderation.allClear} hint={t.iee.decision.empty} />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <ReactionPanel windows={reactionCards} mode="judge" />
+            <DecisionPanel decisions={decisionCards} itemsByDecision={decisionItems} mode="judge" />
+          </div>
+        )
+      ) : activeTab === "events" ? (
         <div className="flex flex-col gap-4">
           <ModerationBulkBar
             ids={pendingEvents.map((row) => row.id)}
@@ -371,6 +427,10 @@ export default async function AdminRerollsPage({
                   </>
                 }
               >
+                <RollConditions
+                  conditions={(completionConditions.get(req.gameRollId) ?? []).map((c) => ({ id: c.id, text: c.text, from: c.from }))}
+                  compact
+                />
                 {req.reason || req.rating ? (
                   <div className="mt-2 border-l-2 border-emerald-500/40 bg-background/60 px-2.5 py-1.5">
                     {req.reason ? (

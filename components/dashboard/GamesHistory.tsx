@@ -8,6 +8,7 @@ import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsMo
 import { GameMetaBadges } from "@/components/game/GameMetaBadges";
 import { useI18n } from "@/lib/i18n/client";
 import type { GameSummary } from "@/components/dashboard/RollCard";
+import { RollConditions, type RollConditionItem } from "@/components/dashboard/RollConditions";
 
 const historyList: Variants = {
   hidden: {},
@@ -29,6 +30,8 @@ export interface HistoryRoll {
   game: GameSummary | null;
   rating: number | null;
   notes: string | null;
+  /** What the game was to be passed with (wave C, IEE spec §6.17); none when absent. */
+  conditions?: readonly RollConditionItem[];
 }
 
 export function GamesHistory({ rolls }: { rolls: HistoryRoll[] }) {
@@ -101,6 +104,7 @@ export function GamesHistory({ rolls }: { rolls: HistoryRoll[] }) {
                   </span>
                 ) : null}
               </div>
+              {roll.conditions ? <RollConditions conditions={roll.conditions} compact /> : null}
               {roll.notes ? (
                 <p className="mt-3 line-clamp-3 border-l-2 border-amber/25 pl-3 text-sm leading-relaxed text-zinc-300">
                   “{roll.notes}”

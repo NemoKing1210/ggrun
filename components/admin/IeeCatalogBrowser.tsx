@@ -8,17 +8,9 @@ import { IeeArtTile } from "@/components/iee/IeeArtTile";
 import { IeeFilterBar, type ChipGroup } from "@/components/admin/IeeFilterBar";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
-import {
-  listEffects,
-  listItems,
-  matchesCatalogFilter,
-  type EffectDef,
-  type ItemDef,
-  type Polarity,
-  type Rarity,
-} from "@/lib/engine";
+import { matchesCatalogFilter, type EntryView, type Polarity, type Rarity } from "@/lib/engine";
+import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
-import { dictText } from "@/lib/i18n/dict-text";
 
 const RARITIES: Rarity[] = ["common", "rare", "epic", "legendary"];
 const POLARITIES: Polarity[] = ["positive", "negative"];
@@ -44,16 +36,18 @@ const rarityVariant = (r: Rarity) =>
  * same filter runs server-side off `?q=` with no other change, because the
  * predicate lives in the engine rather than in this file.
  *
- * Only `usage` comes from the server, because only the database knows it.
+ * The entries arrive from the server as views (spec §8) — the client never
+ * holds the compiler — together with `usage`, which only the database knows.
  */
 export function IeeCatalogGrid({
-  kind,
+  entries,
   usage,
 }: {
-  kind: "items" | "effects";
+  entries: readonly EntryView[];
+  /** Seasons that attach each entry, by entry id. */
   usage: Record<string, number>;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const a = t.iee.admin;
   const f = a.filters;
 
@@ -61,29 +55,24 @@ export function IeeCatalogGrid({
   const [polarity, setPolarity] = useState("all");
   const [rarity, setRarity] = useState("all");
 
-  const defs: Array<ItemDef | EffectDef> = useMemo(
-    () => (kind === "items" ? listItems() : listEffects()),
-    [kind],
-  );
-
   // The predicate is `matchesCatalogFilter` in the engine, not a local copy:
-  // the season wizard filters the same catalog, and two lists that disagree
+  // the season wizard filters the same entries, and two lists that disagree
   // about what "matches" means is the bug this avoids.
   const shown = useMemo(
     () =>
-      defs.filter((def) =>
+      entries.filter((view) =>
         matchesCatalogFilter(
           {
-            key: def.key,
-            name: dictText(t, def.i18n.name),
-            description: dictText(t, def.i18n.description),
-            polarity: def.polarity,
-            rarity: def.rarity,
+            key: view.key,
+            name: view.name[locale],
+            description: view.ruleText[locale],
+            polarity: view.polarity,
+            rarity: view.rarity,
           },
           { query, polarity: polarity as Polarity | "all", rarity: rarity as Rarity | "all" },
         ),
       ),
-    [defs, query, polarity, rarity, t],
+    [entries, query, polarity, rarity, locale],
   );
 
   const groups: ChipGroup[] = [
@@ -116,7 +105,7 @@ export function IeeCatalogGrid({
         onQuery={setQuery}
         groups={groups}
         shown={shown.length}
-        total={defs.length}
+        total={entries.length}
         onReset={reset}
       />
 
@@ -126,8 +115,8 @@ export function IeeCatalogGrid({
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map((def) => (
-            <EntryCard key={def.key} def={def} t={t} usage={usage[def.key] ?? 0} />
+          {shown.map((view) => (
+            <EntryCard key={view.entryId} view={view} t={t} locale={locale} usage={usage[view.entryId] ?? 0} />
           ))}
         </div>
       )}
@@ -145,73 +134,93 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 }
 
 function EntryCard({
-  def,
+  view,
   t,
+  locale,
   usage,
 }: {
-  def: ItemDef | EffectDef;
+  view: EntryView;
   t: Dictionary;
+  locale: Locale;
   usage: number;
 }) {
   const a = t.iee.admin;
-  const isItem = "usage" in def;
+  const hookLabels = a.hooks as Record<string, string>;
 
-  const duration = (d: EffectDef): string => {
-    if (d.duration.kind === "permanent") return a.durationPermanent;
-    if (d.duration.kind === "rolls")
-      return format(a.durationRolls, { count: String(d.duration.value) });
-    return format(a.durationCharges, { count: String(d.duration.value) });
+  const duration = (d: NonNullable<EntryView["duration"]>): string => {
+    const count = String(d.count ?? "");
+    switch (d.unit) {
+      case "rolls":
+        return format(a.durationRolls, { count });
+      case "triggers":
+        return format(a.durationCharges, { count });
+      case "moves":
+        return format(a.durationMoves, { count });
+      case "passed_games":
+        return format(a.durationPassed, { count });
+      case "next_game":
+        return a.durationNextGame;
+      case "instant":
+        return a.durationInstant;
+      default:
+        return a.durationPermanent;
+    }
   };
 
   return (
     <article className="hud-card flex flex-col gap-3 p-4">
       <div className="flex items-start gap-3">
         <IeeArtTile
-          entryKey={def.key}
-          kind={isItem ? "item" : "effect"}
-          heroIcon={def.heroIcon}
-          polarity={def.polarity}
+          entryKey={view.key}
+          kind={view.kind}
+          glyph={view.glyph}
+          art={view.art}
+          polarity={view.polarity}
           size="md"
         />
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-lg uppercase leading-tight tracking-wider text-zinc-100">
-            {dictText(t, def.i18n.name)}
+            {view.name[locale]}
           </h3>
-          <p className="font-mono text-[11px] text-dim">{def.key}</p>
+          <p className="font-mono text-[11px] text-dim">{view.key}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Badge variant={polarityVariant(def.polarity)}>{t.iee.polarity[def.polarity]}</Badge>
-            <Badge variant={rarityVariant(def.rarity)}>{t.iee.rarity[def.rarity]}</Badge>
+            <Badge variant={polarityVariant(view.polarity)}>{t.iee.polarity[view.polarity]}</Badge>
+            <Badge variant={rarityVariant(view.rarity)}>{t.iee.rarity[view.rarity]}</Badge>
           </div>
         </div>
       </div>
 
-      <EntryDescription className="!mt-0 flex-1">
-        {dictText(t, def.i18n.description)}
-      </EntryDescription>
+      <EntryDescription className="!mt-0 flex-1">{view.ruleText[locale]}</EntryDescription>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#2a2a22] pt-3">
-        {isItem ? (
+        {view.usage ? (
           <>
-            <Fact label={a.columns.usage}>{a.usageMode[def.usage.mode]}</Fact>
-            <Fact label={a.columns.target}>{a.target[def.usage.target]}</Fact>
-            <Fact label={a.columns.window}>{a.window[def.usage.window]}</Fact>
+            <Fact label={a.columns.usage}>{a.usageMode[view.usage.activation]}</Fact>
+            {/* Only an active item is used: when and on whom mean nothing for the others. */}
+            {view.usage.activation === "active" ? (
+              <>
+                <Fact label={a.columns.target}>{a.target[view.usage.target]}</Fact>
+                <Fact label={a.columns.window}>{a.window[view.usage.window]}</Fact>
+              </>
+            ) : null}
             {/* Just the number: the `charges` string carries its own noun
                 ("Зарядов: 1"), which under a "Charges" label reads as a
-                stutter. A bare count needs no translation. */}
-            <Fact label={a.columns.charges}>{def.usage.charges}</Fact>
+                stutter. A bare count needs no translation; a passive item
+                without charges works for good. */}
+            <Fact label={a.columns.charges}>{view.usage.charges ?? "∞"}</Fact>
           </>
         ) : (
           <>
-            <Fact label={a.columns.duration}>{duration(def)}</Fact>
-            <Fact label={a.columns.stacking}>{a.stacking[def.stacking]}</Fact>
+            {view.duration ? <Fact label={a.columns.duration}>{duration(view.duration)}</Fact> : null}
+            {view.stacking ? <Fact label={a.columns.stacking}>{a.stacking[view.stacking]}</Fact> : null}
             <div className="col-span-2 min-w-0">
               <dt className="font-display text-[10px] uppercase tracking-widest text-dim">
                 {a.columns.hooks}
               </dt>
               <dd className="mt-1 flex flex-wrap gap-1">
-                {(Object.keys(def.hooks) as Array<keyof typeof a.hooks>).map((hook) => (
-                  <Badge key={hook} variant="neutral" title={hook}>
-                    {a.hooks[hook] ?? hook}
+                {view.triggers.map((trigger) => (
+                  <Badge key={trigger} variant="neutral" title={trigger}>
+                    {hookLabels[trigger] ?? trigger}
                   </Badge>
                 ))}
               </dd>

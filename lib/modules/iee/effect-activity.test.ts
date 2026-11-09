@@ -4,43 +4,29 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 /**
- * "Is this status still doing something" has one answer, in two forms.
+ * "Is this status still doing something" has one answer.
  *
- * `player_effects.state = 'active'` does not mean a status is in force. Expiry
- * is lazy — this project has no scheduler, by design — so a row keeps that
- * state until the player's *next* resolve sweeps it. Anything that wants to
- * know whether a status is live must also read `charges_left` and
- * `expires_after_roll_seq`, and must compare the latter against the roll that
- * is next, never the one that just finished.
+ * Under the old tables it had four: expiry was lazy, `state = 'active'` did
+ * not mean "in force", and every surface had to re-derive the truth from the
+ * counters — the dashboard read the wrong one, the board and leaderboards did
+ * not check at all, and spent shields stayed on screen.
  *
- * That rule was written four times. The engine had it right; the dashboard
- * carried a copy that read the wrong counter, so a status spent a moment
- * earlier lingered on screen showing "0 rolls left"; and the board and
- * leaderboard queries did not check it at all, so a used-up shield stayed
- * visible until its owner moved again — and forever, for a player who had
- * stopped playing. Those badges are what PvP is played on.
+ * Counters are eager now (docs/IEE_CONSTRUCTOR_SPEC.md §7.9): the executor
+ * ends an instance in the transaction that spends its last unit, so an active
+ * row *is* a status in force and nothing needs to compare counters to know it.
+ * One narrower question is left — does an instance take part in *this* roll,
+ * or was it granted while that roll was in flight (SC-HEXSCROLL-7) — and it is
+ * answered once, by `participates()`:
  *
- * Two forms are legitimate, because one runs in TypeScript over rows already
- * loaded and the other has to run in SQL over a whole season:
+ *   - `lib/engine/iee/resolve/live.ts` — the only comparison of an anchor.
  *
- *   - `lib/engine/iee/resolve/hooks.ts` — `isEffectActive`, the turn's own rule;
- *   - `lib/modules/iee/repository/effects.ts` — `stillInForce()`, the same rule
- *     as a `where` clause.
- *
- * A third is a bug waiting to be found by a player.
+ * A second copy is a status that touches a move it must not.
  */
 
-const SANCTIONED = [
-  "lib/engine/iee/resolve/hooks.ts",
-  "lib/modules/iee/repository/effects.ts",
-];
+const SANCTIONED = ["lib/engine/iee/resolve/live.ts"];
 
-/**
- * `expires_after_roll_seq` is the field to scan for: unlike `chargesLeft`, which
- * inventory rows also carry with an unrelated meaning, it exists for exactly
- * one purpose.
- */
-const FIELD = /\bexpiresAfterRollSeq\b/;
+/** The anchor exists for exactly this rule, which makes it the field to scan for. */
+const FIELD = /\banchorRollSeq\b/;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -58,8 +44,14 @@ function walk(dir: string, out: string[] = []): string[] {
 const ROOTS = ["app", "lib", "components"].map((d) => path.join(process.cwd(), d));
 const FILES = ROOTS.flatMap((r) => walk(r));
 
-/** Files containing a comparison whose operands mention the field. */
-function filesComparingTheField(): string[] {
+/** Files containing a comparison whose operands mention the anchor. */
+function filesComparingTheAnchor(): string[] {
+  const COMPARISONS = new Set<ts.SyntaxKind>([
+    ts.SyntaxKind.LessThanToken,
+    ts.SyntaxKind.LessThanEqualsToken,
+    ts.SyntaxKind.GreaterThanToken,
+    ts.SyntaxKind.GreaterThanEqualsToken,
+  ]);
   const hits: string[] = [];
   for (const file of FILES) {
     const src = fs.readFileSync(file, "utf8");
@@ -72,21 +64,12 @@ function filesComparingTheField(): string[] {
       file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
     );
     let found = false;
-    const COMPARISONS = new Set<ts.SyntaxKind>([
-      ts.SyntaxKind.LessThanToken,
-      ts.SyntaxKind.LessThanEqualsToken,
-      ts.SyntaxKind.GreaterThanToken,
-      ts.SyntaxKind.GreaterThanEqualsToken,
-    ]);
     const visit = (node: ts.Node) => {
-      if (
-        ts.isBinaryExpression(node) &&
-        COMPARISONS.has(node.operatorToken.kind) &&
-        FIELD.test(node.getText())
-      ) {
-        found = true;
+      if (ts.isBinaryExpression(node) && COMPARISONS.has(node.operatorToken.kind)) {
+        // `participates` compares its parameter; a copy would name the field.
+        if (FIELD.test(node.getText())) found = true;
       }
-      // The SQL form: gte(playerEffects.expiresAfterRollSeq, …)
+      // The SQL form: gt(ieeInstances.anchorRollSeq, …)
       if (
         ts.isCallExpression(node) &&
         ts.isIdentifier(node.expression) &&
@@ -103,8 +86,8 @@ function filesComparingTheField(): string[] {
   return hits.sort();
 }
 
-describe("the activity rule is not re-implemented", () => {
-  const hits = filesComparingTheField();
+describe("the participation rule is not re-implemented", () => {
+  const hits = filesComparingTheAnchor();
 
   it("finds it where it belongs (a scan of nothing proves nothing)", () => {
     for (const file of SANCTIONED) {
@@ -115,17 +98,16 @@ describe("the activity rule is not re-implemented", () => {
   it("finds it nowhere else", () => {
     expect(
       hits.filter((f) => !SANCTIONED.includes(f)),
-      "a fourth copy of this predicate is a spent status drawn as a live one",
+      "call participates() instead of comparing the anchor again",
     ).toEqual([]);
   });
 });
 
 /**
- * The badge surfaces ask the repository and take what it gives them.
+ * The badge surfaces ask the instances repository and take what it gives them.
  *
- * Filtering in the page would work, but it is the arrangement that produced the
- * drift in the first place: four pages, four chances to get it wrong, and no
- * one place to fix it.
+ * Filtering in a page is the arrangement that produced the drift in the first
+ * place: five pages, five chances to get it wrong, and no one place to fix it.
  */
 const BADGE_PAGES = [
   "app/(public)/board/page.tsx",
@@ -136,13 +118,18 @@ const BADGE_PAGES = [
 ];
 
 describe("status badges come from the repository, already filtered", () => {
-  it.each(BADGE_PAGES)("%s reads statuses through the repository", (rel) => {
+  it.each(BADGE_PAGES)("%s reads statuses through the instances repository", (rel) => {
     const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
-    expect(src).toMatch(/getActiveEffects(BySeason|WithCaster)/);
+    expect(src).toMatch(/\b(effectBadgesBySeason|listActiveEffects)\b/);
   });
 
-  it.each(BADGE_PAGES)("%s does not filter them again itself", (rel) => {
+  it.each(BADGE_PAGES)("%s neither filters them again nor reads the retired tables", (rel) => {
     const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
-    expect(src, "the repository already applied the rule").not.toMatch(/\bisEffectActive\b/);
+    expect(src, "an active instance is in force — nothing to re-check").not.toMatch(
+      /\b(participates|isEffectActive|stillInForce)\b/,
+    );
+    expect(src, "the pre-constructor status queries and their expiry field are gone").not.toMatch(
+      /\b(getActiveEffectsBySeason|getActiveEffectsWithCaster|getHeldItems|expiresAfterRollSeq)\b/,
+    );
   });
 });

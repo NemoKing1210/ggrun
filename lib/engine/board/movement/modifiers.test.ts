@@ -49,3 +49,17 @@ describe("applyMovementModifiers — forced position", () => {
     ).toBe(0);
   });
 });
+
+describe("applyMovementModifiers — a cancelled move", () => {
+  it("leaves the token where the turn started, whatever the steps say", () => {
+    const forward = { ...move(22), newStreakDrop: 0 };
+    expect(applyMovementModifiers(forward, { ...emptyModifiers(), cancelMove: true, stepsDelta: 3 }, board, 18).newPosition).toBe(18);
+    expect(applyMovementModifiers(move(15), { ...emptyModifiers(), cancelMove: true }, board, 18).newPosition).toBe(18);
+  });
+
+  it("still yields to an explicit forced position", () => {
+    expect(
+      applyMovementModifiers(move(15), { ...emptyModifiers(), cancelMove: true, forcedPosition: 7 }, board, 18).newPosition,
+    ).toBe(7);
+  });
+});

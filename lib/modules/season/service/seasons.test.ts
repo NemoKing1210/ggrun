@@ -9,15 +9,17 @@ import {
   gameRolls,
   ledgerEntries,
   moves,
-  playerEffects,
   playerEvents,
-  playerInventory,
   rerollRequests,
   seasonPlayers,
   seasons,
 } from "@/db/schema";
-import { SeasonConfigSchema } from "@/lib/engine";
+import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
 import { generateBoardCells } from "@/lib/modules/catalog/pool/board-generator";
+import type { ExecContext } from "@/lib/modules/iee/executor";
+import type { ContextInput } from "@/lib/modules/iee/executor/context";
+import { memoryStore } from "@/lib/modules/iee/executor/memory-store.test-helpers";
+import { coreRegistry } from "@/lib/modules/iee/registry";
 
 import { changeSeasonStatus,
   createSeason,
@@ -97,6 +99,11 @@ const dbFake = vi.hoisted(() => {
 });
 vi.mock("@/lib/infrastructure/db", () => ({ db: dbFake.db }));
 
+/** IEE state is reset through the real executor, over an in-memory store. */
+const context = vi.hoisted(() => ({ executionContext: vi.fn() }));
+vi.mock("@/lib/modules/iee/executor/context", () => context);
+let ieeMem = memoryStore();
+
 const session = vi.hoisted(() => ({ getCurrentUser: vi.fn(), isStaff: vi.fn() }));
 vi.mock("@/lib/infrastructure/auth/session", () => session);
 
@@ -119,6 +126,16 @@ vi.mock("@/lib/modules/notifications/service", () => notifications);
 
 const seasonNames = vi.hoisted(() => ({ generateSeasonTitle: vi.fn() }));
 vi.mock("@/lib/shared/utils/season-names", () => seasonNames);
+
+/** The catalog's own rules are tested in its module; here only the hand-off. */
+const catalog = vi.hoisted(() => ({ saveSeasonCatalog: vi.fn(), auditCatalogSave: vi.fn() }));
+vi.mock("@/lib/modules/iee/catalog", () => catalog);
+
+const ieeRepo = vi.hoisted(() => ({ getEventTemplatesByKeys: vi.fn() }));
+vi.mock("@/lib/modules/iee/repository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/modules/iee/repository")>()),
+  ...ieeRepo,
+}));
 
 const ACTOR = { id: "admin-1", role: "admin" };
 const SEASON_ID = "11111111-1111-1111-1111-111111111111";
@@ -162,6 +179,10 @@ beforeEach(() => {
   logger.log.info.mockClear();
   logger.log.debug.mockClear();
   logger.log.error.mockClear();
+  catalog.saveSeasonCatalog.mockReset();
+  catalog.auditCatalogSave.mockReset();
+  ieeRepo.getEventTemplatesByKeys.mockReset();
+  ieeRepo.getEventTemplatesByKeys.mockResolvedValue([]);
 });
 
 describe("createSeasonSchema", () => {
@@ -403,15 +424,75 @@ describe("changeSeasonStatus", () => {
 });
 
 describe("resetSeason", () => {
-  const CASCADE_TABLES = [
-    rerollRequests,
-    ledgerEntries,
-    playerInventory,
-    playerEffects,
-    playerEvents,
-    moves,
-    gameRolls,
-  ];
+  const CASCADE_TABLES = [rerollRequests, ledgerEntries, playerEvents, moves, gameRolls];
+
+  beforeEach(() => {
+    ieeMem = memoryStore();
+    context.executionContext.mockReset();
+    context.executionContext.mockImplementation(
+      async (input: ContextInput): Promise<ExecContext> => ({
+        store: ieeMem.store,
+        seasonId: input.seasonId,
+        registry: coreRegistry(),
+        config: input.config,
+        seasonRollSeq: input.seasonRollSeq ?? 0,
+        actorUserId: input.actorUserId ?? null,
+        rng: () => 0.5,
+        snapshot: async () => {
+          throw new Error("a reset reads no snapshot");
+        },
+        anchorFor: async () => ({ anchorRollSeq: 0 }),
+      }),
+    );
+  });
+
+  /** One live item in the season being reset and one in another season. */
+  async function seedInstances() {
+    for (const seasonId of [SEASON_ID, "other-season"]) {
+      const hex = coreRegistry().get("hex_scroll")!;
+      await ieeMem.store.insertInstance({
+        id: `inst-${seasonId}`,
+        seasonId,
+        entryId: hex.entryId,
+        revisionId: hex.revisionId,
+        kind: "item",
+        holderKind: "player",
+        holderPlayerId: "sp1",
+        ownerPlayerId: null,
+        params: {},
+        chargesLeft: 1,
+        remaining: null,
+        remainingUnit: null,
+        anchorRollSeq: null,
+        source: "cell_bonus",
+        sourceMoveId: null,
+        causeJournalId: null,
+        grantedRollSeq: 3,
+      });
+    }
+  }
+
+  it("clears the season's items, effects and journal through the executor, and opens the new journal", async () => {
+    seasonsRepo.getSeasonById.mockResolvedValue(season({ status: "finished" }));
+    dbFake.selectResults.push([], [{ id: "sp1" }]);
+    await seedInstances();
+
+    await resetSeason(SEASON_ID);
+
+    expect(context.executionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tx: dbFake.db,
+        seasonId: SEASON_ID,
+        config: DEFAULT_SEASON_CONFIG.iee,
+        seasonRollSeq: 0,
+        actorUserId: ACTOR.id,
+      }),
+    );
+    expect(ieeMem.instances.map((i) => i.seasonId)).toEqual(["other-season"]);
+    expect(ieeMem.journal).toEqual([
+      expect.objectContaining({ seasonId: SEASON_ID, op: "reset", outcome: { instances: 1, journal: 0 } }),
+    ]);
+  });
 
   it("clears every per-player table and re-seeds balances from the stored config", async () => {
     seasonsRepo.getSeasonById.mockResolvedValue(
@@ -461,12 +542,14 @@ describe("resetSeason", () => {
     expect(updateValues(seasonPlayers)[0]).toMatchObject({ balancePoints: 0 });
   });
 
-  it("skips the empty roster update but still clears the event log", async () => {
+  it("skips the empty roster update but still clears the event log and the IEE state", async () => {
     seasonsRepo.getSeasonById.mockResolvedValue(season({ status: "finished" }));
     dbFake.selectResults.push([], []);
+    await seedInstances();
 
     await resetSeason(SEASON_ID);
 
+    expect(ieeMem.instances.map((i) => i.seasonId)).toEqual(["other-season"]);
     expect(dbFake.deletes).toEqual([eventLog]);
     expect(updateValues(seasonPlayers)).toEqual([]);
     expect(updateValues(seasons)).toHaveLength(1);
@@ -537,6 +620,40 @@ describe("updateSeasonSettings", () => {
         targetId: SEASON_ID,
       }),
     );
+  });
+
+  it("saves the catalog in the same transaction, with the keys its challenges hand out, and audits it after", async () => {
+    const save = { diff: { attached: ["e1"], detached: [], switched: [], retuned: [] }, dependencies: [], slugs: { e1: "ward" } };
+    catalog.saveSeasonCatalog.mockResolvedValue(save);
+    ieeRepo.getEventTemplatesByKeys.mockResolvedValue([
+      { key: "c1", reward: { itemKey: "hex_scroll", effectKey: "ward" } },
+      { key: "c2", reward: { points: 3, effectKey: "ward" } },
+      { key: "c3", reward: null },
+    ]);
+    dbFake.selectResults.push([{ status: "active", config: {} }], []);
+    const rows = [{ entryId: "e1" }];
+
+    await updateSeasonSettings({ seasonId: SEASON_ID, config: { iee: { events: ["c1", "c2", "c3"] } }, catalog: rows });
+
+    expect(ieeRepo.getEventTemplatesByKeys).toHaveBeenCalledWith(["c1", "c2", "c3"]);
+    expect(catalog.saveSeasonCatalog).toHaveBeenCalledWith(dbFake.db, SEASON_ID, rows, { requiredSlugs: ["hex_scroll", "ward"] });
+    expect(dbFake.state.transactions).toBe(1);
+    expect(catalog.auditCatalogSave).toHaveBeenCalledWith("admin-1", SEASON_ID, save);
+  });
+
+  it("leaves the catalog alone when the form did not carry it", async () => {
+    dbFake.selectResults.push([{ status: "active", config: {} }], []);
+    await updateSeasonSettings({ seasonId: SEASON_ID, config: {} });
+    expect(catalog.saveSeasonCatalog).not.toHaveBeenCalled();
+    expect(catalog.auditCatalogSave).not.toHaveBeenCalled();
+  });
+
+  it("audits nothing when the catalog is refused — the whole save fails", async () => {
+    catalog.saveSeasonCatalog.mockRejectedValue(new Error("ieeCatalogInvalid"));
+    dbFake.selectResults.push([{ status: "active", config: {} }], []);
+    await expect(updateSeasonSettings({ seasonId: SEASON_ID, config: {}, catalog: "nope" })).rejects.toThrow("ieeCatalogInvalid");
+    expect(eventsInfra.logAdminAction).not.toHaveBeenCalled();
+    expect(catalog.auditCatalogSave).not.toHaveBeenCalled();
   });
 
   it("writes rulesMd only when the caller supplies it", async () => {

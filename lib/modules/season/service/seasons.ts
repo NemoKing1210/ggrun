@@ -8,9 +8,7 @@ import {
   eventLog,
   gameRolls,
   ledgerEntries,
-  playerEffects,
   playerEvents,
-  playerInventory,
   moves,
   rerollRequests,
   seasons,
@@ -29,6 +27,11 @@ import {
   boardShapeChanged,
   generateBoardCells,
 } from "@/lib/modules/catalog/pool/board-generator";
+
+import { auditCatalogSave, saveSeasonCatalog, type CatalogSave } from "@/lib/modules/iee/catalog";
+import { resetSeason as resetIeeState } from "@/lib/modules/iee/executor";
+import { executionContext } from "@/lib/modules/iee/executor/context";
+import { getEventTemplatesByKeys } from "@/lib/modules/iee/repository";
 
 import { AdminError } from "./errors";
 
@@ -215,15 +218,18 @@ export async function resetSeason(seasonId: string): Promise<void> {
   const startingBalance = cfg.points.startingBalance ?? 0;
 
   await db.transaction(async (tx) => {
+    // IEE runtime state: participants are UPDATEd rather than deleted below, so
+    // ON DELETE CASCADE never fires here — clear it explicitly, roster or not.
+    // Items and effects go through the executor, which also wipes the season's
+    // journal and opens the new one with the reset.
+    await resetIeeState(
+      await executionContext({ tx, seasonId, config: cfg.iee, seasonRollSeq: 0, actorUserId: actor.id }),
+    );
     const players = await tx.select({ id: seasonPlayers.id }).from(seasonPlayers).where(eq(seasonPlayers.seasonId, seasonId));
     const ids = players.map((p) => p.id);
     if (ids.length > 0) {
       await tx.delete(rerollRequests).where(inArray(rerollRequests.seasonPlayerId, ids));
       await tx.delete(ledgerEntries).where(inArray(ledgerEntries.seasonPlayerId, ids));
-      // IEE runtime state: participants are UPDATEd rather than deleted below,
-      // so ON DELETE CASCADE never fires here — clear it explicitly.
-      await tx.delete(playerInventory).where(inArray(playerInventory.seasonPlayerId, ids));
-      await tx.delete(playerEffects).where(inArray(playerEffects.seasonPlayerId, ids));
       await tx.delete(playerEvents).where(inArray(playerEvents.seasonPlayerId, ids));
       await tx.delete(moves).where(inArray(moves.seasonPlayerId, ids));
       await tx.delete(gameRolls).where(inArray(gameRolls.seasonPlayerId, ids));
@@ -240,7 +246,29 @@ export async function resetSeason(seasonId: string): Promise<void> {
   log.info("season.reset.persisted", { actorId: actor.id, seasonId });
 }
 
-export async function updateSeasonSettings(input: { seasonId: string; config: unknown; rulesMd?: string | null }): Promise<void> {
+/** Keys the season's challenges hand out — its catalog must play them (spec §4.2). */
+async function rewardSlugs(eventKeys: readonly string[]): Promise<string[]> {
+  const out = new Set<string>();
+  for (const tpl of await getEventTemplatesByKeys(eventKeys)) {
+    const reward = (tpl.reward ?? {}) as { itemKey?: string; effectKey?: string };
+    if (reward.itemKey) out.add(reward.itemKey);
+    if (reward.effectKey) out.add(reward.effectKey);
+  }
+  return [...out];
+}
+
+/**
+ * Saves the season wizard: the config and, when the form carries it, the
+ * season's catalog (spec §4.2) — in one transaction, so a season never plays
+ * a config with a catalog it was not saved with.
+ */
+export async function updateSeasonSettings(input: {
+  seasonId: string;
+  config: unknown;
+  rulesMd?: string | null;
+  /** The catalog rows as the wizard submitted them; absent = leave the catalog alone. */
+  catalog?: unknown;
+}): Promise<void> {
   const actor = await requireStaff();
   let config = SeasonConfigSchema.parse(input.config);
   if (config.gamePool.source !== "catalog" && config.gamePool.provider === "internal") {
@@ -252,7 +280,7 @@ export async function updateSeasonSettings(input: { seasonId: string; config: un
   const rawInput = input.config as Record<string, unknown> | null;
   const ieeOmitted =
     typeof rawInput !== "object" || rawInput === null || !("iee" in rawInput);
-  await db.transaction(async (tx) => {
+  const catalogSave = await db.transaction(async (tx): Promise<CatalogSave | null> => {
     const [before] = await tx
       .select({ status: seasons.status, config: seasons.config })
       .from(seasons)
@@ -265,6 +293,13 @@ export async function updateSeasonSettings(input: { seasonId: string; config: un
     }
 
     await tx.update(seasons).set({ config, ...(input.rulesMd !== undefined ? { rulesMd: input.rulesMd } : {}) }).where(eq(seasons.id, input.seasonId));
+
+    const saved =
+      input.catalog === undefined
+        ? null
+        : await saveSeasonCatalog(tx, input.seasonId, input.catalog, {
+            requiredSlugs: await rewardSlugs(config.iee.events),
+          });
 
     const [existingBoard] = await tx.select().from(boards).where(eq(boards.seasonId, input.seasonId)).limit(1);
     let boardId = existingBoard?.id;
@@ -301,7 +336,9 @@ export async function updateSeasonSettings(input: { seasonId: string; config: un
         await tx.update(seasons).set({ config: withoutRegen }).where(eq(seasons.id, input.seasonId));
       }
     }
+    return saved;
   });
   log.info("season.settings.update.persisted", { actorId: actor.id, seasonId: input.seasonId });
   await logAdminAction({ actorId: actor.id, actionType: "season_settings_updated", targetType: "season", targetId: input.seasonId, payload: { config } });
+  if (catalogSave) await auditCatalogSave(actor.id, input.seasonId, catalogSave);
 }

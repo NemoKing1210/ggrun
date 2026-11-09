@@ -13,6 +13,8 @@ import type { CellType } from "@/lib/engine/types";
  */
 export function generateBoardCells(
   config: SeasonConfig,
+  /** Where the layout's randomness comes from — seeded in the sandbox, so a run repeats. */
+  rng: () => number = Math.random,
 ): Array<{ position: number; cellType: CellType; label: string | null; config: Record<string, unknown> }> {
   const { size, loop, bonusCount, penaltyCount, teleportCount, eventCount, distribution } = config.board;
 
@@ -37,7 +39,7 @@ export function generateBoardCells(
   // shuffle/distribute according to distribution
   let ordered: CellType[] = pool;
   if (distribution === "random") {
-    ordered = shuffle(pool);
+    ordered = shuffle(pool, rng);
   } else if (distribution === "even") {
     ordered = evenSpread(pool);
   } else if (distribution === "clustered") {
@@ -56,13 +58,13 @@ export function generateBoardCells(
     }
 
     const cfg: Record<string, unknown> = {};
-    if (type === "bonus") cfg.amount = 2 + Math.floor(Math.random() * 3); // 2-4
-    if (type === "penalty") cfg.amount = 2 + Math.floor(Math.random() * 3);
+    if (type === "bonus") cfg.amount = 2 + Math.floor(rng() * 3); // 2-4
+    if (type === "penalty") cfg.amount = 2 + Math.floor(rng() * 3);
     if (type === "teleport" && size > 3) {
       // random target not too close
       let target: number;
       do {
-        target = Math.floor(Math.random() * size);
+        target = Math.floor(rng() * size);
       } while (Math.abs(target - pos) < 3);
       cfg.target = target;
     }
@@ -78,10 +80,10 @@ export function generateBoardCells(
   return cells;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: () => number): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     const tmp = a[i]!;
     a[i] = a[j]!;
     a[j] = tmp;

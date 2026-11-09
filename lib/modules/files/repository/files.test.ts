@@ -9,6 +9,7 @@ import { db } from "@/lib/infrastructure/db";
 import {
   DEFAULT_FILE_PAGE_SIZE,
   MAX_FILE_PAGE_SIZE,
+  findFileByChecksum,
   findFileById,
   findFileByKey,
   insertFile,
@@ -75,6 +76,13 @@ describe("files repository", () => {
     await expect(findFileByKey("avatar/2026/10/x.jpg")).resolves.toEqual(row);
     await expect(findFileById("missing")).resolves.toBeNull();
     expect(selectRows.length).toBe(0);
+  });
+
+  it("finds a live file of a category by its checksum", async () => {
+    selectRows.push([row], []);
+    await expect(findFileByChecksum("iee_icon", "abc")).resolves.toEqual(row);
+    await expect(findFileByChecksum("iee_icon", "none")).resolves.toBeNull();
+    expect(limitSpy).toHaveBeenCalledWith(1);
   });
 
   it("lists newest-first with a clamped page size", async () => {

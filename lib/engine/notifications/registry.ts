@@ -148,6 +148,17 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKind, NotificationTempla
     actions: dashboardActions,
     dedupeKeyOf: ({ requestId }) => (requestId ? `completion:rejected:${requestId}` : null),
   },
+  decision_opened: {
+    kind: "decision_opened",
+    titleKey: "decisionOpened",
+    bodyKey: "decisionOpened",
+    severity: "warning",
+    icon: "ScaleIcon",
+    href: "/dashboard",
+    actions: dashboardActions,
+    // One question, one notice — the decision's id rides in `requestId`.
+    dedupeKeyOf: ({ requestId }) => (requestId ? `decision:opened:${requestId}` : null),
+  },
   admin_broadcast: {
     kind: "admin_broadcast",
     titleKey: "adminBroadcast",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SEASON_CONFIG } from "./defaults";
-import { IeeConfigSchema, IeeEntryConfigSchema } from "./iee";
+import { IeeConfigSchema, IeeEntryConfigSchema, SeasonCatalogEntrySchema } from "./iee";
 
 describe("IeeEntryConfigSchema — per-entry bounds", () => {
   it("caps the drop weight at 10000", () => {
@@ -68,15 +68,73 @@ describe("IeeConfigSchema — season-level bounds", () => {
     expect(() => IeeConfigSchema.parse({ catchUp: { maxMultiplier: 6 } })).toThrow();
   });
 
-  it("defaults catch-up off, entries empty and events empty", () => {
+  it("defaults catch-up off, events empty and no season-wide limit", () => {
     const parsed = IeeConfigSchema.parse({});
     expect(parsed.catchUp).toEqual(DEFAULT_SEASON_CONFIG.iee.catchUp);
-    expect(parsed.entries).toEqual({});
     expect(parsed.events).toEqual([]);
+    expect(parsed).toMatchObject({
+      maxActiveEffectsPerPlayer: null,
+      tagLimits: {},
+      disabledTags: [],
+      powerCeiling: null,
+      boardObjectsPerPlayer: 2,
+    });
   });
 
-  it("lets events and entries be enumerated", () => {
+  it("lets events be enumerated", () => {
     expect(IeeConfigSchema.parse({ events: ["e1", "e2"] }).events).toEqual(["e1", "e2"]);
-    expect(IeeConfigSchema.parse({ entries: { shield: {} } }).entries.shield?.enabled).toBe(true);
+  });
+
+  // Stage 1 kept the season's pool in the config; the season catalog holds it
+  // now (spec §4.5). An old config still parses and loses the key on save.
+  it("drops the stage-1 `entries` map instead of refusing the config", () => {
+    const parsed = IeeConfigSchema.parse({ enabled: true, entries: { ward: { weight: 40 } } });
+    expect(parsed.enabled).toBe(true);
+    expect(parsed).not.toHaveProperty("entries");
+  });
+
+  it("bounds the season-wide limits and spells tags as the documents do", () => {
+    expect(IeeConfigSchema.parse({ tagLimits: { movement: 2 }, disabledTags: ["game_condition"] })).toMatchObject({
+      tagLimits: { movement: 2 },
+      disabledTags: ["game_condition"],
+    });
+    expect(() => IeeConfigSchema.parse({ maxActiveEffectsPerPlayer: -1 })).toThrow();
+    expect(() => IeeConfigSchema.parse({ tagLimits: { Movement: 2 } })).toThrow();
+    expect(() => IeeConfigSchema.parse({ disabledTags: ["no spaces"] })).toThrow();
+    expect(() => IeeConfigSchema.parse({ boardObjectsPerPlayer: 21 })).toThrow();
+    expect(IeeConfigSchema.parse({ powerCeiling: 12.5 }).powerCeiling).toBe(12.5);
+  });
+});
+
+describe("SeasonCatalogEntrySchema", () => {
+  const row = {
+    entryId: "4a8ad97d-4287-468d-b300-5e20c2a593b0",
+    revisionId: "ae91a9d4-eab3-53f3-ae80-17f7a3e24e8a",
+    pool: "bonus",
+    weight: 100,
+  };
+
+  it("fills the gates and tuning a wizard row leaves out", () => {
+    expect(SeasonCatalogEntrySchema.parse(row)).toEqual({
+      ...row,
+      enabled: true,
+      rarity: null,
+      maxPerSeason: null,
+      maxPerPlayer: null,
+      cooldownRolls: 0,
+      minPosition: 0,
+      unlockAfterMove: 0,
+      paramOverrides: {},
+      durationOverride: null,
+      targetOverride: null,
+    });
+  });
+
+  it("refuses what a catalog row cannot hold", () => {
+    expect(() => SeasonCatalogEntrySchema.parse({ ...row, entryId: "lodestone" })).toThrow();
+    expect(() => SeasonCatalogEntrySchema.parse({ ...row, pool: "neutral" })).toThrow();
+    expect(() => SeasonCatalogEntrySchema.parse({ ...row, weight: -1 })).toThrow();
+    expect(() => SeasonCatalogEntrySchema.parse({ ...row, rarity: "mythic" })).toThrow();
+    expect(() => SeasonCatalogEntrySchema.parse({ ...row, extra: true })).toThrow();
   });
 });

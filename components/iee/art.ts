@@ -3,10 +3,11 @@ import { ART_EFFECT_KEYS, ART_ITEM_KEYS } from "@/components/iee/art-manifest";
 export type IeeArtKind = "item" | "effect";
 
 /**
- * Artwork for catalog entries. Shipped in the repo, changed only in the repo —
- * there is no upload in the admin console, because the app container has no
- * persistent volume and anything written to `public/` at runtime would not
- * survive a deploy.
+ * Artwork shipped with the game for the system pack's entries. Changed only in
+ * the repo — anything written to `public/` at runtime would not survive a
+ * deploy. Entries of any pack may also carry an uploaded icon (a file of the
+ * `iee_icon` category), which is drawn first; the whole fallback chain is
+ * `iconSource` in `IeeIcon.tsx` (docs/IEE_CONSTRUCTOR_SPEC.md §12).
  *
  * ## The naming rule
  *
@@ -39,7 +40,7 @@ export type IeeArtKind = "item" | "effect";
  * deleted: a path to a file nobody drew is worse than no field at all. A path
  * generated from the files that are actually there is not that.
  *
- * An entry with no artwork keeps its `heroIcon` glyph, so the catalog is never
+ * An entry with no artwork keeps its `glyph`, so the catalog is never
  * half-drawn while art is in progress.
  */
 export const IEE_ART_KEYS: Record<IeeArtKind, ReadonlySet<string>> = {

@@ -127,6 +127,7 @@ function gameRoll(overrides: Partial<GameRoll> = {}): GameRoll {
     difficultyLevel: null,
     notes: null,
     rating: null,
+    postponedUntilSeq: null,
     rolledAt: new Date(0),
     resolvedAt: null,
     ...overrides,

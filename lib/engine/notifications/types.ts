@@ -22,7 +22,9 @@ export type NotificationKind =
   | "completion_approved"
   | "completion_rejected"
   /** Free-text notice sent by an admin from the command console. */
-  | "admin_broadcast";
+  | "admin_broadcast"
+  /** An item or effect asks the player to choose (wave B, docs/IEE_CONSTRUCTOR_SPEC.md §7.6). */
+  | "decision_opened";
 
 /** One action button rendered under the card. */
 export interface NotificationActionDef {

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 
-import { EFFECTS, ITEMS } from "@/lib/engine";
-
+import { coreLibrary } from "../catalog/fixtures.test-helpers";
+import { keysOf } from "../catalog/views";
 import {
+  assertRewardKeys,
   createEventTemplateUseCase,
   deleteEventTemplateUseCase,
   EventRewardSchema,
@@ -37,9 +38,14 @@ const repo = vi.hoisted(() => ({
 }));
 vi.mock("../repository/events", () => repo);
 
+/** Reward keys are checked against the library — here, the system pack. */
+const library = vi.hoisted(() => ({ libraryKeys: vi.fn() }));
+vi.mock("../catalog", () => library);
+
 const ACTOR = { id: "admin-1", role: "admin" };
-const VALID_ITEM_KEY = Object.keys(ITEMS)[0]!;
-const VALID_EFFECT_KEY = Object.keys(EFFECTS)[0]!;
+const KEYS = keysOf(coreLibrary());
+const VALID_ITEM_KEY = "hex_scroll";
+const VALID_EFFECT_KEY = "swamp";
 
 function input(overrides: Partial<EventTemplateInput> = {}): EventTemplateInput {
   return {
@@ -59,6 +65,8 @@ beforeEach(() => {
   eventsInfra.logAdminAction.mockResolvedValue(undefined);
   for (const fn of Object.values(repo)) fn.mockReset();
   repo.getEventTemplateByKey.mockResolvedValue(null);
+  library.libraryKeys.mockReset();
+  library.libraryKeys.mockResolvedValue(KEYS);
 });
 
 describe("EventRewardSchema", () => {
@@ -66,48 +74,44 @@ describe("EventRewardSchema", () => {
     expect(EventRewardSchema.safeParse({}).success).toBe(true);
   });
 
-  it("accepts a reward that names a real item and effect", () => {
-    const result = EventRewardSchema.safeParse({
-      points: 10,
-      itemKey: VALID_ITEM_KEY,
-      effectKey: VALID_EFFECT_KEY,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects an item key that is not in the catalog", () => {
-    const result = EventRewardSchema.safeParse({ itemKey: "not_a_real_item" });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.path).toEqual(["itemKey"]);
-      expect(result.error.issues[0]?.message).toBe("ieeUnknownItemKey");
-    }
-  });
-
-  it("rejects an effect key that is not in the catalog", () => {
-    const result = EventRewardSchema.safeParse({ effectKey: "not_a_real_effect" });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.path).toEqual(["effectKey"]);
-      expect(result.error.issues[0]?.message).toBe("ieeUnknownEffectKey");
-    }
-  });
-
-  it("rejects an item key that is only inherited from Object.prototype", () => {
-    for (const key of ["toString", "constructor", "hasOwnProperty", "__proto__"]) {
-      expect(EventRewardSchema.safeParse({ itemKey: key }).success, `itemKey "${key}"`).toBe(false);
-    }
-  });
-
-  it("rejects an effect key that is only inherited from Object.prototype", () => {
-    expect(EventRewardSchema.safeParse({ effectKey: "toString" }).success).toBe(false);
-  });
-
   it("bounds points to 0..1000 whole numbers", () => {
     expect(EventRewardSchema.safeParse({ points: -1 }).success).toBe(false);
     expect(EventRewardSchema.safeParse({ points: 1001 }).success).toBe(false);
     expect(EventRewardSchema.safeParse({ points: 1.5 }).success).toBe(false);
     expect(EventRewardSchema.safeParse({ points: 1000 }).success).toBe(true);
+  });
+});
+
+describe("assertRewardKeys — a reward names what the library offers", () => {
+  it("does not read the library for a points-only reward", async () => {
+    await expect(assertRewardKeys({ points: 5 })).resolves.toBeUndefined();
+    expect(library.libraryKeys).not.toHaveBeenCalled();
+  });
+
+  it("accepts a real item and effect", async () => {
+    expect(Object.keys(KEYS.items)).toContain(VALID_ITEM_KEY);
+    await expect(
+      assertRewardKeys({ points: 10, itemKey: VALID_ITEM_KEY, effectKey: VALID_EFFECT_KEY }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses an item key the library does not offer", async () => {
+    await expect(assertRewardKeys({ itemKey: "not_a_real_item" })).rejects.toMatchObject({
+      name: "AdminError",
+      code: "ieeUnknownItemKey",
+    });
+  });
+
+  it("refuses an effect key the library does not offer, or an effect named as an item", async () => {
+    await expect(assertRewardKeys({ effectKey: "not_a_real_effect" })).rejects.toMatchObject({ code: "ieeUnknownEffectKey" });
+    await expect(assertRewardKeys({ itemKey: VALID_EFFECT_KEY })).rejects.toMatchObject({ code: "ieeUnknownItemKey" });
+  });
+
+  it("refuses keys that are only inherited from Object.prototype", async () => {
+    for (const key of ["toString", "constructor", "hasOwnProperty", "__proto__"]) {
+      await expect(assertRewardKeys({ itemKey: key }), `itemKey "${key}"`).rejects.toMatchObject({ code: "ieeUnknownItemKey" });
+    }
+    await expect(assertRewardKeys({ effectKey: "toString" })).rejects.toMatchObject({ code: "ieeUnknownEffectKey" });
   });
 });
 
@@ -146,10 +150,6 @@ describe("EventTemplateInputSchema", () => {
   it("requires the proof flag to be an explicit boolean", () => {
     expect(EventTemplateInputSchema.safeParse(input({ requiresProof: "on" as unknown as boolean })).success).toBe(false);
   });
-
-  it("rejects a reward that names an unknown catalog key", () => {
-    expect(EventTemplateInputSchema.safeParse(input({ reward: { itemKey: "nope" } })).success).toBe(false);
-  });
 });
 
 describe("createEventTemplateUseCase", () => {
@@ -162,6 +162,15 @@ describe("createEventTemplateUseCase", () => {
   it("refuses an invalid template before it touches the database", async () => {
     session.getCurrentUser.mockResolvedValue(ACTOR);
     await expect(createEventTemplateUseCase(input({ title: "x" }))).rejects.toBeInstanceOf(ZodError);
+    expect(repo.getEventTemplateByKey).not.toHaveBeenCalled();
+    expect(repo.createEventTemplate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a reward the library does not offer before it touches the templates", async () => {
+    session.getCurrentUser.mockResolvedValue(ACTOR);
+    await expect(createEventTemplateUseCase(input({ reward: { itemKey: "nope" } }))).rejects.toMatchObject({
+      code: "ieeUnknownItemKey",
+    });
     expect(repo.getEventTemplateByKey).not.toHaveBeenCalled();
     expect(repo.createEventTemplate).not.toHaveBeenCalled();
   });
@@ -217,6 +226,20 @@ describe("updateEventTemplateUseCase", () => {
     await expect(updateEventTemplateUseCase("tpl-1", patch)).rejects.toMatchObject({
       code: "adminStaffRequired",
     });
+    expect(repo.updateEventTemplate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a reward the library does not offer", async () => {
+    session.getCurrentUser.mockResolvedValue(ACTOR);
+    await expect(
+      updateEventTemplateUseCase("tpl-1", {
+        title: "Collect stamps",
+        descriptionMd: "Bring the host five stamps from the market.",
+        reward: { effectKey: "nope" },
+        requiresProof: true,
+        defaultDeadlineHours: 48,
+      }),
+    ).rejects.toMatchObject({ code: "ieeUnknownEffectKey" });
     expect(repo.updateEventTemplate).not.toHaveBeenCalled();
   });
 

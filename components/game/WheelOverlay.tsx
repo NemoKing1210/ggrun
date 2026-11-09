@@ -11,17 +11,16 @@ import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/format";
 import {
   buildReelStrip,
-  getEffect,
-  getItem,
   mulberry32,
   reelSeed,
   REEL_LANDING,
+  type EntryView,
   type ReelCell,
   type WheelOutcome,
   type WheelOutcomeKind,
 } from "@/lib/engine";
+import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
-import { dictText } from "@/lib/i18n/dict-text";
 
 /** One reel cell is 96px wide with an 8px gutter. */
 const CELL = 96;
@@ -32,12 +31,20 @@ const SPIN_MS = 2200;
 
 type CellView = ReelCell & { name: string };
 
-function describe(t: Dictionary, kind: WheelOutcomeKind, key: string | null): CellView {
+/** The season's entries, by key — the strip and the result are drawn from them. */
+export type WheelEntries = Readonly<Record<string, EntryView>>;
+
+function describe(
+  t: Dictionary,
+  locale: Locale,
+  entries: WheelEntries,
+  kind: WheelOutcomeKind,
+  key: string | null,
+): CellView {
   if (kind === "nothing" || kind === "fallback" || !key) {
     return { key: null, kind: "nothing", name: t.iee.wheel.nothing };
   }
-  const def = kind === "item" ? getItem(key) : getEffect(key);
-  return { key, kind, name: def ? dictText(t, def.i18n.name) : key };
+  return { key, kind, name: entries[key]?.name[locale] ?? key };
 }
 
 /**
@@ -54,12 +61,15 @@ function describe(t: Dictionary, kind: WheelOutcomeKind, key: string | null): Ce
  */
 export function WheelOverlay({
   outcome,
+  entries,
   onClose,
 }: {
   outcome: WheelOutcome | null;
+  /** The season's entry views — names, rule text and glyphs of every slice. */
+  entries: WheelEntries;
   onClose: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const w = t.iee.wheel;
   const [offset, setOffset] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -85,9 +95,9 @@ export function WheelOverlay({
   const strip = useMemo<CellView[]>(() => {
     if (!outcome) return [];
     return buildReelStrip(outcome, mulberry32(reelSeed(outcome))).map((cell) =>
-      describe(t, cell.kind, cell.key),
+      describe(t, locale, entries, cell.kind, cell.key),
     );
-  }, [outcome, t]);
+  }, [outcome, t, locale, entries]);
 
   useEffect(() => {
     if (!outcome) {
@@ -116,18 +126,14 @@ export function WheelOverlay({
 
   if (!outcome) return null;
 
-  const won = describe(t, outcome.kind, outcome.key);
+  const won = describe(t, locale, entries, outcome.kind, outcome.key);
   const negative = outcome.polarity === "negative";
   const share = outcome.slices.find((s) => s.key === outcome.key)?.share ?? null;
   // The entry's own glyph when there is one — this is the first time a player
   // sees the thing they just won, so a generic gift box wastes the moment.
   const Fallback = outcome.kind === "item" ? GiftIcon : outcome.kind === "effect" ? BoltIcon : MinusCircleIcon;
-  const def =
-    outcome.kind === "item"
-      ? getItem(outcome.key ?? "")
-      : outcome.kind === "effect"
-        ? getEffect(outcome.key ?? "")
-        : null;
+  const view =
+    (outcome.kind === "item" || outcome.kind === "effect") && outcome.key ? (entries[outcome.key] ?? null) : null;
 
   return (
     <Modal open onClose={revealed ? onClose : () => {}}>
@@ -191,11 +197,12 @@ export function WheelOverlay({
       <div className="mt-4 min-h-[5.5rem]" aria-live="polite">
         {revealed ? (
           <div className="flex items-start gap-3">
-            {def ? (
+            {view ? (
               <IeeArtTile
-                entryKey={outcome.key}
-                kind={outcome.kind === "item" ? "item" : "effect"}
-                heroIcon={def.heroIcon}
+                entryKey={view.key}
+                kind={view.kind}
+                glyph={view.glyph}
+                art={view.art}
                 polarity={negative ? "negative" : "positive"}
                 size="lg"
               />
@@ -224,11 +231,7 @@ export function WheelOverlay({
                 )}
               </div>
               <EntryDescription>
-                {outcome.kind === "nothing"
-                  ? w.gotNothing
-                  : def
-                    ? dictText(t, def.i18n.description)
-                    : ""}
+                {outcome.kind === "nothing" ? w.gotNothing : (view?.ruleText[locale] ?? "")}
               </EntryDescription>
               {outcome.kind !== "nothing" && (
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-amber">

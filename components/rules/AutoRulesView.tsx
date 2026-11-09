@@ -1,28 +1,40 @@
 import type { SeasonConfig } from "@/lib/engine/types";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
 import { EntryDescription } from "@/components/iee/EntryDescription";
 import { IeeArtTile } from "@/components/iee/IeeArtTile";
 import type { Season } from "@/db/schema";
 import { Badge } from "@/components/ui/Badge";
 import { format } from "@/lib/i18n/format";
-import { getEffect, getItem, RARITY_WEIGHT, type Rarity } from "@/lib/engine";
-import { dictText } from "@/lib/i18n/dict-text";
+import { RARITY_WEIGHT, type EntryView, type Rarity, type SeasonPoolSlot } from "@/lib/engine";
 import { GENRES, TAGS } from "@/lib/modules/catalog/pool/constants";
 
 type Props = {
   season: Season;
   config: SeasonConfig;
   t: Dictionary;
+  locale: Locale;
+  /**
+   * The season's entries as the client sees them, under its tuning — so the
+   * rules print the numbers this season plays, not the catalog's defaults.
+   */
+  entries: Readonly<Record<string, EntryView>>;
+  /** How each attached entry drops in this season, by key (its catalog row). */
+  pool: Readonly<Record<string, SeasonPoolSlot>>;
   boardCellsCount?: number;
 };
 
-export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
+export function AutoRulesView({ season, config, t, locale, entries, pool, boardCellsCount }: Props) {
   const rt = t.rules;
   const boardSize = config.board.size;
   const special = config.board.bonusCount + config.board.penaltyCount + config.board.teleportCount + config.board.eventCount;
   const normal = Math.max(0, boardSize - special - (config.board.loop ? 1 : 2));
   const loopHint = config.board.loop ? rt.loopHintActive : rt.loopHintLinear;
   const diceStreak = config.dice.dropStreakMultiplier ? rt.streakOn : rt.streakOff;
+  // Points ride on the move both ways — further forward on a pass, further
+  // back on a drop (`resolveMovement`); the setting's name is historic.
+  const pointsMove = config.points.bonusAddsToRollOnPass;
+  const pointsRule = !pointsMove ? rt.bonusOff : config.points.resetBalanceAfterUse ? rt.bonusSpent : rt.bonusKept;
 
   const primaryTag = config.gamePool.filters.primaryTag;
   const filterChips: string[] = [];
@@ -33,17 +45,17 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
   if (config.gamePool.filters.searchQuery) filterChips.push(`“${config.gamePool.filters.searchQuery}”`);
 
   // --- items, effects and challenges -------------------------------------
-  // The rules page is generated from the same config the engine runs on, so it
-  // cannot describe a season that is not the one being played.
+  // The rules page is generated from the same catalog the engine runs on, so
+  // it cannot describe a season that is not the one being played. Entries
+  // attached only because another hands them out do not drop: not listed.
   const iee = config.iee;
-  const ieeRows = Object.entries(iee.entries)
+  const ieeRows = Object.entries(pool)
     .filter(([, entry]) => entry.enabled)
-    .map(([key, entry]) => {
-      const item = getItem(key);
-      const effect = item ? null : getEffect(key);
-      const def = item ?? effect;
+    .flatMap(([key, entry]) => {
+      const view = entries[key];
+      if (!view) return [];
       // Rarity is a presentation shortcut over `weight` (§9.3): read it back
-      // from the tuned weight rather than the catalog's default, or a season
+      // from the tuned weight rather than the entry's default, or a season
       // that made a legendary common would advertise the wrong odds.
       let rarity: Rarity = "common";
       let best = Infinity;
@@ -51,19 +63,19 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
         const delta = Math.abs(RARITY_WEIGHT[r] - entry.weight);
         if (delta < best) [best, rarity] = [delta, r];
       }
-      return {
-        key,
-        kind: item ? ("item" as const) : ("effect" as const),
-        name: def ? dictText(t, def.i18n.name) : key,
-        description: def ? dictText(t, def.i18n.description) : "",
-        heroIcon: def?.heroIcon ?? null,
-        polarity: entry.polarityOverride ?? def?.polarity ?? "positive",
-        rarity,
-      };
-    })
-    // A key left in the config after being removed from the catalog would
-    // otherwise be advertised as a drop that can never happen.
-    .filter((row) => getItem(row.key) !== null || getEffect(row.key) !== null);
+      return [
+        {
+          key,
+          kind: view.kind,
+          name: view.name[locale],
+          description: view.ruleText[locale],
+          glyph: view.glyph,
+          art: view.art,
+          polarity: entry.polarity,
+          rarity,
+        },
+      ];
+    });
 
   const positives = ieeRows.filter((r) => r.polarity === "positive");
   const negatives = ieeRows.filter((r) => r.polarity === "negative");
@@ -111,28 +123,35 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
             {format(rt.diceDetails, { sides: String(config.dice.sides), pass: String(config.dice.passDiceCount), drop: String(config.dice.dropDiceCount), streak: diceStreak })}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[11px] uppercase tracking-widest text-dim">
-            <span className="border border-dim/15 bg-raised px-2 py-1 text-center">pass → + dice sum</span>
-            <span className="border border-dim/15 bg-raised px-2 py-1 text-center">drop → − dice sum</span>
+            <span className="border border-dim/15 bg-raised px-2 py-1 text-center">
+              {format(rt.formulaPass, { points: pointsMove ? rt.formulaPointsPass : "" })}
+            </span>
+            <span className="border border-dim/15 bg-raised px-2 py-1 text-center">
+              {format(rt.formulaDrop, {
+                streak: config.dice.dropStreakMultiplier ? rt.formulaStreak : "",
+                points: pointsMove ? rt.formulaPointsDrop : "",
+              })}
+            </span>
           </div>
           <p className="mt-3 text-xs text-zinc-400">
-            {config.dice.dropStreakMultiplier ? "Consecutive drops multiply step: (streakDrop+1) × dice sum." : "Drop step is flat dice sum, streak ignored."}{" "}
-            {config.points.bonusAddsToRollOnPass ? "Balance augments forward roll." : ""}
+            {config.dice.dropStreakMultiplier ? rt.dropStreakOn : rt.dropStreakOff}
+            {pointsMove ? ` ${rt.pointsBothWays}` : ""}
           </p>
         </div>
 
         <div className="hud-card p-5">
           <h3 className="font-display text-sm uppercase tracking-widest text-amber">{rt.sections.points}</h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="neutral">start {config.points.startingBalance}</Badge>
-            <Badge variant={config.points.bonusAddsToRollOnPass ? "amber" : "dim"}>{config.points.bonusAddsToRollOnPass ? t.admin.settings.bonusOnPassLabel : "no bonus"}</Badge>
-            <Badge variant={config.points.resetBalanceAfterUse ? "danger" : "dim"}>{config.points.resetBalanceAfterUse ? "reset after use" : "retain"}</Badge>
+            <Badge variant="neutral">{format(rt.startBadge, { balance: String(config.points.startingBalance) })}</Badge>
+            <Badge variant={pointsMove ? "amber" : "dim"}>{pointsMove ? rt.pointsBadgeOn : rt.pointsBadgeOff}</Badge>
+            {pointsMove ? (
+              <Badge variant={config.points.resetBalanceAfterUse ? "danger" : "dim"}>
+                {config.points.resetBalanceAfterUse ? rt.spentBadge : rt.keptBadge}
+              </Badge>
+            ) : null}
           </div>
           <p className="mt-3 font-mono text-xs leading-relaxed text-zinc-300">
-            {format(rt.pointsDetails, {
-              balance: String(config.points.startingBalance),
-              bonus: config.points.bonusAddsToRollOnPass ? rt.bonusOn : rt.bonusOff,
-              reset: config.points.resetBalanceAfterUse ? rt.resetOn : rt.resetOff,
-            })}
+            {format(rt.pointsDetails, { balance: String(config.points.startingBalance), bonus: pointsRule })}
           </p>
           <div className="mt-3 border border-dim/15 bg-raised p-2.5">
             <div className="flex items-center justify-between">
@@ -319,7 +338,8 @@ export function AutoRulesView({ season, config, t, boardCellsCount }: Props) {
                           <IeeArtTile
                             entryKey={row.key}
                             kind={row.kind}
-                            heroIcon={row.heroIcon}
+                            glyph={row.glyph}
+                            art={row.art}
                             polarity={polarity}
                             size="sm"
                           />

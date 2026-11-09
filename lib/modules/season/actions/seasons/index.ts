@@ -129,7 +129,12 @@ export async function updateSeasonSettingsAction(
   }
 
   try {
-    await updateSeasonSettings({ seasonId, config: parsed.config!, rulesMd: parsed.rulesMd ?? undefined });
+    await updateSeasonSettings({
+      seasonId,
+      config: parsed.config!,
+      rulesMd: parsed.rulesMd ?? undefined,
+      ...(parsed.catalog !== undefined ? { catalog: parsed.catalog } : {}),
+    });
     log.info("season.settings.update", { actorId: actor?.id ?? null, seasonId });
     revalidateAdmin(seasonId);
     revalidatePath("/rules");

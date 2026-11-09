@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 /**
  * The player an effect is told about is the player it is attached to.
  *
- * `runHook` hands every effect an `IeePlayerSnapshot` describing its holder.
+ * The hook runner hands every rule an `IeePlayerSnapshot` describing its holder.
  * `loadTurnHooks` used to build that snapshot by hand with two fields filled
  * in from nowhere: `moveCount: sp.rollSeq` and `rank: 1`.
  *

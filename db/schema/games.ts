@@ -50,6 +50,12 @@ export const gameRolls = pgTable(
     notes: text("notes"),
     /** Player rating 1-10 when the roll is marked as passed. */
     rating: integer("rating"),
+    /**
+     * A game its player set aside (wave C, `postponeGame`, IEE spec §6.16): the
+     * player's `roll_seq` at which it comes back as their game. Null once it
+     * has come back, and on every other roll.
+     */
+    postponedUntilSeq: integer("postponed_until_seq"),
     rolledAt: timestamp("rolled_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

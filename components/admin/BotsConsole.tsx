@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, useTransition } f
 import { useRouter } from "next/navigation";
 
 import { format } from "@/lib/i18n/format";
-import { BOT_TARGET_STRATEGIES, type BotTargetStrategy } from "@/lib/engine";
+import { BOT_TARGET_STRATEGIES, type BotTargetStrategy, type EntryView } from "@/lib/engine";
 import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 import {
   BotsRunCard,
@@ -58,6 +58,7 @@ export function BotsConsole({
   logs,
   rosters,
   playerStatusLabels,
+  entries,
   t,
 }: {
   seasonId: string;
@@ -68,6 +69,8 @@ export function BotsConsole({
   logs: ConsoleBotLog[];
   rosters: Record<string, ConsoleRosterRow[]>;
   playerStatusLabels: Record<string, string>;
+  /** The season's item and effect views, by key — names and glyphs for the roster. */
+  entries: Readonly<Record<string, EntryView>>;
   t: BotsText;
 }) {
   const router = useRouter();
@@ -476,6 +479,7 @@ export function BotsConsole({
             tickCycle={tickCycle}
             lastTick={lastTick}
             playerStatusLabels={playerStatusLabels}
+            entries={entries}
             t={t}
             onStart={startRun}
             onPause={pauseRun}

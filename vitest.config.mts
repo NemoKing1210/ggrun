@@ -39,6 +39,7 @@ export default defineConfig({
         // Type-only declarations and generated data: nothing to exercise.
         "lib/**/types/**",
         "components/iee/art-manifest.ts",
+        "lib/engine/iee/core-docs/core.generated.ts",
       ],
       // A ratchet, measured 2026-10: 78.9% lines / 77.3% statements /
       // 69.8% branches / 69.9% functions. Raise when the suite raises the

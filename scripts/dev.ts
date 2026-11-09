@@ -3,7 +3,9 @@
  *
  * Boots, in order:
  *   1. database reachability check (clear error instead of cryptic pg faults);
- *   2. `db:push` — applies the Drizzle schema, idempotent (skip: `--no-push`);
+ *   2. `db:push` — applies the Drizzle schema, idempotent, then `iee:import` —
+ *      loads the system item pack `seed/iee/core.ggpack`, idempotent too
+ *      (skip both: `--no-push`);
  *   3. the custom Next.js + Socket.IO server (`server.ts`) as a child.
  *
  * The autonomous bot ticker runs inside that child (`BOTS_TICK=1` below),
@@ -45,7 +47,7 @@ function parseArgs(argv: string[]): DevOptions {
         "Usage: pnpm dev [--port N] [--no-bots] [--no-push]\n" +
           "  --port N   serve on N (default 3000 / PORT; next free port when busy)\n" +
           "  --no-bots  skip the autonomous bot ticker\n" +
-          "  --no-push  skip applying the DB schema on boot",
+          "  --no-push  skip applying the DB schema and the core item pack on boot",
       );
       process.exit(0);
     } else if (arg === "--port") {
@@ -97,6 +99,17 @@ async function applySchema(): Promise<void> {
     process.exit(res.status ?? 1);
   }
 }
+/** The system item pack, after the schema it lives in (spec §10.2). */
+function importCorePack(): void {
+  console.log(`${DEV} loading the core item pack ${dim("(iee:import)")}`);
+  const { command, args } = pnpmArgs("iee:import");
+  const res = spawnSync(command, args, { stdio: "inherit", shell: false });
+  if (res.status !== 0) {
+    console.error(`${DEV} ${red("iee:import failed")} — the message above says why; boot with ${bold("--no-push")} to skip it`);
+    process.exit(res.status ?? 1);
+  }
+}
+
 /** True when nothing listens on `port` (all interfaces — matches the server bind). */
 function isPortFree(port: number): Promise<boolean> {
   const { promise, resolve } = Promise.withResolvers<boolean>();
@@ -137,7 +150,10 @@ function shutdown(signal: string, code: number): void {
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
   await checkDatabase();
-  if (opts.withPush) await applySchema();
+  if (opts.withPush) {
+    await applySchema();
+    importCorePack();
+  }
   // Probe right before spawn (not at arg parse): `db:push` takes a while and
   // the port could be grabbed in between. The server still retries on
   // EADDRINUSE as a last resort for the leftover TOCTOU race.

@@ -1,0 +1,2 @@
+ALTER TABLE "iee_instances" ADD COLUMN "aimed_player_id" uuid;--> statement-breakpoint
+ALTER TABLE "iee_instances" ADD CONSTRAINT "iee_instances_aimed_player_id_season_players_id_fk" FOREIGN KEY ("aimed_player_id") REFERENCES "public"."season_players"("id") ON DELETE set null ON UPDATE no action;

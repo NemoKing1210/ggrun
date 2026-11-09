@@ -82,3 +82,22 @@ describe("the season wizard marks the current stage, not the finished ones, in b
     expect(currentChanged?.[1]).toMatch(/repeating-linear-gradient/);
   });
 });
+
+/**
+ * The IEE stage edits the season's catalog (spec §4.2), which is not config:
+ * it travels as its own field and is saved in the settings transaction.
+ */
+describe("the season wizard saves the catalog with the settings", () => {
+  it("sends the catalog rows with every save", () => {
+    expect(text).toMatch(/formData\.set\("ieeCatalog", JSON\.stringify\(catalogRows\)\)/);
+  });
+
+  it("empties the catalog when the IEE stage is reset", () => {
+    const reset = text.slice(text.indexOf("const handleResetStage"), text.indexOf("const handleResetStage") + 800);
+    expect(reset).toMatch(/if \(activeTab === "iee"\) updateCatalog\(\[\]\)/);
+  });
+
+  it("counts a catalog edit as an unsaved change of the stage", () => {
+    expect(text).toMatch(/editedStages\(baseline, \{ config: cfg, rulesMd, catalog: catalogRows \}/);
+  });
+});

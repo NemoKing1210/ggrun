@@ -16,7 +16,8 @@ import { seasonPlayers, users } from "@/db/schema";
 import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getLeaderboard } from "@/lib/modules/season/repository/players";
-import { getEffectRowsBySeason, getHeldItemsBySeason } from "@/lib/modules/iee/repository";
+import { activeInstancesBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import {
   adjustPlayerAction,
   removePlayerFromSeasonAction,
@@ -56,7 +57,7 @@ export default async function SeasonPlayersPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const actor = await getCurrentUser();
   if (!actor || !isStaff(actor)) redirect("/login");
   const isAdmin = actor.role === "admin";
@@ -80,12 +81,12 @@ export default async function SeasonPlayersPage({
 
   const candidates = allUsers.filter((u) => u.inThisSeason === null);
 
-  // What each participant is carrying. Two season-wide queries rather than two
-  // per participant — the same reason `getActiveEffectsBySeason` exists.
-  const [heldItems, effectRows] = await Promise.all([
-    getHeldItemsBySeason(seasonId),
-    getEffectRowsBySeason(seasonId),
-  ]);
+  // What each participant is carrying. One season-wide query rather than two
+  // per participant — the same reason `effectBadgesBySeason` exists.
+  const { items: heldItems, effects: effectRows } = await activeInstancesBySeason(
+    seasonId,
+    await getSeasonRegistry(seasonId),
+  );
   const carrying: CarryingPlayer[] = roster
     .map((p) => ({
       seasonPlayerId: p.id,
@@ -427,7 +428,7 @@ export default async function SeasonPlayersPage({
           </>
         )}
       </section>
-      <IeeIntervention seasonId={seasonId} carrying={carrying} t={t} />
+      <IeeIntervention seasonId={seasonId} carrying={carrying} t={t} locale={locale} />
     </div>
   );
 }

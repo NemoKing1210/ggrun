@@ -66,12 +66,18 @@ describe("rollAction", () => {
   });
 
   it("rolls, revalidates the dashboard and returns no error", async () => {
-    state.rollNewGame.mockResolvedValue("roll-1");
+    state.rollNewGame.mockResolvedValue({ rollId: "roll-1", choice: null });
 
     const result = await rollAction({}, form({ seasonPlayerId: "sp-1" }));
 
     expect(result).toEqual({});
     expect(state.rollNewGame).toHaveBeenCalledWith("sp-1");
+    expect(state.revalidatePath).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("says when the roll opened a choice of games instead (wave C, IEE spec §7.12)", async () => {
+    state.rollNewGame.mockResolvedValue({ rollId: null, choice: { decisionId: "d-1", offered: 3 } });
+    expect(await rollAction({}, form({ seasonPlayerId: "sp-1" }))).toEqual({ choosing: 3 });
     expect(state.revalidatePath).toHaveBeenCalledWith("/dashboard");
   });
 

@@ -23,8 +23,7 @@ import { cn } from "@/lib/shared/utils/cn";
  * whole meaning of an entry -- they are the content, not an annotation on it.
  *
  * Not a `<p>` at each call site with its own classes: that is exactly how the
- * six copies drifted apart, and the same lesson lib/i18n/dict-text.ts already
- * recorded.
+ * six copies drifted apart. One component, one size.
  */
 export function EntryDescription({
   children,

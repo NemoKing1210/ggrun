@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { checkItemUse, hexScroll, type UseGuardInput } from "./iee";
-import type { IeePlayerSnapshot, ItemUsage } from "./types";
+import { checkItemUse, type UseGuardInput, type UseGuardUsage } from "./iee";
+import { CORE_DOCS } from "./iee/core-docs";
+import { compileSet } from "./iee/dsl/set";
+import { isItem } from "./iee/dsl/runtime";
+import type { IeePlayerSnapshot } from "./types";
 
 const player = (over: Partial<IeePlayerSnapshot> = {}): IeePlayerSnapshot => ({
   seasonPlayerId: "sp-actor",
@@ -13,12 +16,10 @@ const player = (over: Partial<IeePlayerSnapshot> = {}): IeePlayerSnapshot => ({
   ...over,
 });
 
-const usage = (over: Partial<ItemUsage> = {}): ItemUsage => ({
+const usage = (over: Partial<UseGuardUsage> = {}): UseGuardUsage => ({
   mode: "active",
   window: "anytime",
   target: "other",
-  charges: 1,
-  consumedOnUse: true,
   ...over,
 });
 
@@ -64,6 +65,12 @@ describe("checkItemUse — timing window", () => {
     expect(
       code(checkItemUse(input({ usage: usage({ window: "on_open_roll" }), hasOpenRoll: false }))),
     ).toBe("ieeItemWrongWindow");
+  });
+
+  it("after_dice is used in the reaction window only — never from the inventory (wave B, §6.15)", () => {
+    for (const hasOpenRoll of [false, true]) {
+      expect(code(checkItemUse(input({ usage: usage({ window: "after_dice", target: "self" }), hasOpenRoll })))).toBe("ieeItemReactionOnly");
+    }
   });
 
   it("anytime ignores the roll state", () => {
@@ -167,18 +174,18 @@ describe("checkItemUse — PvP guardrails (§8.3)", () => {
 });
 
 describe("the tracer item obeys the guards", () => {
+  const hex = compileSet(CORE_DOCS).byKey.get("hex_scroll")!;
+  if (!isItem(hex)) throw new Error("hex_scroll compiles to an item");
+  /** What the service hands the guards: the compiled usage, activation as mode. */
+  const hexUsage: UseGuardUsage = { mode: hex.usage.activation, window: hex.usage.window, target: hex.usage.target };
+
   it("hex_scroll is active, single-charge and aimed at someone else", () => {
-    expect(hexScroll.usage).toMatchObject({
-      mode: "active",
-      target: "other",
-      charges: 1,
-      consumedOnUse: true,
-    });
+    expect(hex.usage).toMatchObject({ activation: "active", target: "other", charges: 1 });
   });
 
   it("a season with PvP off makes it unusable", () => {
-    expect(
-      code(checkItemUse(input({ usage: hexScroll.usage, allowTargetingOthers: false }))),
-    ).toBe("ieeTargetingDisabled");
+    expect(code(checkItemUse(input({ usage: hexUsage, allowTargetingOthers: false })))).toBe(
+      "ieeTargetingDisabled",
+    );
   });
 });

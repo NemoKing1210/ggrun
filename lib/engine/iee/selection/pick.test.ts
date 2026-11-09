@@ -35,8 +35,12 @@ const cfg = (over: Partial<IeeConfig> = {}): IeeConfig => ({
   revealDropsInFeed: true,
   nothingWeight: 0,
   catchUp: { enabled: false, maxMultiplier: 2 },
-  entries: {},
   events: [],
+  maxActiveEffectsPerPlayer: null,
+  tagLimits: {},
+  disabledTags: [],
+  powerCeiling: null,
+  boardObjectsPerPlayer: 2,
   ...over,
 });
 
@@ -58,7 +62,8 @@ const counters = { perSeason: {}, perPlayer: {}, lastDropRollSeq: {} };
 
 const input = (over: Partial<PickInput> = {}): PickInput => ({
   polarity: "positive",
-  config: cfg({ entries: { hex_scroll: entry() } }),
+  config: cfg(),
+  entries: { hex_scroll: entry() },
   catalog: [ITEM],
   catalogDefaults: { hex_scroll: { effectKey: "slowed" } },
   player: player(),
@@ -111,7 +116,7 @@ describe("buildPool", () => {
     const { weighted, debug } = buildPool(
       input({
         polarity: "negative",
-        config: cfg({ entries: { slowed: entry() } }),
+        entries: { slowed: entry() },
         catalog: [ITEM, EFFECT],
       }),
     );
@@ -124,12 +129,26 @@ describe("buildPool", () => {
     const { weighted, debug } = buildPool(
       input({
         polarity: "negative",
-        config: cfg({ entries: { hex_scroll: entry(), slowed: entry() } }),
+        entries: { hex_scroll: entry(), slowed: entry() },
         catalog: [ITEM, EFFECT],
       }),
     );
     expect(debug.rejected).toEqual({ hex_scroll: "polarity" });
     expect(weighted.map((w) => w.candidate.key)).toEqual(["slowed"]);
+  });
+
+  it("hands the player's tag counts to the gates", () => {
+    const tagged: PoolCandidate = { ...ITEM, tags: ["directed"] };
+    const limited = (count: number) =>
+      buildPool(
+        input({
+          catalog: [tagged],
+          config: cfg({ tagLimits: { directed: 1 } }),
+          activeTagCounts: { directed: count },
+        }),
+      ).debug.rejected;
+    expect(limited(0)).toEqual({});
+    expect(limited(1)).toEqual({ hex_scroll: "tag_limit" });
   });
 
   it("carries the candidate and its entry through to the weighted list", () => {
@@ -209,14 +228,14 @@ describe("pickWheelOutcome", () => {
   });
 
   it("falls back with empty_pool when nothing survives the gates", () => {
-    const out = pickWheelOutcome(input({ config: cfg({ entries: {} }) }));
+    const out = pickWheelOutcome(input({ entries: {} }));
     expect(out).toMatchObject({ kind: "fallback", fallbackReason: "empty_pool" });
   });
 
   it("resolves the picked candidate's params from defaults plus the season", () => {
     const out = pickWheelOutcome(
       input({
-        config: cfg({ entries: { hex_scroll: entry({ paramOverrides: { effectKey: "shield" } }) } }),
+        entries: { hex_scroll: entry({ paramOverrides: { effectKey: "shield" } }) },
       }),
     );
     expect(out).toMatchObject({ kind: "item", key: "hex_scroll", polarity: "positive" });
@@ -226,7 +245,7 @@ describe("pickWheelOutcome", () => {
   it("returns the nothing outcome when the nothing slice is drawn", () => {
     const out = pickWheelOutcome(
       input({
-        config: cfg({ entries: { hex_scroll: entry({ weight: 1 }) }, nothingWeight: 99 }),
+        config: cfg({ nothingWeight: 99 }), entries: { hex_scroll: entry({ weight: 1 }) },
         rng: () => 0.999,
       }),
     );
@@ -245,7 +264,7 @@ describe("pickWheelOutcome", () => {
     // undefined.
     const out = pickWheelOutcome(
       input({
-        config: cfg({ entries: { hex_scroll: entry({ weight: 1 }) }, nothingWeight: 1 }),
+        config: cfg({ nothingWeight: 1 }), entries: { hex_scroll: entry({ weight: 1 }) },
         rng: () => 1,
       }),
     );
@@ -262,11 +281,24 @@ describe("pickWheelOutcome", () => {
 describe("dropTable", () => {
   it("reports the shares the picker actually draws from", () => {
     const table = dropTable(
-      input({ config: cfg({ entries: { hex_scroll: entry({ weight: 3 }) }, nothingWeight: 1 }) }),
+      input({ config: cfg({ nothingWeight: 1 }), entries: { hex_scroll: entry({ weight: 3 }) } }),
     );
     expect(table.map((s) => [s.key, s.share])).toEqual([
       ["hex_scroll", 0.75],
       [null, 0.25],
     ]);
+  });
+});
+
+describe("buildPool — a rival to move", () => {
+  const CHASE: PoolCandidate = { kind: "effect", key: "chase", polarity: "positive", tier: 1, stacking: "unique", needsBehind: true };
+
+  it("passes the rivals behind the landing cell to the gates", () => {
+    const at = (playersBehind: number | undefined) =>
+      buildPool(input({ entries: { hex_scroll: entry(), chase: entry() }, catalog: [ITEM, CHASE], playersBehind }));
+    expect(at(0).weighted.map((w) => w.candidate.key)).toEqual(["hex_scroll"]);
+    expect(at(0).debug.rejected).toEqual({ chase: "nobody_behind" });
+    expect(at(2).weighted.map((w) => w.candidate.key)).toEqual(["hex_scroll", "chase"]);
+    expect(at(undefined).weighted).toHaveLength(2);
   });
 });

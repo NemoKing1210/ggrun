@@ -17,7 +17,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import RollCard, { type GameSummary } from "@/components/dashboard/RollCard";
-import { InventoryPanel } from "@/components/dashboard/InventoryPanel";
+import { InventoryPanel, type PickOffer } from "@/components/dashboard/InventoryPanel";
+import { DecisionPanel, type DecisionCard } from "@/components/dashboard/DecisionPanel";
+import { GameChoicePanel, type GameChoiceCard } from "@/components/dashboard/GameChoicePanel";
+import { ReactionPanel, type ReactionWindowCard } from "@/components/dashboard/ReactionPanel";
+import { DecisionsLiveRefresh } from "@/components/realtime/decisions-live";
 import { ChallengesPanel, type ChallengeRow } from "@/components/dashboard/ChallengesPanel";
 import { GamesHistory } from "@/components/dashboard/GamesHistory";
 import { LiveBadge, LiveFlash, SeasonLiveRefresh } from "@/components/realtime/season-live";
@@ -38,13 +42,22 @@ import {
   getPendingCompletionForPlayer,
   getRecentRolls,
 } from "@/lib/modules/catalog/repository";
-import { listEffects, listItems, SeasonConfigSchema } from "@/lib/engine";
+import { SeasonConfigSchema } from "@/lib/engine";
 import {
-  getActiveEffectsWithCaster,
-  getHeldItems,
+  boardObjectsBySeason,
   getPlayerEvents,
+  listActiveEffects,
+  listHeldItems,
+  listRollConditions,
   listTargetOptions,
+  standingBySeason,
 } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
+import { decisionView, listPendingDecisions, reactionWindowView } from "@/lib/modules/iee/decisions";
+import { offeredGames, type GameChoiceContext } from "@/lib/modules/iee/executor";
+import { pickOffers } from "@/lib/modules/catalog/repository";
+import { freeObjectCells } from "@/lib/modules/game/service/objects";
+import { entryChoiceOptions } from "@/lib/modules/iee/use";
 import { getPlayerMoves, getSeasonPlayerForUser } from "@/lib/modules/season/repository/players";
 import {
   getActiveSeason,
@@ -53,6 +66,7 @@ import {
 } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
+import { IeeIcon } from "@/components/iee/IeeIcon";
 import type { Locale } from "@/lib/i18n/config";
 
 const dateLocales: Record<Locale, string> = {
@@ -171,35 +185,41 @@ export default async function DashboardPage() {
   ]);
   // A judge's approval of a reroll is a permission the player uses from here.
   const approvedReroll = openRoll ? await getApprovedRerollForRoll(openRoll.id) : null;
+  // What the games were to be passed with (wave C, spec §6.17): the one in flight and the history's.
+  const rollConditions = await listRollConditions([...(openRoll ? [openRoll.id] : []), ...recentRolls.slice(0, 8).map((r) => r.id)]);
+  const conditionsOf = (rollId: string) => (rollConditions.get(rollId) ?? []).map((c) => ({ id: c.id, text: c.text, from: c.from }));
 
   // --- items, statuses and who they may be aimed at -------------------------
   const seasonConfig = SeasonConfigSchema.safeParse(season.config);
   const iee = seasonConfig.success ? seasonConfig.data.iee : null;
-  const [heldItems, activeEffects, targetOptions, playerEvents] = iee?.enabled
+  const registry = await getSeasonRegistry(season.id);
+  const [heldItems, activeEffects, targetOptions, playerEvents, standing, pendingDecisions] = iee?.enabled
     ? await Promise.all([
-        getHeldItems(seasonPlayer.id),
-        getActiveEffectsWithCaster(seasonPlayer.id),
+        listHeldItems(seasonPlayer.id, registry),
+        listActiveEffects(seasonPlayer.id, registry),
         iee.allowTargetingOthers
           ? listTargetOptions(season.id, seasonPlayer.id, iee.pvpProtectionMoves)
           : Promise.resolve([]),
         getPlayerEvents(seasonPlayer.id),
+        // What holds (wave B, spec §6.13): whether the player may use items, who is out of reach.
+        standingBySeason(season.id, registry),
+        // What waits for the player to choose (wave B, spec §7.6).
+        listPendingDecisions(seasonPlayer.id),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], new Map(), []];
 
-  // Catalog names live in the dictionaries; a reward only stores keys.
-  const catalogName = (path: string): string => {
-    const parts = path.split(".");
-    let node: unknown = t;
-    for (const part of parts) {
-      if (typeof node !== "object" || node === null) return path;
-      node = (node as Record<string, unknown>)[part];
-    }
-    return typeof node === "string" ? node : path;
-  };
-  const itemNames = Object.fromEntries(listItems().map((d) => [d.key, catalogName(d.i18n.name)]));
-  const effectNames = Object.fromEntries(
-    listEffects().map((d) => [d.key, catalogName(d.i18n.name)]),
-  );
+  // The season's entries as the client sees them (spec §8): names, rule text
+  // with this season's numbers, glyphs. A reward only stores keys, so the
+  // challenge list looks its names up here too.
+  const views = registry.viewsByKey();
+  const namesOf = (kind: "item" | "effect") =>
+    Object.fromEntries(
+      Object.values(views)
+        .filter((v) => v.kind === kind)
+        .map((v) => [v.key, v.name[locale]]),
+    );
+  const itemNames = namesOf("item");
+  const effectNames = namesOf("effect");
   const challenges: ChallengeRow[] = playerEvents.map((e) => ({
     id: e.id,
     title: e.title,
@@ -212,28 +232,80 @@ export default async function DashboardPage() {
     reward: (e.reward ?? {}) as ChallengeRow["reward"],
   }));
 
+  // The choices waiting for the player (spec §7.6), and the bonus items they choose among — what they hold now.
+  const decisionCards: DecisionCard[] = pendingDecisions.flatMap((row) => {
+    const view = decisionView(row);
+    if (!view) return [];
+    const asker = view.revisionId ? registry.instanceView(view.revisionId) : null;
+    return [
+      {
+        id: view.id,
+        name: view.name,
+        ruleText: asker?.ruleText ?? null,
+        then: view.then,
+        count: view.count,
+        orKeep: view.orKeep,
+        defaultChoice: view.defaultChoice,
+      },
+    ];
+  });
+  const decisionItems = heldItems.flatMap((i) => {
+    const view = registry.instanceView(i.revisionId);
+    return view && view.character === "bonus" ? [{ id: i.id, view }] : [];
+  });
+  // A turn paused for the player's reaction (spec §7.4): the throw, and the items it offers as they are held now.
+  const reactionCards: ReactionWindowCard[] = pendingDecisions.flatMap((row) => {
+    const view = reactionWindowView(row);
+    if (!view) return [];
+    const offers = view.offers.flatMap((o) => {
+      const held = heldItems.find((i) => i.id === o.instanceId);
+      const entry = held ? registry.instanceView(held.revisionId) : null;
+      return entry ? [{ instanceId: o.instanceId, view: entry }] : [];
+    });
+    return [{ id: view.id, outcome: view.outcome, faces: view.faces, result: view.result, from: view.from, to: view.to, offers }];
+  });
+
+  // A choice of games waiting for the player (wave C, spec §7.12): the games as they were offered.
+  const choiceCard: GameChoiceCard | null =
+    pendingDecisions.flatMap((row): GameChoiceCard[] => {
+      if (row.kind !== "game_choice") return [];
+      const context = row.context as Partial<GameChoiceContext>;
+      return [{ id: row.id, games: offeredGames(row), origin: context.origin ?? "roll", itemName: context.names ?? null }];
+    })[0] ?? null;
+  // What a pick for the next game may take (wave C, spec §6.16): read once, and only when a held item asks.
+  const picksAsked = heldItems.some((i) => {
+    const kind = registry.item(i.revisionId)?.usage.pick;
+    return kind === "genre" || kind === "years";
+  });
+  const offers = picksAsked ? await pickOffers(seasonPlayer.id) : null;
+  // The cells an object may stand on (wave D, spec §6.18): read only when a held item places itself.
+  const cellsAsked = heldItems.some((i) => registry.item(i.revisionId)?.usage.pick === "cell");
+  const freeCells = cellsAsked ? await freeObjectCells(season.id) : [];
+  // What stands on the track — the player's own way included (wave D, spec §6.18).
+  const objectAt = new Map((await boardObjectsBySeason(season.id, registry)).map((o) => [o.cell, o]));
+  const pickOf = (kind: "genre" | "years" | "game" | "cell" | null | undefined): PickOffer | undefined =>
+    kind === "genre"
+      ? { kind, options: offers?.genres ?? [] }
+      : kind === "years"
+        ? { kind, options: offers?.decades ?? [] }
+        : kind === "game"
+          ? { kind }
+          : kind === "cell"
+            ? { kind, options: freeCells }
+            : undefined;
+
   // What the *next* roll will actually experience.
   //
-  // Expiry is lazy — a spent status keeps `state = 'active'` until the player's
-  // next resolve sweeps it — so "still in force" is a real question, and it now
-  // has exactly one answer: `getActiveEffectsWithCaster` applies the rule in
-  // SQL, the same way the board and the leaderboard do. This page used to carry
-  // its own copy, reading the roll that had already happened, so a status spent
-  // a moment earlier lingered here showing "0 rolls left" — present to the
-  // player, inert to the game.
-  const statuses = activeEffects.map((e) => ({
-    id: e.id,
-    effectKey: e.effectKey,
-    polarity: e.polarity,
-    chargesLeft: e.chargesLeft,
-    // Rolls this will still affect, counting the next one — so it never
-    // reads zero while the status is on screen.
-    rollsLeft:
-      e.expiresAfterRollSeq === null
-        ? null
-        : Math.max(0, e.expiresAfterRollSeq - seasonPlayer.rollSeq),
-    castByUsername: e.castByUsername,
-  }));
+  // Counters are eager (docs/IEE_CONSTRUCTOR_SPEC.md §7.9): the executor ends a
+  // status the moment its last unit is spent, so an active row is in force and
+  // `remaining` is exactly what is left — rolls it will still affect, counting
+  // the next one, so it never reads zero while the status is on screen.
+  // An instance is drawn from the revision it holds: an older one keeps its
+  // own text, and one the season no longer attaches still shows (spec §8).
+  const statuses = activeEffects.flatMap((e) => {
+    const view = registry.instanceView(e.revisionId);
+    return view ? [{ id: e.id, remaining: e.remaining, castByUsername: e.castByUsername, view }] : [];
+  });
 
   const cells = board ? await getBoardCells(board.id) : [];
   const totalCells = cells.length || 1;
@@ -304,6 +376,7 @@ export default async function DashboardPage() {
         matchPlayerId={seasonPlayer.id}
         labels={{ updated: t.feed.updated }}
       />
+      {iee?.enabled ? <DecisionsLiveRefresh userId={user.id} seasonId={season.id} /> : null}
       {/* Operator ID card */}
       <div className="hud-card flex items-center gap-4 p-4">
         <div
@@ -453,6 +526,7 @@ export default async function DashboardPage() {
               const theme = CELL_THEME[cell.cellType];
               const isHere = cell.position === seasonPlayer.position;
               const isPast = cell.position < seasonPlayer.position;
+              const object = objectAt.get(cell.position);
               return (
                 <div
                   key={cell.id}
@@ -472,6 +546,15 @@ export default async function DashboardPage() {
                     className={`absolute right-1 top-1 size-1 ${theme.dot} [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]`}
                     aria-hidden
                   />
+                  {object ? (
+                    <span
+                      title={format(t.board.cell.objectOn, { name: object.name[locale] || object.name.ru, owner: object.owner ? (object.owner.displayName ?? object.owner.username) : "—" })}
+                      data-object={object.cell}
+                      className={`absolute left-0.5 top-0.5 z-10 inline-flex size-4 items-center justify-center border p-px [clip-path:polygon(2px_0,100%_0,100%_calc(100%-2px),calc(100%-2px)_100%,0_100%,0_2px)] ${object.polarity === "negative" ? "border-danger/60 bg-danger/15 text-danger" : "border-amber/60 bg-amber/15 text-amber"}`}
+                    >
+                      <IeeIcon kind="item" glyph={object.glyph} entryKey={object.key} art={object.art} alt={object.name[locale] || object.name.ru} className="size-full" />
+                    </span>
+                  ) : null}
                   {isHere ? (
                     <span
                       className="absolute inset-[3px] flex items-center justify-center bg-amber/12 [clip-path:polygon(3px_0,100%_0,100%_calc(100%-3px),calc(100%-3px)_100%,0_100%,0_3px)]"
@@ -555,17 +638,35 @@ export default async function DashboardPage() {
         <ChallengesPanel challenges={challenges} itemNames={itemNames} effectNames={effectNames} />
       ) : null}
 
+      {/* The turn waits for the player's reaction to the dice (spec §7.4). */}
+      {iee?.enabled ? <ReactionPanel windows={reactionCards} wheelEntries={views} /> : null}
+
+      {/* A choice waits above the inventory: the player answers it before using items (spec §7.6). */}
+      {iee?.enabled && decisionCards.length > 0 ? <DecisionPanel decisions={decisionCards} items={decisionItems} /> : null}
+
+      {/* A choice of games: the player takes one, and it is their roll (spec §7.12). */}
+      {iee?.enabled ? <GameChoicePanel choice={choiceCard} /> : null}
+
       {iee?.enabled && (heldItems.length > 0 || statuses.length > 0) ? (
         <InventoryPanel
-          items={heldItems.map((i) => ({
-            id: i.id,
-            itemKey: i.itemKey,
-            chargesLeft: i.chargesLeft,
-            source: i.source,
-          }))}
+          items={heldItems.flatMap((i) => {
+            const view = registry.instanceView(i.revisionId);
+            if (!view) return [];
+            // An item that asks for a pick from the catalog offers what the server would accept (spec §6.12).
+            const item = registry.item(i.revisionId);
+            const entryOptions = item?.usage.entryChoice
+              ? entryChoiceOptions(item.usage.entryChoice, registry, item).map((e) => registry.view(e))
+              : undefined;
+            // An item that asks for a pick for the next game offers what the season's pool does (spec §6.16).
+            const pick = pickOf(item?.usage.pick);
+            return [{ id: i.id, chargesLeft: i.chargesLeft, source: i.source, view, ...(entryOptions ? { entryOptions } : {}), ...(pick ? { pick } : {}) }];
+          })}
           statuses={statuses}
-          targets={targetOptions}
+          targets={targetOptions.map((o) => ({ ...o, untargetable: standing.get(o.seasonPlayerId)?.untargetable ?? false }))}
           allowTargeting={iee.allowTargetingOthers}
+          selfPosition={seasonPlayer.position}
+          forbidden={standing.get(seasonPlayer.id)?.forbidItems ?? false}
+          deciding={decisionCards.length > 0 || reactionCards.length > 0 || choiceCard !== null}
         />
       ) : null}
 
@@ -635,11 +736,15 @@ export default async function DashboardPage() {
             seasonConfig.success ? seasonConfig.data.rerolls.requireApproval : true
           }
           lastDice={lastMoves[0]?.diceResults ?? null}
+          reacting={reactionCards.length > 0}
+          choosing={choiceCard !== null}
+          conditions={openRoll ? conditionsOf(openRoll.id) : []}
           catalogGames={catalogPreview.map((g) => ({
             title: g.title,
             coverUrl: g.coverUrl,
             platform: g.platform,
           }))}
+          wheelEntries={views}
         />
       )}
 
@@ -740,6 +845,7 @@ export default async function DashboardPage() {
                     game: toGameSummary(roll.game),
                     rating: roll.rating != null ? Number(roll.rating) : null,
                     notes: roll.notes,
+                    conditions: conditionsOf(roll.id),
                   };
                 })}
               />

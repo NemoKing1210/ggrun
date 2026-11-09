@@ -55,15 +55,19 @@ function isApiEarlyReturn(stmt: ts.Statement): boolean {
 describe("an API season draws only from its provider", () => {
   const fn = functionNode(POOL, "pickGameForRoll");
   const body = fn?.body?.getText() ?? "";
+  // The season's pool — its filters, its order, what an API season draws from — is built in one place.
+  const scope = functionNode(POOL, "poolScope")?.body?.getText() ?? "";
 
-  it("finds the picker (a scan of nothing proves nothing)", () => {
+  it("finds the picker and its pool (a scan of nothing proves nothing)", () => {
     expect(body.length).toBeGreaterThan(500);
+    expect(scope.length).toBeGreaterThan(500);
   });
 
   it("scopes the draw to rows the season's provider supplied", () => {
-    expect(body, "the post-import draw must filter on externalSource").toMatch(
-      /eq\(gamesCatalog\.externalSource, pool\.provider\)/,
+    expect(scope, "the post-import draw must filter on externalSource").toMatch(
+      /const drawScope = pool\.source === "api" \? and\(whereClause, eq\(gamesCatalog\.externalSource, pool\.provider\)\)!? : whereClause/,
     );
+    expect(body, "the post-import draw must use it").toMatch(/const drawn = await drawShaped\(drawScope\)/);
   });
 
   it("reports a provider that could not be reached instead of handing out something else", () => {
@@ -80,7 +84,7 @@ describe("an API season draws only from its provider", () => {
     const apiStop = stmts.findIndex(isApiEarlyReturn);
     const firstCatalogFallback = stmts.findIndex((s) => {
       const text = s.getText();
-      return /anyFallback/.test(text) || /return \{ game: candidates\[/.test(text.replace(/\s+/g, " "));
+      return /anyFallback/.test(text) || /^if \(candidates\.rows\.length > 0\) return picked\(candidates\.rows/.test(text.replace(/\s+/g, " "));
     });
     expect(apiStop, "no top-level `if (pool.source === \"api\") return` found").toBeGreaterThanOrEqual(0);
     expect(firstCatalogFallback, "the catalog fallbacks were not found").toBeGreaterThan(0);

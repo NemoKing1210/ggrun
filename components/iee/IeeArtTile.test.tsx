@@ -37,7 +37,7 @@ describe("IeeArtTile", () => {
   });
 
   it("falls back to the glyph when there is no artwork", () => {
-    const html = renderToStaticMarkup(<IeeArtTile kind="item" entryKey="spare_die" heroIcon="CubeIcon" />);
+    const html = renderToStaticMarkup(<IeeArtTile kind="item" entryKey="spare_die" glyph="CubeIcon" />);
     expect(html).not.toContain("<img");
     expect(html).toContain("<svg");
   });

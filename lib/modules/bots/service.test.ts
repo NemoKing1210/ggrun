@@ -19,34 +19,28 @@ vi.mock("@/lib/modules/game", () => ({
   rollNewGame: vi.fn(),
   resolveGameRoll: vi.fn(),
   activateInventoryItem: vi.fn(),
+  answerWithDefault: vi.fn(),
+  answerDecision: vi.fn(async () => ({})),
 }));
+// What waits for a bot to choose (wave B, spec §7.4, §7.6): nothing, unless a test says so.
+vi.mock("@/lib/modules/iee/decisions", () => ({ listPendingDecisions: vi.fn(async () => []), getDecisionRow: vi.fn(async () => null) }));
 vi.mock("@/lib/modules/game/service/helpers", () => ({
   getOpenRollRow: vi.fn(),
   parseSeasonConfig: vi.fn(),
 }));
 vi.mock("@/lib/modules/iee/repository", () => ({
-  getHeldItems: vi.fn(),
-  getActiveEffectRows: vi.fn(),
-  toActiveEffectLike: vi.fn(
-    (row: {
-      id: string;
-      effectKey: string;
-      params: unknown;
-      chargesLeft: number | null;
-      expiresAfterRollSeq: number | null;
-      appliedAt: Date;
-    }) => ({
-      id: row.id,
-      effectKey: row.effectKey,
-      params: row.params ?? {},
-      chargesLeft: row.chargesLeft,
-      expiresAfterRollSeq: row.expiresAfterRollSeq,
-      appliedAt: row.appliedAt.getTime(),
-    }),
-  ),
+  listHeldItems: vi.fn(),
+  listActiveEffects: vi.fn(),
+  // What holds on each player (wave B, spec §6.13): nothing, unless a test says so.
+  standingBySeason: vi.fn(async () => new Map()),
 }));
-vi.mock("@/lib/engine", () => ({
-  activeEffects: vi.fn((rows: unknown[]) => rows),
+const REGISTRY = vi.hoisted(() => ({ item: () => null, effect: () => null, get: () => null }));
+vi.mock("@/lib/modules/iee/registry", () => ({
+  getSeasonRegistry: vi.fn(async () => REGISTRY),
+}));
+// The bots' choices are stubbed; the rest of the engine — the reaction window's arithmetic (§7.4) — is real.
+vi.mock("@/lib/engine", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/engine")>()),
   nextBotStepKind: vi.fn(),
   pickBotComment: vi.fn(),
   pickBotOutcome: vi.fn(),
@@ -78,8 +72,10 @@ import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getUserById } from "@/lib/modules/player/service/admin";
 import { getOpenRollRow, parseSeasonConfig } from "@/lib/modules/game/service/helpers";
-import { activateInventoryItem, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
-import { getActiveEffectRows, getHeldItems } from "@/lib/modules/iee/repository";
+import { activateInventoryItem, answerDecision, answerWithDefault, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+import { getDecisionRow, listPendingDecisions } from "@/lib/modules/iee/decisions";
+import { listActiveEffects, listHeldItems, standingBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import {
   nextBotStepKind,
   pickBotComment,
@@ -150,8 +146,9 @@ beforeEach(() => {
   vi.mocked(parseSeasonConfig).mockReturnValue({
     iee: { enabled: false, allowTargetingOthers: true, pvpProtectionMoves: 3 },
   } as never);
-  vi.mocked(getHeldItems).mockResolvedValue([]);
-  vi.mocked(getActiveEffectRows).mockResolvedValue([]);
+  vi.mocked(getSeasonRegistry).mockResolvedValue(REGISTRY as never);
+  vi.mocked(listHeldItems).mockResolvedValue([]);
+  vi.mocked(listActiveEffects).mockResolvedValue([]);
   vi.mocked(planBotItemUse).mockReturnValue(null);
   vi.mocked(repo.listBotItemTargets).mockResolvedValue([]);
 });
@@ -685,7 +682,7 @@ describe("tickBotRunAs", () => {
     activeBot();
     vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
     vi.mocked(nextBotStepKind).mockReturnValue("roll");
-    vi.mocked(rollNewGame).mockResolvedValue("abcdef12-0000-0000-0000-000000000000");
+    vi.mocked(rollNewGame).mockResolvedValue({ rollId: "abcdef12-0000-0000-0000-000000000000", choice: null });
 
     const summary = await tickBotRunAs(activeRun(), "cron");
 
@@ -703,6 +700,115 @@ describe("tickBotRunAs", () => {
     );
   });
 
+  it("takes the default of a choice waiting for it at once, journaled (wave B, spec §7.6)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({ iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 } } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(listPendingDecisions).mockResolvedValueOnce([
+      { id: "decision-1", kind: "victim_choice" },
+      { id: "window-1", kind: "reaction_window" },
+    ] as never);
+    vi.mocked(answerWithDefault).mockResolvedValueOnce({});
+
+    const summary = await tickBotRunAs(activeRun({ config: config({ botCount: 1, actionsPerTick: 1, itemChance: 0 }) }), "cron");
+    expect(summary.actions).toBe(1);
+    expect(answerWithDefault).toHaveBeenCalledTimes(1);
+    expect(answerWithDefault).toHaveBeenCalledWith("decision-1", { actor: { id: "u-1" } });
+    expect(mocked.insertBotLog).toHaveBeenCalledWith(expect.objectContaining({ action: "decide", level: "info", payload: { decisionId: "decision-1" } }));
+    expect(repo.publishBotActivity).toHaveBeenCalledWith(expect.objectContaining({ kind: "decide" }));
+  });
+
+  it("takes a game its choice offers, at random, and steps on with that game as its roll (wave C, spec §7.12)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({ iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 } } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValueOnce(null as never).mockResolvedValue({ id: "roll-9" } as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    const games = [{ gameId: "g-1", title: "Celeste" }, { gameId: "g-2", title: "Hades" }];
+    vi.mocked(listPendingDecisions).mockResolvedValueOnce([{ id: "choice-1", kind: "game_choice", context: { games } }] as never);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const summary = await tickBotRunAs(activeRun({ config: config({ botCount: 1, actionsPerTick: 1, itemChance: 0 }) }), "cron");
+    random.mockRestore();
+    expect(summary.actions).toBe(1);
+    expect(answerDecision).toHaveBeenCalledWith({ decisionId: "choice-1", option: "take", picks: ["g-2"] }, { actor: { id: "u-1" } });
+    expect(answerWithDefault).not.toHaveBeenCalled();
+    expect(mocked.insertBotLog).toHaveBeenCalledWith(expect.objectContaining({ action: "decide", message: expect.stringContaining("“Hades” of 2 games offered") }));
+    // The game it took is its roll: the step reads it as one.
+    expect(nextBotStepKind).toHaveBeenCalledWith(true, expect.anything());
+  });
+
+  it("answers a choice its roll opens at once, and logs the roll it took (wave C, spec §7.12)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    activeBot();
+    vi.mocked(getOpenRollRow).mockResolvedValueOnce(null as never).mockResolvedValue({ id: "roll-5" } as never);
+    vi.mocked(nextBotStepKind).mockReturnValue("roll");
+    vi.mocked(rollNewGame).mockResolvedValue({ rollId: null, choice: { decisionId: "choice-2", offered: 2 } });
+    vi.mocked(getDecisionRow).mockResolvedValueOnce({ id: "choice-2", kind: "game_choice", context: { games: [{ gameId: "g-1", title: "Celeste" }, { gameId: "g-2", title: "Hades" }] } } as never);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const summary = await tickBotRunAs(activeRun(), "cron");
+    random.mockRestore();
+    expect(summary).toMatchObject({ actions: 1, errors: 0 });
+    expect(answerDecision).toHaveBeenCalledWith({ decisionId: "choice-2", option: "take", picks: ["g-1"] }, { actor: { id: "u-1" } });
+    expect(repo.insertBotLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "roll", message: expect.stringContaining("“Celeste” of 2 games offered"), payload: { rollId: "roll-5" } }),
+    );
+  });
+
+  it("journals a choice it could not make and goes on", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({ iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 } } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(listPendingDecisions).mockResolvedValueOnce([{ id: "decision-1", kind: "victim_choice" }] as never);
+    vi.mocked(answerWithDefault).mockRejectedValueOnce(new Error("ieeDecisionSettled"));
+
+    const summary = await tickBotRunAs(activeRun({ config: config({ botCount: 1, actionsPerTick: 1, itemChance: 0 }) }), "cron");
+    expect(summary.errors).toBe(1);
+    expect(summary.lastError).toMatch(/^decide failed for .+: ieeDecisionSettled$/);
+  });
+
+  it.each([
+    [{ genre: "horror" }, { pickedGenre: "horror" }],
+    [{ years: [1990, 1999] }, { pickedYears: "1990-1999" }],
+    [{ gameId: "g-1", title: "Celeste" }, { pickedGameId: "g-1" }],
+    // The cell an object goes on (wave D, spec §6.18).
+    [{ cell: 14 }, { pickedCell: "14" }],
+  ] as const)("carries what it picked as it uses the item to the item path (waves C and D, spec §6.16, §6.18): %j", async (pick, fields) => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({ iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 } } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(listHeldItems).mockResolvedValue([{ id: "inv-1", key: "genre_veto", revisionId: "rev-veto", params: {}, grantedAt: new Date(2) }] as never);
+    vi.mocked(listActiveEffects).mockResolvedValue([] as never);
+    vi.mocked(planBotItemUse).mockReturnValue({
+      inventoryId: "inv-1",
+      itemKey: "genre_veto",
+      targetSeasonPlayerId: "sp-1",
+      targetUsername: null,
+      intent: "buff",
+      score: 500,
+      pick: pick as never,
+    });
+    vi.mocked(activateInventoryItem).mockResolvedValue({ itemKey: "genre_veto", targetUsername: null });
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await tickBotRunAs(activeRun(), "cron");
+      expect(activateInventoryItem).toHaveBeenCalledWith({ inventoryId: "inv-1", targetSeasonPlayerId: "sp-1", ...fields }, { actor: { id: "u-1" } });
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("uses an item before the step and journals it", async () => {
     vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
     vi.mocked(parseSeasonConfig).mockReturnValue({
@@ -718,8 +824,11 @@ describe("tickBotRunAs", () => {
     vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
     vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
     vi.mocked(nextBotStepKind).mockReturnValue(null);
-    vi.mocked(getHeldItems).mockResolvedValue([
-      { id: "inv-1", itemKey: "cleansing_salve", params: {} },
+    vi.mocked(listHeldItems).mockResolvedValue([
+      { id: "inv-1", key: "cleansing_salve", revisionId: "rev-salve", params: {}, grantedAt: new Date(2) },
+    ] as never);
+    vi.mocked(listActiveEffects).mockResolvedValue([
+      { id: "eff-1", key: "slowed", revisionId: "rev-slowed", polarity: "negative", grantedAt: new Date(1) },
     ] as never);
     vi.mocked(planBotItemUse).mockReturnValue({
       inventoryId: "inv-1",
@@ -738,7 +847,20 @@ describe("tickBotRunAs", () => {
     try {
       const summary = await tickBotRunAs(activeRun(), "cron");
 
+      expect(summary.lastError).toBeNull();
       expect(summary.actions).toBe(1);
+      // The planner sees the season's compiled entries and the instance's revision.
+      expect(planBotItemUse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          catalog: REGISTRY,
+          held: [{ inventoryId: "inv-1", itemKey: "cleansing_salve", revisionId: "rev-salve", params: {} }],
+          activeEffects: [{ effectKey: "slowed", polarity: "negative" }],
+        }),
+        expect.anything(),
+      );
+      // With what holds on each player (wave B, spec §6.13): who is out of reach.
+      expect(repo.listBotItemTargets).toHaveBeenCalledWith("season-1", "sp-1", 3, REGISTRY, new Map());
+      expect(planBotItemUse).toHaveBeenCalledWith(expect.objectContaining({ forbidden: false }), expect.anything());
       expect(activateInventoryItem).toHaveBeenCalledWith(
         { inventoryId: "inv-1", targetSeasonPlayerId: "sp-1" },
         { actor: { id: "u-1" } },
@@ -749,6 +871,114 @@ describe("tickBotRunAs", () => {
       expect(logAdminAction).toHaveBeenCalledWith(
         expect.objectContaining({ actionType: "bot_item", actorId: "u-1" }),
       );
+      expect(rollNewGame).not.toHaveBeenCalled();
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("hands the item path what the bot picked: one of its own, and an item of the catalog (spec §6.12)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({
+      iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 },
+    } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(listHeldItems).mockResolvedValue([
+      { id: "inv-1", key: "stone", revisionId: "rev-stone", params: {}, grantedAt: new Date(2) },
+    ] as never);
+    vi.mocked(listActiveEffects).mockResolvedValue([] as never);
+    vi.mocked(planBotItemUse).mockReturnValue({
+      inventoryId: "inv-1",
+      itemKey: "stone",
+      targetSeasonPlayerId: "sp-1",
+      targetUsername: null,
+      intent: "buff",
+      score: 200,
+      choiceInstanceId: "inv-2",
+      chosenEntryId: "entry-9",
+    });
+    vi.mocked(activateInventoryItem).mockResolvedValue({ itemKey: "stone", targetUsername: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await tickBotRunAs(activeRun(), "cron");
+      expect(activateInventoryItem).toHaveBeenCalledWith(
+        { inventoryId: "inv-1", targetSeasonPlayerId: "sp-1", choiceInstanceId: "inv-2", chosenEntryId: "entry-9" },
+        { actor: { id: "u-1" } },
+      );
+      // What the catalog may offer is the server's own rule; an item that asks for nothing is offered nothing.
+      const given = vi.mocked(planBotItemUse).mock.calls[0]![0];
+      expect(given.entryOptions?.({ usage: { entryChoice: null } } as never)).toEqual([]);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("tells the planner what holds: the bot kept from its items, who is out of reach (wave B, spec §6.13)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({
+      iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 },
+    } as never);
+    vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue(null);
+    vi.mocked(listHeldItems).mockResolvedValue([{ id: "inv-1", key: "boots", revisionId: "rev-boots", params: {}, grantedAt: new Date(2) }] as never);
+    vi.mocked(listActiveEffects).mockResolvedValue([] as never);
+    const standing = new Map([
+      ["sp-1", { untargetable: false, forbidItems: true, pierce: 0, holdLimit: null, conditionImmunity: false }],
+      ["sp-2", { untargetable: true, forbidItems: false, pierce: 0, holdLimit: null, conditionImmunity: false }],
+    ]);
+    vi.mocked(standingBySeason).mockResolvedValueOnce(standing);
+    vi.mocked(planBotItemUse).mockReturnValue(null);
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await tickBotRunAs(activeRun(), "cron");
+      expect(repo.listBotItemTargets).toHaveBeenCalledWith("season-1", "sp-1", 3, expect.anything(), standing);
+      expect(planBotItemUse).toHaveBeenCalledWith(expect.objectContaining({ forbidden: true }), expect.anything());
+      expect(activateInventoryItem).not.toHaveBeenCalled();
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("rolls nothing more once its own item took the bot to the finish (spec §7.3)", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+    vi.mocked(parseSeasonConfig).mockReturnValue({
+      iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 },
+    } as never);
+    const active = { id: "sp-1", status: "active", position: 37, balancePoints: 0, rollSeq: 1 };
+    // In the run as the tick starts and as it reaches for the item; finished after it.
+    vi.mocked(getSeasonPlayerById)
+      .mockResolvedValueOnce(active as never)
+      .mockResolvedValueOnce(active as never)
+      .mockResolvedValue({ ...active, status: "finished", position: 39 } as never);
+    vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+    vi.mocked(getOpenRollRow).mockResolvedValue(null as never);
+    vi.mocked(nextBotStepKind).mockReturnValue("roll");
+    vi.mocked(listHeldItems).mockResolvedValue([
+      { id: "inv-1", key: "teleport", revisionId: "rev-teleport", params: {}, grantedAt: new Date(2) },
+    ] as never);
+    vi.mocked(listActiveEffects).mockResolvedValue([] as never);
+    vi.mocked(planBotItemUse).mockReturnValue({
+      inventoryId: "inv-1",
+      itemKey: "teleport",
+      targetSeasonPlayerId: "sp-1",
+      targetUsername: null,
+      intent: "buff",
+      score: 1000,
+    });
+    vi.mocked(activateInventoryItem).mockResolvedValue({ itemKey: "teleport", targetUsername: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const summary = await tickBotRunAs(activeRun(), "cron");
+      expect(summary).toMatchObject({ actions: 1, errors: 0, lastError: null });
+      expect(activateInventoryItem).toHaveBeenCalled();
       expect(rollNewGame).not.toHaveBeenCalled();
     } finally {
       randomSpy.mockRestore();
@@ -786,6 +1016,57 @@ describe("tickBotRunAs", () => {
         payload: expect.objectContaining({ outcome: "passed", rollId: "roll-9" }),
       }),
     );
+  });
+
+  describe("the reaction window its report opens (wave B, spec §7.4)", () => {
+    const NO_RULES = { rerollValues: [], bestOfTwo: false, worstOfTwo: false, resultDelta: 0, resultCap: null, reverseLowerHalf: false };
+    const coin = { reroll: true, bestOfTwo: false, rerollValues: [], resultDelta: 0, resultCap: null };
+    const windowOn = (faces: number[]) => ({
+      id: "w-1",
+      kind: "reaction_window",
+      status: "pending",
+      context: {
+        outcome: "passed",
+        view: { faces, throws: [faces], dice: { count: 1, sides: 6 }, result: faces[0], from: 1, to: 1 + faces[0]!, cellType: null, rules: NO_RULES },
+        offers: [{ instanceId: "coin-1", key: "lucky_coin", rules: coin }],
+      },
+    });
+    const resolving = () => {
+      vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+      activeBot();
+      vi.mocked(getOpenRollRow).mockResolvedValue({ id: "roll-9" } as never);
+      vi.mocked(nextBotStepKind).mockReturnValue("resolve");
+      vi.mocked(pickBotOutcome).mockReturnValue("passed");
+      vi.mocked(resolveGameRoll).mockResolvedValue({ fromPosition: 1, toPosition: 1, newBalancePoints: 0, reaction: { decisionId: "w-1", faces: [1] } } as never);
+    };
+
+    it("uses the item on a bad throw — what the power of a reaction item assumes a player does", async () => {
+      resolving();
+      vi.mocked(getDecisionRow).mockResolvedValueOnce(windowOn([1]) as never);
+      await tickBotRunAs(activeRun(), "cron");
+      expect(answerDecision).toHaveBeenCalledWith({ decisionId: "w-1", option: "react", picks: ["coin-1"] }, { actor: { id: "u-1" } });
+    });
+
+    it("accepts a throw no worse than an average one", async () => {
+      resolving();
+      vi.mocked(getDecisionRow).mockResolvedValueOnce(windowOn([6]) as never);
+      await tickBotRunAs(activeRun(), "cron");
+      expect(answerDecision).toHaveBeenCalledWith({ decisionId: "w-1", option: "accept", picks: [] }, { actor: { id: "u-1" } });
+    });
+
+    it("answers a window left open before anything else, as it answers a new one", async () => {
+      vi.mocked(getSeasonById).mockResolvedValue(activeSeason);
+      vi.mocked(parseSeasonConfig).mockReturnValue({ iee: { enabled: true, allowTargetingOthers: true, pvpProtectionMoves: 3 } } as never);
+      vi.mocked(getSeasonPlayerById).mockResolvedValue({ id: "sp-1", status: "active", position: 4, balancePoints: 2, rollSeq: 1 } as never);
+      vi.mocked(getUserById).mockResolvedValue({ id: "u-1" } as never);
+      vi.mocked(getOpenRollRow).mockResolvedValue({ id: "roll-9" } as never);
+      vi.mocked(nextBotStepKind).mockReturnValue(null);
+      vi.mocked(listPendingDecisions).mockResolvedValueOnce([windowOn([2])] as never);
+      const summary = await tickBotRunAs(activeRun({ config: config({ botCount: 1, actionsPerTick: 1, itemChance: 0 }) }), "cron");
+      expect(answerDecision).toHaveBeenCalledWith({ decisionId: "w-1", option: "react", picks: ["coin-1"] }, { actor: { id: "u-1" } });
+      expect(answerWithDefault).not.toHaveBeenCalled();
+      expect(summary.actions).toBe(1);
+    });
   });
 
   it("drops the comment and rating for a non-passed outcome", async () => {
