@@ -1,4 +1,11 @@
 #!/usr/bin/env sh
 # Fast gate on staged files: format + lint. The full gate (typecheck + tests +
 # coverage) runs in pre-push, and again in `pnpm verify` before handoff.
-pnpm lint-staged
+#
+# --max-arg-length: lint-staged 17 chunks the staged file list against the raw
+# cmd.exe limit (8191 chars) but measures the command unquoted. On Windows the
+# pnpm .CMD shim runs through cmd.exe with every path quoted and escaped, so a
+# big commit (hundreds of files) overflows the limit and `eslint --fix` fails
+# with "The command line is too long" before it lints anything. 4000 restores
+# the half-limit margin; elsewhere it only means a few more eslint runs.
+pnpm lint-staged --max-arg-length 4000
