@@ -35,6 +35,10 @@ tick();
 echo "[ggrun] applying schema (pnpm db:push)"
 pnpm db:push
 
+# --- 2b. Load the system item pack (idempotent) -------------------------------
+echo "[ggrun] loading the core item pack (pnpm iee:import)"
+pnpm iee:import
+
 # --- 3. Optional demo data ----------------------------------------------------
 if [ "${SEED_DEMO:-}" = "true" ]; then
   echo "[ggrun] seeding demo data (idempotent)"

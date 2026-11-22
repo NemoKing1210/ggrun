@@ -33,6 +33,9 @@ describe("file category registry", () => {
     expect(FILE_CATEGORIES["game_cover"].upload).toBe("staff");
     // The one private category exists so signed links have a real consumer.
     expect(FILE_CATEGORIES.attachment.visibility).toBe("private");
+    // Item icons are drawn for everyone and changed by admins only (spec §12).
+    expect(FILE_CATEGORIES.iee_icon).toMatchObject({ visibility: "public", upload: "admin", delete: "none" });
+    expect(FILE_CATEGORIES.iee_icon.dimensions?.square).toBe(true);
   });
 
   it("resolves known ids and rejects unknown ones", () => {

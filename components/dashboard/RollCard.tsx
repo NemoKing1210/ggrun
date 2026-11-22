@@ -17,10 +17,11 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 import { DiceCube } from "@/components/dice/Dice3D";
 import { InlineGameCarousel, GameRollReveal } from "@/components/dashboard/GameRollCarousel";
 import type { WheelOutcome } from "@/lib/engine";
-import { WheelOverlay } from "@/components/game/WheelOverlay";
+import { WheelOverlay, type WheelEntries } from "@/components/game/WheelOverlay";
 import { GameDetailsModal, toGameDetails } from "@/components/game/GameDetailsModal";
 import { GameCategoryChips } from "@/components/game/GameCategoryChips";
 import { GameMetaBadges } from "@/components/game/GameMetaBadges";
+import { RollConditions, type RollConditionItem } from "@/components/dashboard/RollConditions";
 import { Modal } from "@/components/ui/Modal";
 import { DebugError } from "@/components/ui/DebugError";
 import { resolveAction, rollAction, type PlayerActionState } from "@/lib/modules/player/actions/game";
@@ -86,9 +87,25 @@ interface RollCardProps {
   rerollApproved: boolean;
   lastDice: number[] | null;
   catalogGames?: PreviewGame[];
+  /** The season's item and effect views, by key — what the wheel draws. */
+  wheelEntries?: WheelEntries;
+  /**
+   * The open roll's turn waits for the player's reaction to the dice (wave B,
+   * spec §7.4): it is answered in the reaction window, not reported again.
+   */
+  reacting?: boolean;
+  /**
+   * A choice of games waits for the player (wave C, IEE spec §7.12): there is
+   * no roll to make until they take one in the panel above.
+   */
+  choosing?: boolean;
+  /** What the game in flight must be passed with (wave C, IEE spec §6.17). */
+  conditions?: readonly RollConditionItem[];
 }
 
 const initialState: PlayerActionState = {};
+const NO_ENTRIES: WheelEntries = {};
+const NO_CONDITIONS: readonly RollConditionItem[] = [];
 const MIN_DICE_MS = 2800;
 
 
@@ -126,6 +143,10 @@ export default function RollCard({
   rerollApproved,
   lastDice,
   catalogGames = [],
+  wheelEntries = NO_ENTRIES,
+  reacting = false,
+  choosing = false,
+  conditions = NO_CONDITIONS,
 }: RollCardProps) {
   const { t } = useI18n();
   const d = t.core.dashboard;
@@ -255,6 +276,11 @@ export default function RollCard({
     }
   }, [openRoll, carouselPhase, catalogGames]);
 
+  // A roll that opened a choice of games brings no roll to land on (spec §7.12): the carousel stops at once.
+  useEffect(() => {
+    if (choosing && !rollPending && carouselPhase === "spinning") setCarouselPhase("idle");
+  }, [choosing, rollPending, carouselPhase]);
+
   // if rollPending finished but no openRoll appeared (error), reset to idle after longer grace
   useEffect(() => {
     const currentId = (openRoll as OpenRollView | null)?.id ?? null;
@@ -312,6 +338,9 @@ export default function RollCard({
   const error = openRoll ? resolveState.error : rollState.error;
   const showPendingBanner = !!pendingReroll && !!openRoll;
   const showCompletionPending = !!pendingCompletion && !!openRoll;
+  const showReacting = reacting && !!openRoll;
+  // The faces the reaction window shows, while it is open; the last move's otherwise.
+  const shownDice = resolveState.reactionFaces ?? lastDice;
 
   const showCarousel = carouselPhase === "spinning" || carouselPhase === "decelerating";
   const showReveal = carouselPhase === "revealed" && !!openRoll?.game;
@@ -357,7 +386,7 @@ export default function RollCard({
                   {dicePhase === "spinning" ? d.dicePanelSpinning : d.dicePanelResult}
                 </h3>
                 <span className="ml-auto hidden font-mono text-[10px] tracking-widest text-dim sm:inline">
-                  {dicePhase === "spinning" ? "RNG · 3D PHYSICS" : `TOTAL ${lastDice ? lastDice.reduce((a, b) => a + b, 0) : "—"}`}
+                  {dicePhase === "spinning" ? "RNG · 3D PHYSICS" : `TOTAL ${shownDice ? shownDice.reduce((a, b) => a + b, 0) : "—"}`}
                 </span>
                 <button
                   type="button"
@@ -389,9 +418,9 @@ export default function RollCard({
                   ) : (
                     <>
                       <div className="flex flex-wrap items-center justify-center gap-3 py-1">
-                        {lastDice && lastDice.length > 0 ? (
+                        {shownDice && shownDice.length > 0 ? (
                           <>
-                            {lastDice.map((v, i) => (
+                            {shownDice.map((v, i) => (
                               <span
                                 key={`result-${i}-${v}`}
                                 className="ammo-counter flex h-11 w-11 items-center justify-center border border-amber bg-amber/10 text-lg text-amber shadow-[0_0_8px_rgba(242,169,0,0.25)] [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]"
@@ -400,7 +429,7 @@ export default function RollCard({
                               </span>
                             ))}
                             <span className="ml-1 inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                              = {lastDice.reduce((a, b) => a + b, 0)}
+                              = {shownDice.reduce((a, b) => a + b, 0)}
                             </span>
                           </>
                         ) : (
@@ -411,7 +440,7 @@ export default function RollCard({
                         )}
                       </div>
                       <p className="font-mono text-xs uppercase tracking-widest text-dim">
-                        {lastDice && lastDice.length > 0 ? `rolled ${lastDice.join(" + ")} = ${lastDice.reduce((a, b) => a + b, 0)}` : "movement applied"}
+                        {shownDice && shownDice.length > 0 ? `rolled ${shownDice.join(" + ")} = ${shownDice.reduce((a, b) => a + b, 0)}` : "movement applied"}
                       </p>
                     </>
                   )}
@@ -420,7 +449,9 @@ export default function RollCard({
               <p className="mt-3 text-center font-mono text-xs leading-relaxed text-dim">
                 {dicePhase === "spinning"
                   ? "The destiny engine is rolling — movement and cell effects will be applied after the throw."
-                  : "Result locked — check your position on the board and the progress bar."}
+                  : resolveState.reactionFaces
+                    ? t.iee.reaction.overlayHint
+                    : "Result locked — check your position on the board and the progress bar."}
               </p>
             </div>
           </motion.div>
@@ -467,6 +498,16 @@ export default function RollCard({
           </div>
         ) : null}
 
+        {showReacting ? (
+          <div className="mb-4 border border-amber/50 bg-amber/10 p-3 [clip-path:polygon(6px_0,100%_0,100%_calc(100%-6px),calc(100%-6px)_100%,0_100%,0_6px)]">
+            <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-amber">
+              <BoltIcon className="size-4" aria-hidden />
+              {t.iee.reaction.heading}
+            </div>
+            <p className="mt-1 text-sm leading-snug text-zinc-300">{t.iee.reaction.rollCardHint}</p>
+          </div>
+        ) : null}
+
         {/* carousel states */}
         {showCarousel ? (
           <div className="flex flex-col gap-4">
@@ -487,18 +528,18 @@ export default function RollCard({
               <button type="button" className="hud-btn inline-flex items-center gap-1.5" onClick={() => setModal("details")}>
                 <BookOpenIcon className="size-4" aria-hidden /> {t.core.gameInfo.details}
               </button>
-              <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
+              <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending || showReacting} onClick={() => setModal("pass")}>
                 <CheckCircleIcon className="size-4" aria-hidden />
                 {d.passedButton}
               </button>
-              <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("drop")}>
+              <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending || showReacting} onClick={() => setModal("drop")}>
                 <XCircleIcon className="size-4" aria-hidden />
                 {d.dropButton}
               </button>
               <button
                 type="button"
                 className="hud-btn inline-flex items-center gap-1.5"
-                disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
+                disabled={busy || rerollLocked || showPendingBanner || showCompletionPending || showReacting}
                 title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? d.completionPendingLabel : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                 onClick={() => setModal("reroll")}
               >
@@ -550,6 +591,7 @@ export default function RollCard({
                     </div>
                     <GameMetaBadges game={openRoll.game} />
                     <GameCategoryChips genres={openRoll.game.genres} tags={openRoll.game.tags} className="mt-2" />
+                    <RollConditions conditions={conditions} />
                     {openRoll.game.description ? (
                       <p className="mt-3 line-clamp-3 max-w-prose text-sm leading-relaxed text-zinc-300">
                         {openRoll.game.description}
@@ -576,18 +618,18 @@ export default function RollCard({
                 <button type="button" className="hud-btn inline-flex items-center gap-1.5" onClick={() => setModal("details")}>
                   <BookOpenIcon className="size-4" aria-hidden /> {t.core.gameInfo.details}
                 </button>
-                <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("pass")}>
+                <button type="button" className="hud-btn hud-btn-primary inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending || showReacting} onClick={() => setModal("pass")}>
                   <CheckCircleIcon className="size-4" aria-hidden />
                   {d.passedButton}
                 </button>
-                <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending} onClick={() => setModal("drop")}>
+                <button type="button" className="hud-btn hud-btn-danger inline-flex items-center gap-1.5" disabled={busy || showPendingBanner || showCompletionPending || showReacting} onClick={() => setModal("drop")}>
                   <XCircleIcon className="size-4" aria-hidden />
                   {d.dropButton}
                 </button>
                 <button
                   type="button"
                   className="hud-btn inline-flex items-center gap-1.5"
-                  disabled={busy || rerollLocked || showPendingBanner || showCompletionPending}
+                  disabled={busy || rerollLocked || showPendingBanner || showCompletionPending || showReacting}
                   title={rerollLocked ? d.rerollLockedTitle : showPendingBanner ? d.rerollPending : showCompletionPending ? d.completionPendingLabel : rerollApproved ? d.rerollApprovedHint : d.rerollButton}
                   onClick={() => setModal("reroll")}
                 >
@@ -610,10 +652,13 @@ export default function RollCard({
                 <BoltIcon className="size-4 text-amber" aria-hidden /> {"// READY TO ROLL"}
               </p>
               <p className="mt-1 max-w-prose font-mono text-xs leading-relaxed text-dim">{d.rollHint}</p>
-              <p className="mt-3 inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs tracking-wide text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
-                <span className="size-1.5 bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
-                {d.noCurrentGame}
-              </p>
+              {/* While a choice of games waits, the roll is the game taken there — not this button (wave C, §7.12). */}
+              {!choosing && (
+                <p className="mt-3 inline-flex items-center gap-1.5 border border-amber/30 bg-amber/10 px-2 py-1 font-mono text-xs tracking-wide text-amber [clip-path:polygon(4px_0,100%_0,100%_calc(100%-4px),calc(100%-4px)_100%,0_100%,0_4px)]">
+                  <span className="size-1.5 bg-amber [clip-path:polygon(1px_0,100%_0,100%_calc(100%-1px),calc(100%-1px)_100%,0_100%,0_1px)]" aria-hidden />
+                  {d.noCurrentGame}
+                </p>
+              )}
             </div>
 
             <form action={rollFormAction} className="flex flex-col gap-3">
@@ -621,8 +666,8 @@ export default function RollCard({
               <motion.button
                 type="submit"
                 className="hud-btn hud-btn-primary inline-flex items-center justify-center gap-2 self-start px-7 py-3 text-sm"
-                disabled={busy}
-                whileHover={{ scale: busy ? 1 : 1.015 }}
+                disabled={busy || choosing}
+                whileHover={{ scale: busy || choosing ? 1 : 1.015 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <motion.span animate={busy ? { rotate: 360 } : { rotate: 0 }} transition={busy ? { duration: 0.9, repeat: Infinity, ease: "linear" } : {}}>
@@ -630,7 +675,7 @@ export default function RollCard({
                 </motion.span>
                 {rollPending ? d.rolling : d.rollButton}
               </motion.button>
-              <span className="font-mono text-[11px] tracking-wide text-dim">{d.shuffleLockHint}</span>
+              <span className={`font-mono text-[11px] tracking-wide ${choosing ? "text-amber" : "text-dim"}`}>{choosing ? d.choosingHint : d.shuffleLockHint}</span>
             </form>
           </div>
         ) : null}
@@ -756,7 +801,7 @@ export default function RollCard({
         </form>
       </Modal>
 
-      <WheelOverlay outcome={wheel} onClose={() => setWheel(null)} />
+      <WheelOverlay outcome={wheel} entries={wheelEntries} onClose={() => setWheel(null)} />
 
       <GameDetailsModal
         game={modal === "details" && openRoll && openRoll.game ? toGameDetails(openRoll.game as unknown as Record<string, unknown>) : null}

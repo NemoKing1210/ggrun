@@ -7,7 +7,8 @@ import { StatusBadge } from "@/components/ui/status";
 import { SeasonMissing } from "@/components/ui/season-missing";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
-import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
+import { boardObjectsBySeason, effectBadgesBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import {
   getActiveRolls,
   getLeaderboard,
@@ -48,7 +49,9 @@ export default async function BoardPage() {
   }
 
   const cells = await getBoardCells(board.id);
-  const effects = await getActiveEffectsBySeason(season.id);
+  const registry = await getSeasonRegistry(season.id);
+  // What stands on the cells and whose (wave D, spec §6.18), read with the statuses.
+  const [effects, objects] = await Promise.all([effectBadgesBySeason(season.id, registry), boardObjectsBySeason(season.id, registry)]);
   if (cells.length === 0) {
     return (
       <>
@@ -110,6 +113,7 @@ export default async function BoardPage() {
         players={players}
         rolls={boardRolls}
         stats={stats}
+        objects={objects}
         seasonStartedAt={season.startedAt?.toISOString() ?? null}
       />
 

@@ -115,6 +115,18 @@ describe("GamesHistory list", () => {
   });
 });
 
+describe("GamesHistory — completion conditions (wave C, spec §6.17)", () => {
+  it("each game shows what it was to be passed with, in the reader's language — Russian where it has none", () => {
+    renderHistory([
+      roll({ id: "r1", conditions: [{ id: "c-1", text: { ru: "Без смертей" }, from: null }] }),
+      roll({ id: "r2", game: game({ title: "Quake" }) }),
+    ]);
+    const blocks = screen.getAllByRole("region", { name: t.iee.conditions.heading });
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.textContent).toContain("Без смертей");
+  });
+});
+
 describe("GamesHistory details", () => {
   it("opens the details modal for the clicked roll", () => {
     renderHistory([roll({ id: "r1", game: game({ title: "Quake" }) })]);

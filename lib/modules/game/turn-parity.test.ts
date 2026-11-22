@@ -33,24 +33,33 @@ const ENTRY_POINTS = {
 } as const;
 
 /**
- * Calls that constitute *being* a turn. A file that makes one of these is
- * resolving a roll itself, which is precisely what must not happen twice.
+ * The turn's arithmetic — dice, move, landing cell — is the engine's
+ * `playTurn`, and only `playTurn` calls these. The game's turn and the
+ * simulations (entry scenarios, the sandbox) both play through it.
  */
-const TURN_PRIMITIVES = [
-  "resolveMovement",
-  "applyMovementModifiers",
-  "applyCellEffect",
+const ARITHMETIC = ["resolveMovement", "applyMovementModifiers", "applyCellEffect"];
+
+/** What the game's turn does around the arithmetic: load, write, settle. */
+const TURN_CALLS = [
+  "playTurn",
   "loadTurnHooks",
   "settleTurnHooks",
-  "applyWheel",
+  // The landing's wheel and each one more a rule asks for (spec §6.12) — `applyWheel` in turn.
+  "applyWheels",
   "loadWheelContext",
-  "expireEffectsFor",
+  "executionContext",
   "assignEventFromCell",
   "nextRollStatus",
 ];
 
-function sourceFile(rel: string): ts.SourceFile {
-  const full = path.join(process.cwd(), "lib", "modules", "game", rel);
+/**
+ * Calls that constitute *being* a turn. A file that makes one of these is
+ * resolving a roll itself, which is precisely what must not happen twice.
+ */
+const TURN_PRIMITIVES = [...ARITHMETIC, ...TURN_CALLS, "applyWheel"];
+
+function sourceFile(rel: string, root: string[] = ["lib", "modules", "game"]): ts.SourceFile {
+  const full = path.join(process.cwd(), ...root, rel);
   return ts.createSourceFile(
     full,
     fs.readFileSync(full, "utf8"),
@@ -115,10 +124,17 @@ describe("a resolved turn has exactly one implementation", () => {
 
   it("and the turn itself does all of it (a scan of nothing proves nothing)", () => {
     const called = calledNames(sourceFile("service/turn.ts"));
-    for (const name of TURN_PRIMITIVES) {
+    for (const name of TURN_CALLS) {
       expect(called, `applyResolvedTurn must call ${name}`).toContain(name);
     }
     expect(assignedProperties(sourceFile("service/turn.ts"))).toContain("rollSeq");
+  });
+
+  it("with the engine's arithmetic, not a copy of it", () => {
+    const own = ARITHMETIC.filter((name) => calledNames(sourceFile("service/turn.ts")).has(name));
+    expect(own, "the dice, the move and the cell are playTurn's").toEqual([]);
+    const engine = calledNames(sourceFile("turn/index.ts", ["lib", "engine"]));
+    for (const name of ARITHMETIC) expect(engine, `playTurn must call ${name}`).toContain(name);
   });
 });
 
@@ -154,10 +170,10 @@ describe("the feed respects revealDropsInFeed at both ends", () => {
     return found;
   }
 
-  it("passes the flag to the expiry sweep", () => {
-    const args = argsOf("expireEffectsFor", 3);
-    expect(args, "expireEffectsFor(tx, spId, rollSeq, reveal)").toHaveLength(1);
-    expect(args[0]).toContain("revealDropsInFeed");
+  it("passes the flag to the settlement that announces expiries", () => {
+    const args = argsOf("settleTurnHooks", 2);
+    expect(args, "settleTurnHooks(exec, hooks, { …, reveal })").toHaveLength(1);
+    expect(args[0]).toMatch(/reveal:\s*config\.iee\.revealDropsInFeed/);
   });
 
   it("gates the shield's absorb line on it too", () => {
@@ -174,5 +190,27 @@ describe("the feed respects revealDropsInFeed at both ends", () => {
     };
     visit(sf);
     expect(guarded, "`effect_cleansed` must be behind the same flag").toBe(true);
+  });
+});
+
+/**
+ * Entry scenarios and the sandbox (spec §5.5, §10.5) play turns in a memory
+ * season. They are worth something only while their turn is the game's turn:
+ * the same arithmetic, the same settlement, the same wheel, the same item
+ * path — never a copy that could drift from it.
+ */
+describe("the simulations play the game's turn", () => {
+  const sim = sourceFile("sim/season.ts", ["lib", "modules", "iee"]);
+  const called = calledNames(sim);
+
+  it.each(["playTurn", "settleTurnHooks", "applyWheels", "hooksOver", "decideItemUse", "carryOutItemUse"])(
+    "calls %s",
+    (name) => {
+      expect(called, `the memory season must play through ${name}`).toContain(name);
+    },
+  );
+
+  it("and none of the arithmetic itself", () => {
+    expect(ARITHMETIC.filter((name) => called.has(name))).toEqual([]);
   });
 });

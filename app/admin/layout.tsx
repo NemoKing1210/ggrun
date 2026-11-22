@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/infrastructure/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { listPendingRerollRequests, listPendingCompletionRequests } from "@/lib/modules/catalog/repository";
 import { countPendingEventSubmissions } from "@/lib/modules/iee/repository";
+import { countPendingDecisions } from "@/lib/modules/iee/decisions";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -22,12 +23,14 @@ export default async function AdminLayout({
   if (!user) redirect("/login");
   if (user.role !== "admin" && user.role !== "judge") redirect("/");
 
-  const [pendingRerolls, pendingCompletions, pendingEvents] = await Promise.all([
+  const [pendingRerolls, pendingCompletions, pendingEvents, pendingDecisions] = await Promise.all([
     listPendingRerollRequests(),
     listPendingCompletionRequests(),
     countPendingEventSubmissions(),
+    // Choices players have not made yet — a judge may make them (spec §7.6).
+    countPendingDecisions(),
   ]);
-  const moderationPending = pendingRerolls.length + pendingCompletions.length + pendingEvents;
+  const moderationPending = pendingRerolls.length + pendingCompletions.length + pendingEvents + pendingDecisions;
 
   const adminNav = [
     { href: "/admin", label: t.admin.nav.dashboard },

@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { FEED_FILTER_TYPES } from "@/lib/engine/feed/filters";
+
+// Each scan parses the source tree: about a second alone, several under a full
+// coverage run on a small machine.
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * A few rules the compiler and the linter each express only once, restated
@@ -337,5 +341,138 @@ describe("architecture: every event type is under a feed tab", () => {
       stale,
       "Tab entries that are not EventType members would sit empty forever:\n" + stale.join("\n"),
     ).toEqual([]);
+  });
+});
+
+/**
+ * Items and effects have one writer (docs/IEE_CONSTRUCTOR_SPEC.md §9.1).
+ *
+ * Every grant, use, firing, tick, end and reset is an executor operation,
+ * journaled with its cause; the store under it is the only code that writes the
+ * IEE tables, and only the execution context opens that store. Three grant
+ * paths that each wrote their own rows is how a season's tuning and the
+ * stacking policy once applied to a third of the game — a second writer here
+ * would bring that back without failing a single unit test.
+ */
+const IEE_WRITER = "lib/modules/iee/executor/store.ts";
+const IEE_CONTEXT = "lib/modules/iee/executor/context.ts";
+const IEE_TABLES = /^(ieeInstances|ieeJournal|ieeDecisions)$/;
+
+/** `x.insert(table)`, `x.update(table)` or `x.delete(table)` on a table the pattern names. */
+function writesTables(file: string, tables: RegExp, ops: readonly string[] = ["insert", "update", "delete"]): boolean {
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ops.includes(node.expression.name.text)
+    ) {
+      const first = node.arguments[0];
+      if (first && ts.isIdentifier(first) && tables.test(first.text)) found = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parse(file));
+  return found;
+}
+
+const writesIeeTables = (file: string) => writesTables(file, IEE_TABLES);
+
+function callsFunction(file: string, name: string): boolean {
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name) {
+      found = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parse(file));
+  return found;
+}
+
+describe("architecture: IEE state has one writer", () => {
+  const files = ["app", "lib", "components", "scripts"]
+    .map((dir) => path.join(ROOT, dir))
+    .filter((dir) => fs.existsSync(dir))
+    .flatMap((dir) => sourceFiles(dir));
+  const writers = files.filter(writesIeeTables).map(rel);
+
+  it("the executor's store writes the IEE tables (a scan of nothing proves nothing)", () => {
+    expect(writers).toContain(IEE_WRITER);
+  });
+
+  it("nothing else does", () => {
+    expect(
+      writers.filter((file) => file !== IEE_WRITER),
+      "Write through lib/modules/iee/executor — a second writer bypasses tuning, stacking and the journal.",
+    ).toEqual([]);
+  });
+
+  it("only the execution context opens the store", () => {
+    expect(files.filter((file) => callsFunction(file, "pgStore")).map(rel)).toEqual([IEE_CONTEXT]);
+  });
+});
+
+/**
+ * The library writes the definitions, and a revision never changes
+ * (docs/IEE_CONSTRUCTOR_SPEC.md §4.2, §10.1).
+ *
+ * A season pins a revision and an instance remembers the one it was granted
+ * with; both trust that what they point at is what was published. An UPDATE
+ * on a revision would change a running season's rules behind its back, and a
+ * DELETE would leave instances pointing at nothing — the foreign keys refuse
+ * the second, this test the first.
+ */
+const LIBRARY_WRITER = "lib/modules/iee/library/store.ts";
+const LIBRARY_TABLES = /^(ieePacks|ieeEntries|ieeEntryRevisions|ieePackDependencies)$/;
+
+describe("architecture: the IEE library has one writer, and revisions are insert-only", () => {
+  const files = ["app", "lib", "components", "scripts"]
+    .map((dir) => path.join(ROOT, dir))
+    .filter((dir) => fs.existsSync(dir))
+    .flatMap((dir) => sourceFiles(dir));
+
+  it("the library's store writes the definition tables, and nothing else does", () => {
+    const writers = files.filter((file) => writesTables(file, LIBRARY_TABLES)).map(rel);
+    expect(writers, "Write packs, entries and revisions through lib/modules/iee/library.").toEqual([LIBRARY_WRITER]);
+  });
+
+  it("no code updates or deletes a revision", () => {
+    const offenders = files
+      .filter((file) => writesTables(file, /^ieeEntryRevisions$/, ["update", "delete"]))
+      .map(rel);
+    expect(offenders, "Revisions are insert-only: publish a new one instead.").toEqual([]);
+  });
+
+  it("only the library opens its store", () => {
+    const openers = files.filter((file) => callsFunction(file, "pgLibraryStore")).map(rel);
+    expect(openers.length).toBeGreaterThan(0);
+    expect(openers.filter((file) => !file.startsWith("lib/modules/iee/library/"))).toEqual([]);
+  });
+});
+
+/**
+ * Which revision of which entry a season plays (spec §4.2) changes in one
+ * place, with the checks that keep a season's set whole — its references
+ * attached, its keys unique — and the audit row. The demo seed inserts its
+ * tracer rows in plain SQL; no TypeScript writes the table but the store.
+ */
+describe("architecture: the season catalog has one writer", () => {
+  const files = ["app", "lib", "components", "scripts"]
+    .map((dir) => path.join(ROOT, dir))
+    .filter((dir) => fs.existsSync(dir))
+    .flatMap((dir) => sourceFiles(dir));
+
+  it("the catalog's store writes season_catalog, and nothing else does", () => {
+    const writers = files.filter((file) => writesTables(file, /^seasonCatalog$/)).map(rel);
+    expect(writers, "Change a season's catalog through lib/modules/iee/catalog.").toEqual([
+      "lib/modules/iee/catalog/store.ts",
+    ]);
+  });
+
+  it("only the catalog module opens its store", () => {
+    const openers = files.filter((file) => callsFunction(file, "pgSeasonCatalogStore")).map(rel);
+    expect(openers.length).toBeGreaterThan(0);
+    expect(openers.filter((file) => !file.startsWith("lib/modules/iee/catalog/"))).toEqual([]);
   });
 });

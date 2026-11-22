@@ -2,14 +2,15 @@ import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/infrastructure/db";
 import { seasonPlayers, seasons, users } from "@/db/schema";
-import { activeEffects, type BotOtherPlayer } from "@/lib/engine";
+import type { BotOtherPlayer } from "@/lib/engine";
 import {
-  getActiveEffectRows,
-  getActiveEffectsBySeason,
-  getHeldItems,
+  bonusItemsBySeason,
+  effectBadgesBySeason,
+  listActiveEffects,
+  listHeldItems,
   listTargetOptions,
-  toActiveEffectLike,
 } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry, type SeasonRegistry } from "@/lib/modules/iee/registry";
 import { publish } from "@/lib/realtime/bus";
 import {
   botsRoom,
@@ -228,7 +229,8 @@ export async function listBotOwnedPlayers(runId: string, seasonId: string): Prom
 export interface BotRosterItem {
   inventoryId: string;
   itemKey: string;
-  chargesLeft: number;
+  /** Null for a passive item that stays while held. */
+  chargesLeft: number | null;
 }
 
 export interface BotRosterEffect {
@@ -259,7 +261,7 @@ export interface BotRosterRow {
   balancePoints: number | null;
   /** Items the bot can still spend (held + charges). */
   items: BotRosterItem[];
-  /** Statuses actually in force right now (lazy expiry applied). */
+  /** Statuses in force right now. */
   effects: BotRosterEffect[];
   /** Lifetime step counters, folded from the run's journal. */
   counts: BotRosterCounts;
@@ -326,6 +328,7 @@ async function lastLogForBot(runId: string, username: string): Promise<BotRoster
 export async function listBotRunRoster(runId: string, seasonId: string): Promise<BotRosterRow[]> {
   const owned = await listBotOwnedPlayers(runId, seasonId);
   const countsByBot = await countBotActionsByBot(runId);
+  const registry = await getSeasonRegistry(seasonId);
 
   return Promise.all(
     owned.map(async (o): Promise<BotRosterRow> => {
@@ -349,20 +352,16 @@ export async function listBotRunRoster(runId: string, seasonId: string): Promise
           status: seasonPlayers.status,
           position: seasonPlayers.position,
           balancePoints: seasonPlayers.balancePoints,
-          rollSeq: seasonPlayers.rollSeq,
         })
         .from(seasonPlayers)
         .where(eq(seasonPlayers.id, o.seasonPlayerId))
         .limit(1);
       const sp = rows[0];
-      const [held, effectRows] = await Promise.all([
-        getHeldItems(o.seasonPlayerId),
-        getActiveEffectRows(o.seasonPlayerId),
+      // Counters are eager: an active row is exactly what is in force.
+      const [held, effects] = await Promise.all([
+        listHeldItems(o.seasonPlayerId, registry),
+        listActiveEffects(o.seasonPlayerId, registry),
       ]);
-      // Same lazy-expiry rule the game loop uses: a status means nothing until
-      // the roll it is measured against says so.
-      const inForce = activeEffects(effectRows.map(toActiveEffectLike), (sp?.rollSeq ?? 0) + 1);
-      const polarityById = new Map(effectRows.map((e) => [e.id, e.polarity]));
       return {
         username: o.username,
         seasonPlayerId: o.seasonPlayerId,
@@ -371,13 +370,13 @@ export async function listBotRunRoster(runId: string, seasonId: string): Promise
         balancePoints: sp?.balancePoints ?? null,
         items: held.map((row) => ({
           inventoryId: row.id,
-          itemKey: row.itemKey,
+          itemKey: row.key,
           chargesLeft: row.chargesLeft,
         })),
-        effects: inForce.map((row) => ({
+        effects: effects.map((row) => ({
           effectId: row.id,
-          effectKey: row.effectKey,
-          polarity: polarityById.get(row.id) ?? "negative",
+          effectKey: row.key,
+          polarity: row.polarity,
         })),
         counts,
         lastAction,
@@ -395,10 +394,14 @@ export async function listBotItemTargets(
   seasonId: string,
   excludeSeasonPlayerId: string,
   pvpProtectionMoves: number,
+  registry: SeasonRegistry,
+  /** What holds on each player (wave B, spec §6.13) — who is out of reach. */
+  standing: ReadonlyMap<string, { untargetable: boolean }> = new Map(),
 ): Promise<BotOtherPlayer[]> {
-  const [options, effects] = await Promise.all([
+  const [options, effects, items] = await Promise.all([
     listTargetOptions(seasonId, excludeSeasonPlayerId, pvpProtectionMoves),
-    getActiveEffectsBySeason(seasonId),
+    effectBadgesBySeason(seasonId, registry),
+    bonusItemsBySeason(seasonId, registry),
   ]);
   return options.map((o) => ({
     seasonPlayerId: o.seasonPlayerId,
@@ -407,6 +410,8 @@ export async function listBotItemTargets(
     moveCount: o.moveCount,
     status: o.status,
     effects: (effects.get(o.seasonPlayerId) ?? []).map((b) => b.effectKey),
+    bonusItems: items.get(o.seasonPlayerId) ?? 0,
+    untargetable: standing.get(o.seasonPlayerId)?.untargetable ?? false,
   }));
 }
 

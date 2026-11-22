@@ -262,25 +262,6 @@ export async function listOpenEventsWithoutDeadline(
     );
 }
 
-/**
- * How many seasons have each IEE key in their pool, keyed by item/effect key.
- * Read straight from `seasons.config`, so the catalog browser can show where a
- * hardcoded entry is actually used without a join table.
- */
-export async function getIeeUsageByKey(): Promise<Record<string, number>> {
-  const rows = await db
-    .select({ config: seasons.config })
-    .from(seasons);
-  const out: Record<string, number> = {};
-  for (const row of rows) {
-    const cfg = row.config as { iee?: { entries?: Record<string, unknown> } } | null;
-    for (const key of Object.keys(cfg?.iee?.entries ?? {})) {
-      out[key] = (out[key] ?? 0) + 1;
-    }
-  }
-  return out;
-}
-
 /** Seasons whose pool lists an event template key. */
 export async function getEventUsageByKey(): Promise<Record<string, number>> {
   const rows = await db.select({ config: seasons.config }).from(seasons);

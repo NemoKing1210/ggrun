@@ -1,6 +1,5 @@
-import { ieeArtSrc } from "@/components/iee/art";
-import { IeeIcon } from "@/components/iee/IeeIcon";
-import type { Polarity } from "@/lib/engine";
+import { IeeIcon, iconSource } from "@/components/iee/IeeIcon";
+import type { EntryArt, Polarity } from "@/lib/engine";
 
 export type TileSize = "sm" | "md" | "lg";
 
@@ -16,7 +15,7 @@ export type TileSize = "sm" | "md" | "lg";
  * ## Square is a thing you carry, hex is a state you are in
  *
  * The catalog pairs items and effects almost one to one — `lead_weights`
- * grants `heavy_boots`, `lodestone` grants `tailwind`, `spare_die` grants
+ * grants `heavy_boots`, `speed_boots` grants `tailwind`, `spare_die` grants
  * `lucky`, `jinx` grants `unlucky`. Any "heavy object" drawn for one reads
  * identically as the other, so no amount of care from the artist can carry
  * that distinction: it has to be structural.
@@ -44,20 +43,27 @@ export const HEX_CLIP = "[clip-path:polygon(50%_0,100%_25%,100%_75%,50%_100%,0_7
 export function IeeArtTile({
   entryKey,
   kind,
-  heroIcon,
+  glyph,
+  art,
   polarity,
   size = "md",
   className = "",
 }: {
   entryKey?: string | null;
   kind: "item" | "effect";
-  heroIcon?: string | null;
-  /** Effects only — tints the frame so a debuff reads before the text does. */
+  /** The entry's `glyph`; null = the kind's glyph. */
+  glyph?: string | null;
+  /** The view's `art` — the entry's and the pack's icons (spec §12). */
+  art?: EntryArt | null;
+  /**
+   * Tints the frame so a debuff reads before the text does: an effect by its
+   * polarity; an item only when it is cursed (negative) — a bonus item stays amber.
+   */
   polarity?: Polarity;
   size?: TileSize;
   className?: string;
 }) {
-  const art = ieeArtSrc(kind, entryKey);
+  const source = iconSource({ kind, entryKey, glyph, art });
   const s = SIZE[size];
   const isEffect = kind === "effect";
   const clip = isEffect ? HEX_CLIP : SQUARE_CLIP;
@@ -66,24 +72,26 @@ export function IeeArtTile({
     ? polarity === "negative"
       ? "border-danger/60 bg-danger/15 text-danger"
       : "border-military/60 bg-military/15 text-military"
-    : "border-amber/40 bg-amber/10 text-amber";
+    : polarity === "negative"
+      ? "border-danger/60 bg-danger/15 text-danger"
+      : "border-amber/40 bg-amber/10 text-amber";
 
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden border ${clip} ${s.box} ${frame} ${className}`}
       aria-hidden
     >
-      {art ? (
+      {"image" in source ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={art}
+          src={source.image}
           alt=""
           loading="lazy"
           decoding="async"
           className={`size-full object-cover ${clip}`}
         />
       ) : (
-        <IeeIcon heroIcon={heroIcon} kind={kind} className={s.icon} />
+        <IeeIcon glyph={source.glyph} kind={kind} className={s.icon} />
       )}
     </span>
   );

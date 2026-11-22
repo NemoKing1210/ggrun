@@ -72,6 +72,9 @@ function renderCard(over: {
   rerollApproved?: boolean;
   lastDice?: number[] | null;
   catalogGames?: Array<{ title: string; coverUrl: string | null; platform: string | null }>;
+  reacting?: boolean;
+  choosing?: boolean;
+  conditions?: Parameters<typeof RollCard>[0]["conditions"];
 } = {}) {
   return render(
     <I18nProvider locale="en" t={t}>
@@ -85,6 +88,9 @@ function renderCard(over: {
         rerollApproved={over.rerollApproved ?? false}
         lastDice={over.lastDice ?? null}
         catalogGames={over.catalogGames ?? []}
+        {...(over.reacting !== undefined ? { reacting: over.reacting } : {})}
+        {...(over.choosing !== undefined ? { choosing: over.choosing } : {})}
+        {...(over.conditions !== undefined ? { conditions: over.conditions } : {})}
       />
     </I18nProvider>,
   );
@@ -222,6 +228,42 @@ describe("RollCard open roll", () => {
       },
     });
     expect(screen.getByText(`${d.dropPendingLabel} · ${d.awaitingModeration}`)).toBeTruthy();
+  });
+
+  it("while the turn waits for the player's reaction, says so and reports nothing again (wave B, spec §7.4)", () => {
+    renderCard({ openRoll: openRoll(), reacting: true });
+    expect(screen.getByText(t.iee.reaction.heading)).toBeTruthy();
+    expect(screen.getByText(t.iee.reaction.rollCardHint)).toBeTruthy();
+    for (const name of [d.passedButton, d.dropButton, d.rerollButton]) {
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    }
+  });
+
+  it("shows what the game in flight must be passed with, and who gave it (wave C, spec §6.17)", () => {
+    renderCard({
+      openRoll: openRoll(),
+      conditions: [{ id: "c-1", text: { ru: "На высокой сложности", en: "On hard" }, from: { ru: "Сложный режим", en: "Hard Mode" } }],
+    });
+    const block = screen.getByRole("region", { name: t.iee.conditions.heading });
+    expect(block.textContent).toContain("On hard");
+    expect(block.textContent).toContain("from «Hard Mode»");
+    cleanup();
+    renderCard({ openRoll: openRoll() });
+    expect(screen.queryByRole("region", { name: t.iee.conditions.heading })).toBeNull();
+  });
+
+  it("while a choice of games waits, offers no roll and points at the choice (wave C, spec §7.12)", () => {
+    renderCard({ choosing: true });
+    expect((screen.getByRole("button", { name: d.rollButton }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(d.choosingHint)).toBeTruthy();
+    expect(screen.queryByText(d.shuffleLockHint)).toBeNull();
+    // Not "hit Roll": the roll is the game taken in the choice.
+    expect(screen.queryByText(d.noCurrentGame)).toBeNull();
+  });
+
+  it("no open roll, no reaction banner", () => {
+    renderCard({ reacting: true });
+    expect(screen.queryByText(t.iee.reaction.rollCardHint)).toBeNull();
   });
 
   it("shows the previous dice with their total", () => {

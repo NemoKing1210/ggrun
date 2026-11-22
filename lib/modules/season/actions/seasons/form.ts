@@ -1,4 +1,10 @@
-export function parseSeasonSettingsForm(formData: FormData): { config: unknown; rulesMd?: string | null; error?: string } {
+export function parseSeasonSettingsForm(formData: FormData): {
+  config: unknown;
+  rulesMd?: string | null;
+  /** The season's catalog rows as the wizard submitted them; undefined = not submitted. */
+  catalog?: unknown;
+  error?: string;
+} {
   const rawRulesMode = String(formData.get("rulesMode") ?? "auto").toLowerCase();
   const rulesMode: "auto" | "manual" = rawRulesMode === "manual" ? "manual" : "auto";
   const rulesMdRaw = formData.has("rulesMd") ? String(formData.get("rulesMd") ?? "") : undefined;
@@ -97,11 +103,11 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
         requireApproval: parseBool("rerolls_requireApproval", true),
       },
       rules: { mode: rulesMode },
-      // One JSON field rather than dozens of flattened inputs: `entries` is
-      // keyed by catalog key, so its shape is not known at compile time. The
-      // admin controls are still visual — this is only the wire format, and
+      // One JSON field rather than dozens of flattened inputs: `tagLimits` is
+      // keyed by tag, so its shape is not known at compile time. The admin
+      // controls are still visual — this is only the wire format, and
       // IeeConfigSchema validates it on the way in. Omitted entirely when the
-      // form did not carry it, so an older client cannot wipe a tuned pool
+      // form did not carry it, so an older client cannot wipe tuned settings
       // (updateSeasonSettings carries the stored value over in that case).
       ...(() => {
         const raw = formData.get("iee");
@@ -174,5 +180,20 @@ export function parseSeasonSettingsForm(formData: FormData): { config: unknown; 
     return { config: null, error: "formUnknown", rulesMd };
   }
 
-  return { config, rulesMd };
+  return { config, rulesMd, ...readCatalog(formData) };
+}
+
+/**
+ * The season's catalog (spec §4.2) travels as one JSON field next to the
+ * config. Absent — an older client, or a form without the IEE stage — means
+ * "leave the catalog alone", never "empty it".
+ */
+function readCatalog(formData: FormData): { catalog?: unknown; error?: string } {
+  const raw = formData.get("ieeCatalog");
+  if (raw === null) return {};
+  try {
+    return { catalog: JSON.parse(String(raw)) as unknown };
+  } catch {
+    return { error: "formConfigInvalidJson" };
+  }
 }

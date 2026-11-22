@@ -13,20 +13,28 @@ import {
   type BotTargetStrategy,
 } from "@/db/schema/bots";
 import {
-  activeEffects,
   nextBotStepKind,
   pickBotComment,
   pickBotOutcome,
   pickBotRating,
   pickBotReason,
+  objectCellsFor,
   planBotItemUse,
   type IeeConfig,
-  type IeeParams,
+  type PickKind,
+  type UsePick,
 } from "@/lib/engine";
 import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
 import { getOpenRollRow, parseSeasonConfig } from "@/lib/modules/game/service/helpers";
-import { activateInventoryItem, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
-import { getActiveEffectRows, getHeldItems, toActiveEffectLike } from "@/lib/modules/iee/repository";
+import { freeObjectCells } from "@/lib/modules/game/service/objects";
+import { activateInventoryItem, answerDecision, answerWithDefault, resolveGameRoll, rollNewGame } from "@/lib/modules/game";
+import { getDecisionRow, listPendingDecisions } from "@/lib/modules/iee/decisions";
+import { offeredGames, type GameOffer } from "@/lib/modules/iee/executor";
+import { pickGames, pickOffers } from "@/lib/modules/catalog/repository";
+import { botReaction, type ReactionContext } from "@/lib/modules/iee/turn";
+import { listActiveEffects, listHeldItems, standingBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
+import { entryChoiceOptions } from "@/lib/modules/iee/use";
 import { getSeasonPlayerById } from "@/lib/modules/season/repository/players";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { getUserById } from "@/lib/modules/player/service/admin";
@@ -285,7 +293,55 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
       }
       continue;
     }
-    const open = await getOpenRollRow(bot.spId);
+    let open = await getOpenRollRow(bot.spId);
+
+    // --- a choice an entry put to the bot (spec §7.6): it takes the default at once;
+    //     a reaction window left open (§7.4) it answers as it answers a new one;
+    //     a choice of games (wave C, §7.12) it answers with one at random ---
+    if (iee.enabled) {
+      for (const decision of await listPendingDecisions(bot.spId)) {
+        try {
+          let detail: string;
+          if (decision.kind === "reaction_window") {
+            detail = await answerBotReaction(decision.id, decision.context as ReactionContext, botUser);
+          } else if (decision.kind === "game_choice") {
+            detail = await takeBotGame(decision.id, offeredGames(decision), botUser);
+            // The game it took is its roll now.
+            open = await getOpenRollRow(bot.spId);
+          } else {
+            await answerWithDefault(decision.id, { actor: botUser });
+            detail = `Took the default of a choice (${decision.id.slice(0, 8)})`;
+          }
+          actions++;
+          await insertBotLog({
+            runId,
+            seasonId,
+            level: "info",
+            action: "decide",
+            seasonPlayerId: bot.spId,
+            botUsername: bot.username,
+            message: detail,
+            payload: { decisionId: decision.id },
+          });
+          activity(bot, "decide", { detail });
+        } catch (e) {
+          const errorCode = isAppError(e) ? e.code : e instanceof Error ? e.message : "unknown";
+          lastError = `decide failed for ${bot.username}: ${errorCode}`;
+          errors++;
+          await insertBotLog({
+            runId,
+            seasonId,
+            level: "error",
+            action: "decide",
+            seasonPlayerId: bot.spId,
+            botUsername: bot.username,
+            message: lastError,
+            payload: { errorCode, decisionId: decision.id },
+          });
+          activity(bot, "error", { detail: lastError });
+        }
+      }
+    }
 
     // --- item action: a *pre*-step, so a bot that can act on its inventory
     //     still rolls or resolves within the same step ---------------------
@@ -311,6 +367,13 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
               targetUsername: used.targetUsername,
               detail: `Used ${used.itemKey}${used.targetUsername ? ` on ${used.targetUsername}` : ""}`,
             });
+            // An item of its own may have taken it to the finish out of turn
+            // (spec §7.3): nothing is left to roll, now or later in this tick.
+            const after = await getSeasonPlayerById(bot.spId);
+            if (!after || after.status !== "active") {
+              activeSpIds.splice(activeSpIds.indexOf(bot), 1);
+              continue;
+            }
           }
         } catch (e) {
           const errorCode = isAppError(e) ? e.code : e instanceof Error ? e.message : "unknown";
@@ -361,9 +424,14 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
     const attempt: Record<string, unknown> = { step: step + 1, kind };
     try {
       if (kind === "roll") {
-        const rollId = await rollNewGame(bot.spId, { actor: botUser });
+        const rolled = await rollNewGame(bot.spId, { actor: botUser });
         actions++;
-        const detail = `Rolled a new game (roll ${rollId.slice(0, 8)})`;
+        // A choice its entries ask for (wave C, §7.12): the bot takes one at once, at random.
+        const choice = rolled.choice;
+        const detail = choice
+          ? await takeBotGame(choice.decisionId, offeredGames((await getDecisionRow(choice.decisionId)) ?? { kind: "game_choice", context: {} }), botUser)
+          : `Rolled a new game (roll ${rolled.rollId!.slice(0, 8)})`;
+        const rollId = choice ? ((await getOpenRollRow(bot.spId))?.id ?? null) : rolled.rollId;
         await insertBotLog({
           runId,
           seasonId,
@@ -404,6 +472,24 @@ export async function tickBotRunAs(run: BotRun, triggeredBy: string): Promise<Bo
           },
           { actor: botUser },
         );
+        // A throw that offers a reaction item pauses the turn (§7.4): the bot answers it at once.
+        if (result.reaction) {
+          const window = await getDecisionRow(result.reaction.decisionId);
+          if (window && window.status === "pending") {
+            const reacted = await answerBotReaction(window.id, window.context as ReactionContext, botUser);
+            await insertBotLog({
+              runId,
+              seasonId,
+              level: "info",
+              action: "decide",
+              seasonPlayerId: bot.spId,
+              botUsername: bot.username,
+              message: reacted,
+              payload: { decisionId: window.id, rollId: open.id },
+            });
+            activity(bot, "decide", { detail: reacted });
+          }
+        }
         const detail = `Resolved ${outcome}: ${result.fromPosition} → ${result.toPosition} (+${result.newBalancePoints} pts)`;
         await insertBotLog({
           runId,
@@ -505,15 +591,17 @@ async function tryBotItemUse(params: {
 }): Promise<{ itemKey: string; targetUsername: string | null } | null> {
   const { runId, seasonId, config, iee, bot, sp, botUser, hasOpenRoll, triggeredBy } = params;
 
-  const [held, effectRows, others] = await Promise.all([
-    getHeldItems(bot.spId),
-    getActiveEffectRows(bot.spId),
-    listBotItemTargets(seasonId, bot.spId, iee.pvpProtectionMoves),
+  const registry = await getSeasonRegistry(seasonId);
+  // What holds (wave B, spec §6.13): who is out of reach, whether the bot may use items at all.
+  const standing = await standingBySeason(seasonId, registry);
+  const [held, effects, others] = await Promise.all([
+    listHeldItems(bot.spId, registry),
+    listActiveEffects(bot.spId, registry),
+    listBotItemTargets(seasonId, bot.spId, iee.pvpProtectionMoves, registry, standing),
   ]);
   if (held.length === 0) return null;
+  const pickOptions = held.some((row) => registry.item(row.revisionId)?.usage.pick) ? await botPickOptions(bot.spId, seasonId) : null;
 
-  const inForce = activeEffects(effectRows.map(toActiveEffectLike), sp.rollSeq + 1);
-  const polarityById = new Map(effectRows.map((e) => [e.id, e.polarity]));
   const plan = planBotItemUse(
     {
       actor: {
@@ -530,23 +618,53 @@ async function tryBotItemUse(params: {
       hasOpenRoll,
       held: held.map((row) => ({
         inventoryId: row.id,
-        itemKey: row.itemKey,
-        params: (row.params ?? {}) as IeeParams,
+        itemKey: row.key,
+        revisionId: row.revisionId,
+        params: row.params,
       })),
-      activeEffects: inForce.map((row) => ({
-        effectKey: row.effectKey,
-        polarity: polarityById.get(row.id) ?? "negative",
-      })),
+      // Eager counters: an active row is a status in force.
+      activeEffects: effects.map((row) => ({ effectKey: row.key, polarity: row.polarity })),
       others,
       allowTargetingOthers: iee.allowTargetingOthers,
       pvpProtectionMoves: iee.pvpProtectionMoves,
+      catalog: registry,
+      // What an item that asks for a pick may take: the bot's own, newest first.
+      choosable: [
+        ...held.map((row) => ({ id: row.id, kind: "item" as const, revisionId: row.revisionId, at: row.grantedAt })),
+        ...effects.map((row) => ({ id: row.id, kind: "effect" as const, revisionId: row.revisionId, at: row.grantedAt })),
+      ]
+        .sort((a, b) => b.at.getTime() - a.at.getTime())
+        .flatMap((row) => {
+          const entry = registry.get(row.revisionId);
+          return entry ? [{ instanceId: row.id, kind: row.kind, entryId: entry.entryId, character: entry.character, rarity: entry.rarity }] : [];
+        }),
+      // What an item that asks for a pick from the catalog may take — the server's own rule (spec §6.12).
+      entryOptions: (item) => (item.usage.entryChoice ? entryChoiceOptions(item.usage.entryChoice, registry, item) : []),
+      // What the season's pool offers a pick for the next game (wave C, spec §6.16) — read only when an item asks;
+      // a cell where the object serves the bot (wave D, §6.18).
+      picks: (kind, item) =>
+        kind === "cell"
+          ? objectCellsFor({
+              item,
+              free: (pickOptions?.cell ?? []).flatMap((p) => ("cell" in p ? [p.cell] : [])),
+              self: sp.position,
+              rivals: others.map((o) => o.position),
+            })
+          : (pickOptions?.[kind] ?? []),
+      forbidden: standing.get(bot.spId)?.forbidItems ?? false,
     },
     { strategy: config.targetStrategy, autoCleanse: config.autoCleanse },
   );
   if (!plan) return null;
 
   const used = await activateInventoryItem(
-    { inventoryId: plan.inventoryId, targetSeasonPlayerId: plan.targetSeasonPlayerId },
+    {
+      inventoryId: plan.inventoryId,
+      targetSeasonPlayerId: plan.targetSeasonPlayerId,
+      ...(plan.choiceInstanceId ? { choiceInstanceId: plan.choiceInstanceId } : {}),
+      ...(plan.chosenEntryId ? { chosenEntryId: plan.chosenEntryId } : {}),
+      ...(plan.pick ? pickFields(plan.pick) : {}),
+    },
     { actor: botUser },
   );
 
@@ -777,4 +895,51 @@ export async function tickBotRunSystem(runId: string, triggeredBy = "cron"): Pro
   const run = await getBotRun(runId);
   if (!run) throw new BotError("botRunNotFound");
   return tickBotRunAs(run, triggeredBy);
+}
+
+/**
+ * What the season's pool offers a bot's pick for the next game (wave C, spec
+ * §6.16): its genres, its decades and the first of the games it could be
+ * handed — what the dashboard offers a player.
+ */
+async function botPickOptions(seasonPlayerId: string, seasonId: string): Promise<Record<PickKind, UsePick[]>> {
+  const [offers, games, cells] = await Promise.all([pickOffers(seasonPlayerId), pickGames(seasonPlayerId, "", 30), freeObjectCells(seasonId)]);
+  return {
+    genre: offers.genres.map((genre) => ({ genre })),
+    years: offers.decades.map((from) => ({ years: [from, from + 9] as [number, number] })),
+    game: games.map((g) => ({ gameId: g.id, title: g.title })),
+    // The cells an object may stand on (wave D, spec §6.18); the planner keeps those that serve the bot.
+    cell: cells.map((cell) => ({ cell })),
+  };
+}
+
+/** A pick as the item path's form fields carry it. */
+function pickFields(pick: UsePick): { pickedGenre?: string; pickedYears?: string; pickedGameId?: string; pickedCell?: string } {
+  if ("genre" in pick) return { pickedGenre: pick.genre };
+  if ("years" in pick) return { pickedYears: `${pick.years[0]}-${pick.years[1]}` };
+  if ("cell" in pick) return { pickedCell: String(pick.cell) };
+  return { pickedGameId: pick.gameId };
+}
+
+/**
+ * A bot takes one of the games its choice offers, at random (wave C, spec
+ * §7.12): it has no taste to choose by. Returns the log line.
+ */
+async function takeBotGame(decisionId: string, games: readonly GameOffer[], actor: User): Promise<string> {
+  if (games.length === 0) throw new Error(`choice ${decisionId.slice(0, 8)} offers no games`);
+  const game = games[Math.min(games.length - 1, Math.floor(Math.random() * games.length))]!;
+  await answerDecision({ decisionId, option: "take", picks: [game.gameId] }, { actor });
+  return `Took “${game.title}” of ${games.length} games offered (${decisionId.slice(0, 8)})`;
+}
+
+/**
+ * A bot answers its reaction window (spec §7.4) the way the power of a
+ * reaction item assumes a player does (§6.15): the offer expected to gain the
+ * most on a bad throw, or it accepts. Returns the log line.
+ */
+async function answerBotReaction(decisionId: string, context: ReactionContext, actor: User): Promise<string> {
+  const pick = botReaction(context);
+  await answerDecision({ decisionId, option: pick ? "react" : "accept", picks: pick ? [pick] : [] }, { actor });
+  const used = pick ? context.offers.find((o) => o.instanceId === pick)?.key ?? pick : null;
+  return used ? `Reacted to the dice with ${used} (${decisionId.slice(0, 8)})` : `Accepted the dice (${decisionId.slice(0, 8)})`;
 }

@@ -1,60 +1,36 @@
 import { describe, expect, it } from "vitest";
-import * as EnIee from "../i18n/dictionaries/en/iee";
+import { CORE_DOCS } from "./iee/core-docs";
+import { compileSet } from "./iee/dsl/set";
 import {
-  catalogCandidates,
   isCatalogFilterEmpty,
   matchesCatalogFilter,
-  listEffects,
-  listItems,
   type CatalogFilter,
   type FilterableEntry,
 } from "./iee";
 import type { Polarity, Rarity } from "./types";
 
-/** Resolve a dictionary path the way `dictText` does, so names are real. */
-function dict(root: unknown, path: string): string {
-  const parts = path.split(".");
-  let node: unknown = root;
-  for (const part of parts) {
-    if (node && typeof node === "object" && part in (node as Record<string, unknown>)) {
-      node = (node as Record<string, unknown>)[part];
-    } else return path;
-  }
-  return typeof node === "string" ? node : path;
-}
-
 /**
- * Scenarios are the real catalog, resolved through the real dictionary, so
- * these exercise the strings a user actually types against rather than
+ * Scenarios are the real entries — their names and generated rule text, the
+ * strings the catalog and the season stage actually filter — rather than
  * fixtures invented to match the implementation.
  */
-const ENTRIES: FilterableEntry[] = [
-  ...listItems().map((d) => ({
-    key: d.key,
-    name: dict(EnIee.iee, d.i18n.name.replace(/^iee\./, "")),
-    description: dict(EnIee.iee, d.i18n.description.replace(/^iee\./, "")),
-    polarity: d.polarity,
-    rarity: d.rarity,
-    armed: false,
-  })),
-  ...listEffects().map((d) => ({
-    key: d.key,
-    name: dict(EnIee.iee, d.i18n.name.replace(/^iee\./, "")),
-    description: dict(EnIee.iee, d.i18n.description.replace(/^iee\./, "")),
-    polarity: d.polarity,
-    rarity: d.rarity,
-    armed: true,
-  })),
-];
+const SET = compileSet(CORE_DOCS);
+const ENTRIES: FilterableEntry[] = SET.entries.map((e) => ({
+  key: e.key,
+  name: e.names.en,
+  description: e.ruleText.en,
+  polarity: e.polarity,
+  rarity: e.rarity,
+  armed: e.kind === "effect",
+}));
 
 const F = (over: Partial<CatalogFilter> = {}): CatalogFilter => ({ query: "", ...over });
 const shown = (f: CatalogFilter) => ENTRIES.filter((e) => matchesCatalogFilter(e, f));
 
 describe("catalog filter — fixtures", () => {
-  it("uses the whole catalog, resolved (a filter over nothing proves nothing)", () => {
-    expect(ENTRIES.length).toBe(catalogCandidates().length);
-    // A name that failed to resolve comes back as its own dictionary path.
-    for (const e of ENTRIES) expect(e.name).not.toMatch(/^items\.|^effects\./);
+  it("uses every entry, named (a filter over nothing proves nothing)", () => {
+    expect(ENTRIES.length).toBe(91);
+    for (const e of ENTRIES) expect(e.name.length).toBeGreaterThan(1);
   });
 });
 

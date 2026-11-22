@@ -64,6 +64,11 @@ export const board: Widen<typeof BoardEn.board> = {
     prevCell: "Предыдущая клетка",
     nextCell: "Следующая клетка",
     openProfile: "Открыть профиль",
+    object: "Объект на клетке",
+    objectHint: "Ход, который проходит через эту клетку или заканчивается на ней, сначала встречает его.",
+    objectBy: "Поставил {name}",
+    objectByGone: "Владелец покинул сезон",
+    objectOn: "{name}, поставил {owner}",
   },
   descriptions: {
     start: "Старт — отсюда начинается каждый забег.",

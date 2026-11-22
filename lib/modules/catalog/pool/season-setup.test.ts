@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_SEASON_CONFIG } from "../../../engine/config/defaults";
+import type { SeasonCatalogEntry } from "../../../engine/types/iee";
 import type { SeasonConfig } from "../../../engine/types/season";
 import { GAME_POOL_TEMPLATES } from "./templates";
 import {
@@ -24,6 +25,24 @@ const STRATEGY = GAME_POOL_TEMPLATES.find((t) => t.id === "strategy")!;
 function freshConfig(): SeasonConfig {
   return structuredClone(DEFAULT_SEASON_CONFIG);
 }
+
+
+const ROW: SeasonCatalogEntry = {
+  entryId: "00000000-0000-4000-8000-000000000001",
+  revisionId: "00000000-0000-5000-8000-000000000001",
+  enabled: true,
+  pool: "bonus",
+  rarity: null,
+  weight: 100,
+  maxPerSeason: null,
+  maxPerPlayer: null,
+  cooldownRolls: 0,
+  minPosition: 0,
+  unlockAfterMove: 0,
+  paramOverrides: {},
+  durationOverride: null,
+  targetOverride: null,
+};
 
 describe("applyTemplate", () => {
   it("writes the template's filters, board hint and id", () => {
@@ -323,6 +342,18 @@ describe("stageChanged", () => {
     // after saving, the saved config becomes the new baseline
     expect(stageChanged(edited, edited, "board")).toBe(false);
   });
+
+  // The season's catalog is not config, but the IEE stage edits it.
+  it("attributes catalog edits to the iee stage, whatever the row order", () => {
+    const one = { ...ROW, entryId: "00000000-0000-4000-8000-000000000001" };
+    const two = { ...ROW, entryId: "00000000-0000-4000-8000-000000000002" };
+    const saved = { ...base(), catalog: [one, two] };
+    expect(changedStages(saved, { ...base(), catalog: [two, one] })).toEqual([]);
+    expect(changedStages(saved, { ...base(), catalog: [one] })).toEqual(["iee"]);
+    expect(changedStages(saved, { ...base(), catalog: [one, { ...two, weight: 5 }] })).toEqual(["iee"]);
+    // A snapshot without a catalog reads as an empty one.
+    expect(changedStages(base(), { ...base(), catalog: [] })).toEqual([]);
+  });
 });
 
 describe("editedStages", () => {
@@ -364,22 +395,9 @@ describe("editedStages", () => {
   });
 });
 
-const ENTRY = {
-  enabled: true,
-  weight: 100,
-  polarityOverride: null,
-  maxPerSeason: null,
-  maxPerPlayer: null,
-  cooldownRolls: 0,
-  minPosition: 0,
-  unlockAfterMove: 0,
-  paramOverrides: {},
-  durationOverride: null,
-  targetOverride: null,
-};
 
 describe("resetStage — iee", () => {
-  it("clears the season pool and event list but keeps the other stages", () => {
+  it("clears the settings, limits and event list but keeps the other stages", () => {
     const cfg: SeasonConfig = {
       ...freshConfig(),
       iee: {
@@ -390,12 +408,16 @@ describe("resetStage — iee", () => {
         revealDropsInFeed: false,
         nothingWeight: 40,
         catchUp: { enabled: true, maxMultiplier: 2 },
-        entries: { hex_scroll: { ...ENTRY, weight: 250 } },
         events: ["screenshot_of_the_day"],
+        maxActiveEffectsPerPlayer: 3,
+        tagLimits: { movement: 1 },
+        disabledTags: ["dice"],
+        powerCeiling: 10,
+        boardObjectsPerPlayer: 4,
       },
     };
     const out = resetStage(cfg, "iee");
-    expect(out.iee.entries).toEqual({});
+    expect(out.iee).toEqual(DEFAULT_SEASON_CONFIG.iee);
     expect(out.iee.events).toEqual([]);
     expect(out.iee.enabled).toBe(DEFAULT_SEASON_CONFIG.iee.enabled);
     expect(out.iee.catchUp).toEqual(DEFAULT_SEASON_CONFIG.iee.catchUp);
@@ -406,10 +428,12 @@ describe("resetStage — iee", () => {
 
   it("does not hand back references into DEFAULT_SEASON_CONFIG", () => {
     const out = resetStage(freshConfig(), "iee");
-    out.iee.entries.x = { ...ENTRY };
+    out.iee.tagLimits.x = 1;
+    out.iee.disabledTags.push("x");
     out.iee.catchUp.maxMultiplier = 4;
     out.iee.events.push("boom");
-    expect(DEFAULT_SEASON_CONFIG.iee.entries).toEqual({});
+    expect(DEFAULT_SEASON_CONFIG.iee.tagLimits).toEqual({});
+    expect(DEFAULT_SEASON_CONFIG.iee.disabledTags).toEqual([]);
     expect(DEFAULT_SEASON_CONFIG.iee.catchUp.maxMultiplier).not.toBe(4);
     expect(DEFAULT_SEASON_CONFIG.iee.events).toEqual([]);
   });
@@ -425,12 +449,12 @@ describe("resetStage — iee", () => {
     ]);
   });
 
-  it("resetting another stage leaves the iee pool alone", () => {
+  it("resetting another stage leaves the iee settings alone", () => {
     const cfg: SeasonConfig = {
       ...freshConfig(),
-      iee: { ...DEFAULT_SEASON_CONFIG.iee, enabled: true, entries: { slowed: { ...ENTRY } } },
+      iee: { ...DEFAULT_SEASON_CONFIG.iee, enabled: true, tagLimits: { movement: 2 } },
     };
-    expect(resetStage(cfg, "board").iee.entries).toEqual({ slowed: { ...ENTRY } });
+    expect(resetStage(cfg, "board").iee.tagLimits).toEqual({ movement: 2 });
     expect(resetStage(cfg, "pool").iee.enabled).toBe(true);
   });
 });

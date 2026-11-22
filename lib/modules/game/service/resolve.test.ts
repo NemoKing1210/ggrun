@@ -86,10 +86,10 @@ const catalogRepo = vi.hoisted(() => ({
   countRerollsForGame: vi.fn(),
   createCompletionRequest: vi.fn(),
   createRerollRequest: vi.fn(),
+  endRollInFlight: vi.fn(),
   getApprovedRerollForRoll: vi.fn(),
   getPendingCompletionForRoll: vi.fn(),
   getPendingRerollForRoll: vi.fn(),
-  pickGameForRoll: vi.fn(),
 }));
 vi.mock("@/lib/modules/catalog/repository", async (importOriginal) => ({
   ...(await importOriginal<typeof CatalogRepository>()),
@@ -101,6 +101,19 @@ vi.mock("@/lib/modules/notifications/service", () => notifications);
 
 const turn = vi.hoisted(() => ({ applyResolvedTurn: vi.fn() }));
 vi.mock("./turn", () => turn);
+
+// A reaction window the player has open (wave B, spec §7.4): none unless a test opens one.
+const decisions = vi.hoisted(() => ({ hasPendingDecision: vi.fn(async () => false), announceDecisions: vi.fn(async () => {}) }));
+vi.mock("@/lib/modules/iee/decisions", () => decisions);
+
+// The new pick and its writes (spec §7.12; `./pick` is tested on its own): here they answer as told.
+const CELESTE = { id: "game-2", title: "Celeste" };
+const picker = vi.hoisted(() => ({ next: null as unknown, started: null as unknown }));
+const pick = vi.hoisted(() => ({
+  pickNextGame: vi.fn(async () => picker.next),
+  startNextGame: vi.fn(async () => picker.started),
+}));
+vi.mock("./pick", async (importOriginal) => ({ ...(await importOriginal<typeof import("./pick")>()), ...pick }));
 
 const ACTOR: User = { id: "user-1", role: "player" } as unknown as User;
 const TURN_RESULT = { diceResults: [3], fromPosition: 3, toPosition: 6, newBalancePoints: 12 };
@@ -133,6 +146,7 @@ function gameRoll(overrides: Partial<GameRoll> = {}): GameRoll {
     difficultyLevel: null,
     notes: null,
     rating: null,
+    postponedUntilSeq: null,
     rolledAt: new Date(0),
     resolvedAt: null,
     ...overrides,
@@ -205,7 +219,9 @@ beforeEach(() => {
   catalogRepo.getPendingCompletionForRoll.mockResolvedValue(null);
   catalogRepo.getApprovedRerollForRoll.mockResolvedValue(null);
   catalogRepo.countRerollsForGame.mockResolvedValue(0);
-  catalogRepo.pickGameForRoll.mockResolvedValue({ game: { id: "game-2", title: "Celeste" }, reason: null });
+  catalogRepo.endRollInFlight.mockResolvedValue(true);
+  picker.next = { kind: "game", game: CELESTE, shape: { exclude: [], require: [], favor: [], choice: 0, firings: [] }, relaxed: false, favoured: false, dropped: [] };
+  picker.started = { rollId: "roll-2", game: CELESTE, returned: false, choice: null };
   catalogRepo.createRerollRequest.mockResolvedValue(rerollRequest({ status: "pending" }));
   catalogRepo.createCompletionRequest.mockResolvedValue(completionRequest({ status: "pending" }));
   notifications.notifyUser.mockResolvedValue(null);
@@ -292,6 +308,20 @@ describe("resolveGameRoll — guards", () => {
     ).rejects.toMatchObject({ code: "gameCompletionPending" });
     expect(turn.applyResolvedTurn).not.toHaveBeenCalled();
   });
+
+  it.each(["passed", "dropped", "rerolled"] as const)(
+    "refuses a %s report while the turn waits for the player's reaction (spec §7.4)",
+    async (outcome) => {
+      queueRollAndPlayer(gameRoll(), seasonPlayer());
+      decisions.hasPendingDecision.mockResolvedValueOnce(true);
+      await expect(
+        resolveGameRoll({ rollId: "roll-1", outcome, reason: "the game was broken" }, { actor: ACTOR }),
+      ).rejects.toMatchObject({ code: "gameReactionPending" });
+      expect(decisions.hasPendingDecision).toHaveBeenCalledWith("sp-1", "reaction_window");
+      expect(turn.applyResolvedTurn).not.toHaveBeenCalled();
+      expect(catalogRepo.createRerollRequest).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("resolveGameRoll — rerolled", () => {
@@ -329,11 +359,12 @@ describe("resolveGameRoll — rerolled", () => {
   it("keeps an approval usable when the pool has nothing to reroll into", async () => {
     queueRollAndPlayer(gameRoll(), seasonPlayer());
     catalogRepo.getApprovedRerollForRoll.mockResolvedValue(rerollRequest());
-    catalogRepo.pickGameForRoll.mockResolvedValue({ game: null, reason: "all_played" });
+    picker.next = { kind: "none", reason: "all_played" };
     await expect(
       resolveGameRoll({ rollId: "roll-1", outcome: "rerolled", reason: "" }, { actor: ACTOR }),
     ).rejects.toMatchObject({ code: "catalogAllPlayed" });
     expect(dbFake.inserts).toEqual([]);
+    expect(catalogRepo.endRollInFlight).not.toHaveBeenCalled();
   });
 
   it("performs an instant reroll inside the transaction when approval is not required", async () => {
@@ -346,16 +377,14 @@ describe("resolveGameRoll — rerolled", () => {
       resolveGameRoll({ rollId: "roll-1", outcome: "rerolled", reason: "a good reason" }, { actor: ACTOR }),
     ).resolves.toEqual({ fromPosition: 3, toPosition: 3, newBalancePoints: 10 });
 
-    expect(dbFake.updates).toContainEqual(
-      expect.objectContaining({
-        values: expect.objectContaining({ status: "rerolled", resolvedAt: expect.any(Date) }),
-      }),
-    );
-    expect(dbFake.inserts).toContainEqual(
-      expect.objectContaining({
-        values: expect.objectContaining({ seasonPlayerId: "sp-1", gameId: "game-2", status: "rolled" }),
-      }),
-    );
+    // The roll in flight ends, and the next game starts as any pick does (spec §7.12).
+    expect(catalogRepo.endRollInFlight).toHaveBeenCalledWith(dbFake.db, "roll-1", null);
+    expect(pick.startNextGame).toHaveBeenCalledWith(dbFake.db, expect.objectContaining({ id: "sp-1" }), expect.any(Object), picker.next, {
+      origin: "reroll",
+      replacedRollId: "roll-1",
+      item: null,
+      decisions: [],
+    });
     expect(dbFake.updates).toContainEqual(
       expect.objectContaining({ values: expect.objectContaining({ rerollsUsed: 1 }) }),
     );
@@ -363,12 +392,38 @@ describe("resolveGameRoll — rerolled", () => {
       expect.objectContaining({
         values: expect.objectContaining({
           eventType: "game_rerolled",
-          payload: expect.objectContaining({ instant: true, newGameId: "game-2" }),
+          payload: { oldGameId: "game-1", newGameId: "game-2", title: "Celeste", instant: true },
         }),
       }),
     );
+    expect(decisions.announceDecisions).toHaveBeenCalledWith([]);
     expect(catalogRepo.createRerollRequest).not.toHaveBeenCalled();
     expect(turn.applyResolvedTurn).not.toHaveBeenCalled();
+  });
+
+  it("a reroll that opens a choice of games says so: no new game yet (spec §7.12)", async () => {
+    queueRollAndPlayer(gameRoll(), seasonPlayer());
+    seasons.getSeasonById.mockResolvedValue(season({ rerolls: { allowed: true, limitPerGame: 2, requireApproval: false } }));
+    picker.started = { rollId: null, game: null, returned: false, choice: { decisionId: "d-1", offered: 3 } };
+    await resolveGameRoll({ rollId: "roll-1", outcome: "rerolled", reason: "a good reason" }, { actor: ACTOR });
+    expect(dbFake.inserts).toContainEqual(
+      expect.objectContaining({
+        values: expect.objectContaining({
+          eventType: "game_rerolled",
+          payload: { oldGameId: "game-1", newGameId: null, title: null, choosing: 3, instant: true },
+        }),
+      }),
+    );
+  });
+
+  it("refuses a reroll of a roll resolved meanwhile — nothing is spent", async () => {
+    queueRollAndPlayer(gameRoll(), seasonPlayer());
+    seasons.getSeasonById.mockResolvedValue(season({ rerolls: { allowed: true, limitPerGame: 2, requireApproval: false } }));
+    catalogRepo.endRollInFlight.mockResolvedValue(false);
+    await expect(
+      resolveGameRoll({ rollId: "roll-1", outcome: "rerolled", reason: "a good reason" }, { actor: ACTOR }),
+    ).rejects.toMatchObject({ code: "gameRollAlreadyResolved" });
+    expect(pick.startNextGame).not.toHaveBeenCalled();
   });
 
   it("attributes an approved reroll to its request", async () => {

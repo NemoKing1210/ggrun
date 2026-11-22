@@ -14,17 +14,28 @@ export interface PickInput {
   /** Which pool the landing cell draws from. */
   polarity: Polarity;
   config: IeeConfig;
-  /** Everything the catalog offers; gates decide what survives. */
+  /** Everything the season's catalog offers; gates decide what survives. */
   catalog: readonly PoolCandidate[];
-  /** Catalog default params per key, merged with the season's overrides. */
+  /**
+   * The season's tuning of each candidate, by key — its catalog row, folded
+   * (`catalogEntryConfig`). A candidate without one is not in the pool.
+   */
+  entries: Readonly<Record<string, IeeEntryConfig>>;
+  /** Declared default params per key, merged with the season's overrides. */
   catalogDefaults: Readonly<Record<string, IeeParams>>;
   player: IeePlayerSnapshot;
   counters: PoolCounters;
   activeEffectKeys: readonly string[];
+  /** The player's active instances per tag, for the season's `tagLimits`. */
+  activeTagCounts?: Readonly<Record<string, number>>;
   heldItemCount: number;
   seasonRollSeq: number;
   /** Number of active participants — used only for catch-up weighting. */
   playerCount: number;
+  /** Active rivals behind the landing cell; unknown (the drop table preview) = someone is. */
+  playersBehind?: number;
+  /** Keys of the items the player holds — a unique one is not offered twice. */
+  heldItemKeys?: readonly string[];
   rng: () => number;
 }
 
@@ -72,8 +83,8 @@ export function buildPool(input: PickInput): {
   const rejected: Record<string, GateReason> = {};
 
   for (const candidate of input.catalog) {
-    const entry = input.config.entries[candidate.key];
-    // Absent from `entries` = not in this season's pool at all.
+    const entry = input.entries[candidate.key];
+    // No tuning = not in this season's pool at all.
     if (!entry) continue;
 
     const reason = gateCandidate(
@@ -86,6 +97,9 @@ export function buildPool(input: PickInput): {
         activeEffectKeys: input.activeEffectKeys,
         heldItemCount: input.heldItemCount,
         seasonRollSeq: input.seasonRollSeq,
+        activeTagCounts: input.activeTagCounts,
+        playersBehind: input.playersBehind,
+        heldItemKeys: input.heldItemKeys,
       },
       input.polarity,
     );
@@ -196,11 +210,7 @@ export function pickWheelOutcome(input: PickInput): WheelOutcome {
       return {
         kind: slice.kind,
         key: slice.key,
-        params: resolveParams(
-          slice.key!,
-          input.catalogDefaults,
-          input.config.entries[slice.key!],
-        ),
+        params: resolveParams(slice.key!, input.catalogDefaults, input.entries[slice.key!]),
         polarity: input.polarity,
         slices,
       };
@@ -215,7 +225,7 @@ export function pickWheelOutcome(input: PickInput): WheelOutcome {
     params:
       last.key === null
         ? {}
-        : resolveParams(last.key, input.catalogDefaults, input.config.entries[last.key]),
+        : resolveParams(last.key, input.catalogDefaults, input.entries[last.key]),
     polarity: input.polarity,
     slices,
   };

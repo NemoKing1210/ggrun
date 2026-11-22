@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BoardCell } from "@/db/schema";
+import { NO_ART, type BoardObjectView } from "@/lib/engine";
 import { I18nProvider } from "@/lib/i18n/client";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
@@ -65,6 +66,7 @@ const renderBoard = (
     rolls?: BoardRoll[];
     stats?: BoardStats;
     seasonStartedAt?: string | null;
+    objects?: BoardObjectView[];
   } = {},
 ) =>
   render(
@@ -75,6 +77,7 @@ const renderBoard = (
         rolls={over.rolls ?? []}
         stats={{ ...stats, ...over.stats }}
         seasonStartedAt={over.seasonStartedAt ?? null}
+        {...(over.objects ? { objects: over.objects } : {})}
       />
     </I18nProvider>,
   );
@@ -251,3 +254,47 @@ describe("BoardView cell details", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
+
+describe("BoardView objects on the cells (wave D, spec §6.18)", () => {
+  const mine: BoardObjectView = {
+    instanceId: "o-1",
+    cell: 2,
+    key: "mine",
+    name: { ru: "Мина", en: "Mine", uk: "Міна" },
+    ruleText: { ru: "Ход останавливается.", en: "The move stops there.", uk: "Хід зупиняється." },
+    glyph: "FireIcon",
+    polarity: "positive",
+    art: NO_ART,
+    owner: { username: "bob", displayName: "Bob" },
+  };
+
+  it("marks the cell an object stands on, in both views", () => {
+    const { container } = renderBoard({ objects: [mine] });
+    expect(container.querySelectorAll('[data-object="2"]')).toHaveLength(1);
+    expect(container.querySelector('[data-object="2"]')!.getAttribute("title")).toBe("Mine");
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(t.board.view.linear) }));
+    expect(container.querySelectorAll('[data-object="2"]').length).toBeGreaterThan(0);
+  });
+
+  it("the cell's details say what stands there, what it does and whose it is", async () => {
+    renderBoard({ objects: [mine] });
+    fireEvent.click(screen.getByText("Gamma").closest("button")!);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(t.board.cell.object);
+    expect(dialog.textContent).toContain("The move stops there.");
+    expect(dialog.textContent).toContain(t.board.cell.objectHint);
+    expect(screen.getByRole("link", { name: format(t.board.cell.objectBy, { name: "Bob" }) }).getAttribute("href")).toBe("/players/bob");
+  });
+
+  it("an object whose owner left says so; a cell without one shows none", async () => {
+    renderBoard({ objects: [{ ...mine, owner: null }] });
+    fireEvent.click(screen.getByText("Gamma").closest("button")!);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(t.board.cell.objectByGone);
+    cleanup();
+    renderBoard({ objects: [mine] });
+    fireEvent.click(screen.getByText("Beta").closest("button")!);
+    expect((await screen.findByRole("dialog")).textContent).not.toContain(t.board.cell.object);
+  });
+});
+

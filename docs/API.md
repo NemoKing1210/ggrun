@@ -422,7 +422,7 @@ The live channel is not part of OpenAPI — it lives in the `x-realtime` extensi
 | `season:<seasonId>` | public | yes | `board:event`, `presence:update` | One season's public board/feed events — movement, rolls, items, effects. |
 | `audit` | staff | no | `audit:created` | Admin audit log live tail. Staff only (`admin`/`judge`), re-checked against a fresh session on every join. |
 | `bots:<seasonId>` | staff | no | `bots:activity`, `bots:log`, `bots:run` | Live test-bot console for one season. Staff only — bots are indistinguishable from real players in public surfaces, so their activity is never published elsewhere. |
-| `user:<userId>` | owner | no | `notifications:created`, `notifications:read` | Private inbox of one user (notifications + read state). Owner-only; anonymous sockets and other users get `FORBIDDEN`. |
+| `user:<userId>` | owner | no | `decisions:update`, `notifications:created`, `notifications:read` | Private inbox of one user (notifications + read state). Owner-only; anonymous sockets and other users get `FORBIDDEN`. |
 
 Join policy errors: `UNKNOWN_ROOM` (Room is not a known room name, is empty, or is longer than 80 characters.) · `FORBIDDEN` (`audit` / `bots:<seasonId>` without the `admin` or `judge` role, or `user:<userId>` not owned by the socket.) · `RATE_LIMITED` (More than 20 `join` attempts within 10 s on one socket.) · `ROOM_LIMIT` (The socket already holds 8 rooms.).
 
@@ -868,7 +868,7 @@ Rooms: `bots:<seasonId>`
     },
     "kind": {
       "type": "string",
-      "description": "roll | resolve | item | skip | error"
+      "description": "roll | resolve | item | decide | skip | error"
     },
     "outcome": {
       "anyOf": [
@@ -1223,6 +1223,50 @@ Rooms: `user:<userId>`
     "readAt",
     "all",
     "unread"
+  ],
+  "additionalProperties": false
+}
+```
+
+#### `decisions:update`
+
+One of the user's decisions (a victim's choice, a reaction window, a choice of games) opened or was settled — by them, a judge or the default. A refresh hint: what it asks is read from the dashboard, never from the event.
+
+Rooms: `user:<userId>`
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "decisionId": {
+      "type": "string"
+    },
+    "seasonId": {
+      "type": "string"
+    },
+    "seasonPlayerId": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "description": "reaction_window | victim_choice | game_choice"
+    },
+    "status": {
+      "type": "string",
+      "description": "pending | resolved | judged | defaulted"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "decisionId",
+    "seasonId",
+    "seasonPlayerId",
+    "kind",
+    "status"
   ],
   "additionalProperties": false
 }

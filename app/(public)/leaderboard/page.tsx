@@ -24,7 +24,8 @@ import {
 } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { EffectBadges } from "@/components/iee/EffectBadges";
-import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
+import { effectBadgesBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import { format } from "@/lib/i18n/format";
 import { AvatarWithPresence } from "@/components/ui/Presence";
 import { AvatarFallback } from "@/components/ui/AvatarFallback";
@@ -363,7 +364,7 @@ export default async function LeaderboardPage() {
   const [rows, board, effects] = await Promise.all([
     getLeaderboard(season.id),
     getMainBoard(season.id),
-    getActiveEffectsBySeason(season.id),
+    getSeasonRegistry(season.id).then((registry) => effectBadgesBySeason(season.id, registry)),
   ]);
   const cells = board ? await getBoardCells(board.id) : [];
   const boardSize = cells.length || Math.max(40, ...rows.map((r) => r.position + 1), 1);
@@ -569,7 +570,7 @@ export default async function LeaderboardPage() {
                             </Link>
                             <EffectBadges
                               badges={effects.get(row.id) ?? []}
-                              t={t}
+                              locale={locale}
                               className="mt-1.5"
                             />
                           </td>

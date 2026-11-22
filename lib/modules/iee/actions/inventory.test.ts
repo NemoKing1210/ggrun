@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { activateInventoryItem, GameLoopError } from "@/lib/modules/game";
+import { activateInventoryItem, GameLoopError, searchPickGames } from "@/lib/modules/game";
 
-import { useItemAction } from "./inventory";
+import { pickGamesAction, useItemAction } from "./inventory";
 
 const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => cache);
@@ -26,7 +26,7 @@ vi.mock("@/lib/modules/game", async () => {
   const { GameLoopError: LoopError } = await vi.importActual<{ GameLoopError: typeof GameLoopError }>(
     "@/lib/modules/game/service/errors",
   );
-  return { GameLoopError: LoopError, activateInventoryItem: vi.fn() };
+  return { GameLoopError: LoopError, activateInventoryItem: vi.fn(), searchPickGames: vi.fn() };
 });
 
 const EMPTY_STATE = { ok: undefined, error: undefined };
@@ -84,5 +84,18 @@ describe("useItemAction", () => {
     const result = await useItemAction(EMPTY_STATE, formData({ inventoryId: "inv-1" }));
     expect(result).toEqual({ ok: undefined, error: "Not allowed" });
     expect(cache.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("pickGamesAction — the games a pick for the next game may take (wave C, spec §6.16)", () => {
+  it("lists what the search finds", async () => {
+    vi.mocked(searchPickGames).mockResolvedValue([{ id: "g-1", title: "Celeste" }]);
+    await expect(pickGamesAction("inv-1", "cel")).resolves.toEqual([{ id: "g-1", title: "Celeste" }]);
+    expect(searchPickGames).toHaveBeenCalledWith("inv-1", "cel");
+  });
+
+  it("a refusal reads as no games: the use itself says why", async () => {
+    vi.mocked(searchPickGames).mockRejectedValue(new GameLoopError("gameNotAllowed"));
+    await expect(pickGamesAction("inv-1", "")).resolves.toEqual([]);
   });
 });

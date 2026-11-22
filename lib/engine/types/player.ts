@@ -14,6 +14,12 @@ export interface MovementInput {
    * call site keeps compiling; omitted means "no effects are speaking".
    */
   modifiers?: IeeModifiers;
+  /**
+   * The dice as the pipeline left them (spec §7.2): the faces that counted,
+   * their result and a direction rule's verdict. Omitted, the dice are thrown
+   * here with `rng` and nothing modifies them.
+   */
+  dice?: { faces: readonly number[]; result: number; direction: "back" | "forward" | null };
 }
 
 export interface MovementResult {

@@ -52,6 +52,23 @@ describe("generateBoardCells", () => {
   });
 });
 
+describe("generateBoardCells — with the caller's randomness", () => {
+  /** A repeatable stream: the sandbox lays a board out from its seed. */
+  const stream = (seed: number) => {
+    let x = seed;
+    return () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return x / 2147483648;
+    };
+  };
+
+  it("the same stream lays out the same board, another stream another", () => {
+    const a = generateBoardCells(cfg(), stream(7));
+    expect(generateBoardCells(cfg(), stream(7))).toEqual(a);
+    expect(generateBoardCells(cfg(), stream(8))).not.toEqual(a);
+  });
+});
+
 describe("boardShapeOf", () => {
   it("keeps only the fields that change the layout", () => {
     expect(Object.keys(boardShapeOf(cfg().board)).sort()).toEqual(

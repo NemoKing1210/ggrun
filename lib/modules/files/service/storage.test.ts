@@ -170,6 +170,24 @@ describe("storeFile", () => {
     });
   });
 
+  it("keeps an item icon square, 64–512 px, PNG or WebP, and admin-only", async () => {
+    const admin = { id: "a", role: "admin" };
+    await expect(storeFile({ category: "iee_icon", data: png(128, 96), actor: admin })).rejects.toMatchObject({
+      code: "fileImageNotSquare",
+      params: { width: "128", height: "96" },
+    });
+    await expect(storeFile({ category: "iee_icon", data: png(32, 32), actor: admin })).rejects.toMatchObject({
+      code: "fileImageDimensions",
+    });
+    await expect(
+      storeFile({ category: "iee_icon", data: png(128, 128), actor: { id: "j", role: "judge" } }),
+    ).rejects.toMatchObject({ code: "adminStaffRequired" });
+    await expect(storeFile({ category: "iee_icon", data: png(128, 128), actor: admin })).resolves.toMatchObject({
+      category: "iee_icon",
+      visibility: "public",
+    });
+  });
+
   it("rejects an image whose header cannot be read", async () => {
     const truncated = png(32, 32).slice(0, 12);
     await expect(storeFile({ category: "avatar", data: truncated, actor: owner })).rejects.toMatchObject({
@@ -232,6 +250,14 @@ describe("deleteFile", () => {
     vi.mocked(findFileById).mockResolvedValue(liveFile({ ownerId: "u2" }));
     await expect(deleteFile({ id: "f1", actor: owner })).rejects.toMatchObject({ code: "fileForbidden", status: 403 });
     expect(deletes).toHaveLength(0);
+  });
+
+  it("lets the code that owns a file remove it without an actor", async () => {
+    vi.mocked(findFileById).mockResolvedValue(liveFile({ category: "iee_icon", ownerId: null }));
+    vi.mocked(softDeleteFile).mockResolvedValue(true);
+    await expect(deleteFile({ id: "f1", actor: null })).rejects.toMatchObject({ code: "fileForbidden" });
+    await expect(deleteFile({ id: "f1", actor: null, system: true })).resolves.toBe(true);
+    expect(deletes).toEqual([KEY]);
   });
 
   it("soft-deletes and removes the object for the owner", async () => {

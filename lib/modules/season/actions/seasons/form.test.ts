@@ -253,6 +253,21 @@ describe("parseSeasonSettingsForm", () => {
     expect(configOf(structured({ iee: "{not json" })).iee).toBeUndefined();
   });
 
+  it("carries the season's catalog as submitted, and leaves it alone when the form has none", () => {
+    const rows = [{ entryId: "e1", revisionId: "r1", enabled: true }];
+    expect(parseSeasonSettingsForm(structured({ ieeCatalog: JSON.stringify(rows) })).catalog).toEqual(rows);
+    expect(parseSeasonSettingsForm(structured({ ieeCatalog: "[]" })).catalog).toEqual([]);
+    const absent = parseSeasonSettingsForm(structured());
+    expect("catalog" in absent).toBe(false);
+    expect(parseSeasonSettingsForm(form({ config: "{}", ieeCatalog: "[]" })).catalog).toEqual([]);
+  });
+
+  it("refuses a catalog that is not JSON, unlike the iee settings it travels with", () => {
+    const parsed = parseSeasonSettingsForm(structured({ ieeCatalog: "[oops" }));
+    expect(parsed.error).toBe("formConfigInvalidJson");
+    expect(parsed.catalog).toBeUndefined();
+  });
+
   it("keeps rules only in manual mode and only when the field is present", () => {
     const manual = parseSeasonSettingsForm(structured({ rulesMode: "MANUAL", rulesMd: "# Rules" }));
     expect(manual.rulesMd).toBe("# Rules");

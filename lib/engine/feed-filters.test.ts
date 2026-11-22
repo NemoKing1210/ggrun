@@ -41,7 +41,8 @@ describe("feed filters — structure", () => {
   it("the IEE tabs are split by subject, not by accident", () => {
     // A new item_/effect_ type filed under "challenges" (or the reverse) would
     // show up under a heading that does not describe it.
-    for (const type of FEED_FILTER_TYPES.iee) expect(type).toMatch(/^(item|effect)_/);
+    // An answer to what arrived (wave B, spec §6.13) is an items-and-effects subject too, and so is an object on the board (wave D, §6.18).
+    for (const type of FEED_FILTER_TYPES.iee) expect(type).toMatch(/^(item|effect|object)_|^intercepted$|^decision_made$/);
     for (const type of FEED_FILTER_TYPES.challenges) expect(type).toMatch(/^event_/);
   });
 });

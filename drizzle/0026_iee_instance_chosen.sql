@@ -1,0 +1,1 @@
+ALTER TABLE "iee_instances" ADD COLUMN "chosen" jsonb;

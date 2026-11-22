@@ -26,8 +26,11 @@ import {
 } from "@/lib/modules/iee/repository";
 import { parseEventReward, pickEventKey, type EventReward } from "@/lib/engine";
 
+import { grant, type DecisionNote, type GrantState } from "@/lib/modules/iee/executor";
+import { executionContext } from "@/lib/modules/iee/executor/context";
+import { announceDecisions } from "@/lib/modules/iee/decisions";
+
 import { GameLoopError } from "./errors";
-import { grantEffect, grantInventoryItem } from "./grant";
 import { parseSeasonConfig } from "./helpers";
 import type { FeedEntry } from "./iee";
 
@@ -145,6 +148,8 @@ export async function resolveEventUseCase(params: {
     params.outcome === "approved" ? parseEventReward(row.reward) : {};
   const seasonRollSeq = await getSeasonRollSeq(row.seasonId);
 
+  // A reward may ask its player to choose (§7.6): announced once this commits.
+  const decisions: DecisionNote[] = [];
   await db.transaction(async (tx) => {
     const updated = await resolveEvent(
       row.id,
@@ -169,46 +174,30 @@ export async function resolveEventUseCase(params: {
         .where(eq(seasonPlayers.id, sp.id));
     }
 
-    // Both grants go through the shared path, so a challenge reward obeys the
-    // season's tuning and the effect's stacking policy like every other grant.
-    // It used to insert straight into the table with the catalog's defaults,
-    // which meant a tuned status arrived untuned and a `refresh` status stacked
-    // instead of refreshing.
-    if (reward.itemKey) {
-      await grantInventoryItem(tx, {
+    // Both grants go through the executor, so a challenge reward obeys the
+    // season's tuning and the effect's stacking policy like every other grant
+    // — and, like every other grant, never touches a game already in flight.
+    if (reward.itemKey || reward.effectKey) {
+      const exec = await executionContext({
+        tx,
         seasonId: row.seasonId,
-        seasonPlayerId: sp.id,
-        itemKey: reward.itemKey,
         config: config.iee,
         seasonRollSeq,
-        source: "event_reward",
+        actorUserId: actor.id,
+        decisions,
       });
-    }
-
-    if (reward.effectKey) {
-      const granted = await grantEffect(tx, {
-        seasonId: row.seasonId,
-        seasonPlayerId: sp.id,
-        effectKey: reward.effectKey,
-        config: config.iee,
-        // Rewards are handed out between turns, so the clock is the roll that
-        // already finished.
-        anchorRollSeq: sp.rollSeq,
-        seasonRollSeq,
-        source: "event_reward",
-      });
-      // A reward cannot be refused the way an item use can — the challenge is
-      // already approved — so a blocked `unique` simply means the player
-      // already has it, and the rest of the reward still lands.
-      if (granted?.state === "blocked_unique") {
-        log.debug("iee.event.reward_blocked_unique", {
-          playerEventId: row.id,
-          effectKey: reward.effectKey,
-        });
+      if (reward.itemKey) {
+        const granted = await grant(exec, { entry: reward.itemKey, to: sp.id, source: "event_reward", reveal: false });
+        noteRewardGrant(row.id, { itemKey: reward.itemKey }, granted.state);
+      }
+      if (reward.effectKey) {
+        const granted = await grant(exec, { entry: reward.effectKey, to: sp.id, source: "event_reward", reveal: false });
+        noteRewardGrant(row.id, { effectKey: reward.effectKey }, granted.state);
       }
     }
   });
 
+  await announceDecisions(decisions);
   await logEvent({
     seasonId: row.seasonId,
     seasonPlayerId: row.seasonPlayerId,
@@ -229,4 +218,21 @@ export async function resolveEventUseCase(params: {
     playerEventId: row.id,
     outcome: params.outcome,
   });
+}
+
+/**
+ * A reward cannot be refused the way an item use can — the challenge is
+ * already approved — so a grant that does not land is only noted, and the
+ * rest of the reward still lands. A `unique` effect the player already has is
+ * expected; anything else means the season's catalog or limits keep the
+ * reward out (the journal holds the refusal too).
+ */
+function noteRewardGrant(
+  playerEventId: string,
+  ref: { itemKey: string } | { effectKey: string },
+  state: GrantState,
+): void {
+  if (state === "granted" || state === "refreshed") return;
+  if (state === "blocked_unique") log.debug("iee.event.reward_blocked_unique", { playerEventId, ...ref });
+  else log.warn("iee.event.reward_not_granted", { playerEventId, ...ref, state });
 }

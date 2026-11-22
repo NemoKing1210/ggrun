@@ -75,6 +75,9 @@ function assertDimensions(category: FileCategory, dimensions: { width: number; h
       height: String(height),
     });
   }
+  if (rules.square && width !== height) {
+    throw new FileError("fileImageNotSquare", { width: String(width), height: String(height) });
+  }
 }
 
 /** Stores one upload and returns its metadata row. */
@@ -154,7 +157,13 @@ export async function getFileByKey(key: string): Promise<FileRecord | null> {
   return findFileByKey(key);
 }
 
-export type DeleteFileInput = { id?: string; key?: string; actor: FileActor };
+export type DeleteFileInput = {
+  id?: string;
+  key?: string;
+  actor: FileActor;
+  /** Set when the code that owns the file removes it (an icon nothing uses any more); skips the permission check. */
+  system?: boolean;
+};
 
 /**
  * Soft-deletes a row and removes the object.
@@ -170,7 +179,7 @@ export async function deleteFile(input: DeleteFileInput): Promise<boolean> {
       ? await getFileByKey(input.key)
       : null;
   if (!file) throw new FileError("fileNotFound", {}, 404);
-  if (!canDeleteFile(file, input.actor)) {
+  if (!input.system && !canDeleteFile(file, input.actor)) {
     throw new FileError("fileForbidden", {}, 403);
   }
 

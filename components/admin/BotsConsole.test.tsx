@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { I18nProvider } from "@/lib/i18n/client";
+import { coreRegistry } from "@/lib/modules/iee/registry";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import {
   createBotRunAction,
@@ -120,6 +121,7 @@ function setup(overrides: Partial<ConsoleProps> = {}) {
     logs: LOGS,
     rosters: {},
     playerStatusLabels: {},
+    entries: coreRegistry().viewsByKey(),
     t,
     ...overrides,
   };

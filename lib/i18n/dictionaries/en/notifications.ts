@@ -33,6 +33,7 @@ export const notifications = {
     completionApproved: "Result approved",
     completionRejected: "Result rejected",
     adminBroadcast: "Message from the console",
+    decisionOpened: "A choice is waiting — {season}",
   },
   body: {
     playerAdded: "You've been added to season “{season}”. Roll your first game from the dashboard.",
@@ -47,6 +48,8 @@ export const notifications = {
     completionApproved: "Your {outcome} report for “{game}” was approved.",
     completionRejected: "Your {outcome} report for “{game}” was rejected: {adminNote}",
     adminBroadcast: "{note}",
+    decisionOpened:
+      "An item or effect asks you to choose. Make your choice on the dashboard before your next game — or the default applies.",
   },
   actions: {
     openDashboard: "Dashboard",

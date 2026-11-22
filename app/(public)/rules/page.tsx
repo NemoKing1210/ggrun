@@ -10,6 +10,7 @@ import { getActiveSeason } from "@/lib/modules/season/repository/seasons";
 import { getT } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/format";
 import { DEFAULT_SEASON_CONFIG, SeasonConfigSchema } from "@/lib/engine";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 
 export async function generateMetadata() {
   const { t } = await getT();
@@ -17,12 +18,15 @@ export async function generateMetadata() {
 }
 
 export default async function RulesPage() {
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const season = await getActiveSeason();
   if (!season) return <SeasonMissing />;
 
   const parsed = SeasonConfigSchema.safeParse(season.config);
   const config = parsed.success ? parsed.data : DEFAULT_SEASON_CONFIG;
+  const registry = await getSeasonRegistry(season.id);
+  const entries = registry.viewsByKey();
+  const pool = registry.pool();
   const mode = (config as unknown as { rules?: { mode?: string } }).rules?.mode ?? "auto";
   const isAuto = mode === "auto";
 
@@ -63,7 +67,14 @@ export default async function RulesPage() {
       <div className="hazard-tape mb-6" aria-hidden />
 
       {isAuto ? (
-        <AutoRulesView season={season} config={config} t={t} />
+        <AutoRulesView
+          season={season}
+          config={config}
+          t={t}
+          locale={locale}
+          entries={entries}
+          pool={pool}
+        />
       ) : season.rulesMd && season.rulesMd.trim().length > 0 ? (
         <div className="space-y-4">
           <div className="hud-card animate-hud-rise border-amber/20 bg-amber/5 px-4 py-2 font-mono text-xs text-dim">

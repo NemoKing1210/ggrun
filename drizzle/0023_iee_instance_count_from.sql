@@ -1,0 +1,1 @@
+ALTER TABLE "iee_instances" ADD COLUMN "count_from_roll_seq" integer;

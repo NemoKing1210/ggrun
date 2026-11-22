@@ -62,9 +62,12 @@ describe("reaching the finish cell finishes the run", () => {
   const { text, sf } = sourceOf("lib/modules/game/service/turn.ts");
 
   it("decides it from the position the player ends on", () => {
-    // Not `landedType`: the landing cell's own effect can teleport them again,
-    // and a teleport onto the last cell finishes them just as much.
-    expect(text).toMatch(/cells\.find\(\(c\) => c\.position === finalPosition\)\?\.cellType === "finish"/);
+    // Not the landing cell: its own effect can teleport them again, and a
+    // teleport onto the last cell finishes them just as much. The turn's
+    // arithmetic is the engine's `playTurn`, which says so; the turn reads it.
+    const engine = sourceOf("lib/engine/turn/index.ts").text;
+    expect(engine).toMatch(/reachedFinish: input\.cellAt\(finalPosition\)\?\.cellType === "finish"/);
+    expect(text).toMatch(/played\.reachedFinish/);
   });
 
   it("only finishes someone who was still running", () => {

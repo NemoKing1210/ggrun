@@ -6,6 +6,7 @@ import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { getSeasonById } from "@/lib/modules/season/repository/seasons";
 import { parseSeasonConfig } from "@/lib/modules/game/service/helpers";
 import { listBotRunRoster, listBotRuns, listSeasonBotLogs } from "@/lib/modules/bots";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import { normalizeBotConfig } from "@/db/schema/bots";
 import { SeasonTabs } from "@/components/admin/SeasonTabs";
 import { BotsConsole } from "@/components/admin/BotsConsole";
@@ -98,6 +99,7 @@ function toJsonObject(value: unknown): Record<string, unknown> {
         }))}
         rosters={Object.fromEntries(runs.map((r, i) => [r.id, (rosters[i] ?? []).map((b) => ({ ...b }))]))}
         playerStatusLabels={{ ...t.core.playerStatuses }}
+        entries={(await getSeasonRegistry(seasonId)).viewsByKey()}
         t={t.admin.bots}
       />
     </div>

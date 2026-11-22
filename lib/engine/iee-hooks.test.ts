@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SEASON_CONFIG } from "./config";
 import { applyMovementModifiers, modifiedDice, normalizePosition } from "./board/movement";
-import {
-  activeEffects,
-  emptyModifiers,
-  expiredEffects,
-  hexScroll,
-  isEffectActive,
-  reduceHookPatches,
-  runHook,
-  slowed,
-  type PatchSource,
-} from "./iee";
-import type { ActiveEffectLike, EffectDef, IeePlayerSnapshot } from "./types";
+import { emptyModifiers, reduceHookPatches, type PatchSource } from "./iee";
 
 const src = (over: Partial<PatchSource>): PatchSource => ({
   id: "e1",
@@ -22,26 +11,6 @@ const src = (over: Partial<PatchSource>): PatchSource => ({
   patch: {},
   ...over,
 });
-
-const row = (over: Partial<ActiveEffectLike> = {}): ActiveEffectLike => ({
-  id: "row-1",
-  effectKey: "slowed",
-  params: { steps: 1 },
-  chargesLeft: null,
-  expiresAfterRollSeq: null,
-  appliedAt: 1,
-  ...over,
-});
-
-const self: IeePlayerSnapshot = {
-  seasonPlayerId: "sp-1",
-  position: 10,
-  balancePoints: 0,
-  rollSeq: 5,
-  moveCount: 5,
-  rank: 2,
-  status: "active",
-};
 
 // --- reducer ---------------------------------------------------------------
 
@@ -120,108 +89,7 @@ describe("reduceHookPatches", () => {
   });
 });
 
-// --- lazy expiry -----------------------------------------------------------
-
-describe("lazy expiry", () => {
-  it("keeps a permanent effect active", () => {
-    expect(isEffectActive(row(), 999)).toBe(true);
-  });
-
-  it("expires once the roll sequence passes the deadline", () => {
-    expect(isEffectActive(row({ expiresAfterRollSeq: 7 }), 7)).toBe(true);
-    expect(isEffectActive(row({ expiresAfterRollSeq: 7 }), 8)).toBe(false);
-  });
-
-  it("expires when charges run out", () => {
-    expect(isEffectActive(row({ chargesLeft: 1 }), 1)).toBe(true);
-    expect(isEffectActive(row({ chargesLeft: 0 }), 1)).toBe(false);
-  });
-
-  it("splits a set into active and expired", () => {
-    const rows = [
-      row({ id: "keep" }),
-      row({ id: "gone", expiresAfterRollSeq: 2 }),
-      row({ id: "spent", chargesLeft: 0 }),
-    ];
-    expect(activeEffects(rows, 5).map((r) => r.id)).toEqual(["keep"]);
-    expect(expiredEffects(rows, 5).map((r) => r.id)).toEqual(["gone", "spent"]);
-  });
-});
-
-// --- runHook ---------------------------------------------------------------
-
-describe("runHook", () => {
-  const registry = { slowed } as Record<string, EffectDef>;
-
-  it("runs the tracer effect on afterMovement", () => {
-    const out = runHook({
-      hook: "afterMovement",
-      effects: [row()],
-      registry,
-      self,
-      turn: { rollSeq: 5 },
-    });
-    expect(out.stepsDelta).toBe(-1);
-    expect(out.reasons).toEqual(["effect:slowed"]);
-  });
-
-  it("honours a season param override carried on the row", () => {
-    const out = runHook({
-      hook: "afterMovement",
-      effects: [row({ params: { steps: 3 } })],
-      registry,
-      self,
-      turn: { rollSeq: 5 },
-    });
-    expect(out.stepsDelta).toBe(-3);
-  });
-
-  it("ignores hooks the effect does not implement", () => {
-    const out = runHook({
-      hook: "beforeGameRoll",
-      effects: [row()],
-      registry,
-      self,
-      turn: { rollSeq: 5 },
-    });
-    expect(out).toEqual(emptyModifiers());
-  });
-
-  it("skips unknown keys left behind by a removed catalog entry", () => {
-    const out = runHook({
-      hook: "afterMovement",
-      effects: [row({ effectKey: "deleted_in_v9" })],
-      registry,
-      self,
-      turn: { rollSeq: 5 },
-    });
-    expect(out).toEqual(emptyModifiers());
-  });
-
-  it("skips expired rows", () => {
-    const out = runHook({
-      hook: "afterMovement",
-      effects: [row({ expiresAfterRollSeq: 3 })],
-      registry,
-      self,
-      turn: { rollSeq: 9 },
-    });
-    expect(out.stepsDelta).toBe(0);
-  });
-
-  it("stacks two rows of the same effect", () => {
-    const out = runHook({
-      hook: "afterMovement",
-      effects: [row({ id: "a" }), row({ id: "b" })],
-      registry,
-      self,
-      turn: { rollSeq: 5 },
-    });
-    expect(out.stepsDelta).toBe(-2);
-  });
-});
-
-// --- movement integration --------------------------------------------------
+// --- movement --------------------------------------------------------------
 
 describe("movement modifiers", () => {
   const board = DEFAULT_SEASON_CONFIG.board;
@@ -292,49 +160,5 @@ describe("movement modifiers", () => {
     };
     const mods = { ...emptyModifiers(), balanceDelta: -10 };
     expect(applyMovementModifiers(result, mods, board, 0).newBalancePoints).toBe(0);
-  });
-});
-
-// --- tracer item -----------------------------------------------------------
-
-describe("hex_scroll", () => {
-  const target: IeePlayerSnapshot = { ...self, seasonPlayerId: "sp-2" };
-  const ctx = (over: Partial<Parameters<typeof hexScroll.apply>[0]> = {}) => ({
-    itemKey: "hex_scroll",
-    params: { effectKey: "slowed" },
-    actor: self,
-    target,
-    ...over,
-  });
-
-  it("grants the effect to the target and reports it for the feed", () => {
-    const out = hexScroll.apply(ctx());
-    expect(out.grantEffects).toEqual([{ effectKey: "slowed", to: "sp-2" }]);
-    expect(out.feedPayload).toMatchObject({
-      itemKey: "hex_scroll",
-      targetSeasonPlayerId: "sp-2",
-    });
-    expect(out.rejected).toBeUndefined();
-  });
-
-  it("refuses self-targeting server-side, not just in the UI", () => {
-    expect(hexScroll.apply(ctx({ target: self })).rejected).toBe("ieeTargetSelfNotAllowed");
-  });
-
-  it("refuses a missing target", () => {
-    expect(hexScroll.apply(ctx({ target: null })).rejected).toBe("ieeTargetRequired");
-  });
-
-  it("refuses a target who has left the season", () => {
-    expect(
-      hexScroll.apply(ctx({ target: { ...target, status: "withdrawn" } })).rejected,
-    ).toBe("ieeTargetNotActive");
-  });
-
-  it("never writes: apply only returns intents", () => {
-    const out = hexScroll.apply(ctx());
-    expect(Object.keys(out).every((k) =>
-      ["grantEffects", "grantItems", "balance", "cleanse", "feedPayload", "rejected"].includes(k),
-    )).toBe(true);
   });
 });

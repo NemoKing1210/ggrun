@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { BotRunConfig } from "@/db/schema/bots";
-import { BOT_TARGET_STRATEGIES, type BotTargetStrategy } from "@/lib/engine";
+import { BOT_TARGET_STRATEGIES, type BotTargetStrategy, type EntryView } from "@/lib/engine";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { format } from "@/lib/i18n/format";
 import type { BotActivityBroadcast } from "@/lib/realtime/protocol";
@@ -44,7 +44,8 @@ export interface ConsoleBotLog {
 export interface ConsoleRosterItem {
   inventoryId: string;
   itemKey: string;
-  chargesLeft: number;
+  /** Null for a passive item that stays while held. */
+  chargesLeft: number | null;
 }
 
 export interface ConsoleRosterEffect {
@@ -130,6 +131,7 @@ export function BotsRunCard({
   tickingActive,
   lastTick,
   playerStatusLabels,
+  entries,
   t,
   onStart,
   onRestart,
@@ -150,6 +152,7 @@ export function BotsRunCard({
   tickingActive: boolean;
   lastTick: { runId: string; actions: number; errors: number } | null;
   playerStatusLabels: Record<string, string>;
+  entries: Readonly<Record<string, EntryView>>;
   t: BotsText;
   onStart: (run: ConsoleBotRun) => void;
   onRestart: (run: ConsoleBotRun) => void;
@@ -307,6 +310,7 @@ export function BotsRunCard({
           roster={roster}
           activity={activity}
           playerStatusLabels={playerStatusLabels}
+          entries={entries}
           t={t}
         />
       </details>

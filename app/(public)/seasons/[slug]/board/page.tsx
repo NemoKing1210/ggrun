@@ -12,7 +12,8 @@ import { EmptyState, PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status";
 import { format } from "@/lib/i18n/format";
 import { getT } from "@/lib/i18n/server";
-import { getActiveEffectsBySeason } from "@/lib/modules/iee/repository/effects";
+import { boardObjectsBySeason, effectBadgesBySeason } from "@/lib/modules/iee/repository";
+import { getSeasonRegistry } from "@/lib/modules/iee/registry";
 import {
   getActiveRolls,
   getLeaderboard,
@@ -94,7 +95,9 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
     );
   }
 
-  const effects = await getActiveEffectsBySeason(season.id);
+  const registry = await getSeasonRegistry(season.id);
+  // What stands on the cells and whose (wave D, spec §6.18), read with the statuses.
+  const [effects, objects] = await Promise.all([effectBadgesBySeason(season.id, registry), boardObjectsBySeason(season.id, registry)]);
   const players: BoardPlayer[] = leaderboard.map((row) => ({
     username: row.username,
     displayName: row.displayName,
@@ -159,6 +162,7 @@ export default async function SeasonBoardPage({ params }: { params: Promise<{ sl
           players={players}
           rolls={boardRolls}
           stats={stats}
+          objects={objects}
           seasonStartedAt={season.startedAt?.toISOString() ?? null}
         />
       </div>

@@ -31,6 +31,17 @@ export async function findFileById(id: string): Promise<FileRecord | null> {
   return row ?? null;
 }
 
+/** A live file of a category with exactly these bytes — lets a caller share one copy. */
+export async function findFileByChecksum(category: string, checksum: string): Promise<FileRecord | null> {
+  const [row] = await db
+    .select()
+    .from(files)
+    .where(and(eq(files.category, category), eq(files.checksum, checksum), isNull(files.deletedAt)))
+    .orderBy(desc(files.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
 export type ListFilesFilter = {
   category?: string;
   ownerId?: string;

@@ -4,7 +4,6 @@ import { getCurrentUser, isStaff } from "@/lib/infrastructure/auth/session";
 import { logAdminAction } from "@/lib/infrastructure/events";
 import { log } from "@/lib/infrastructure/logger";
 import { AdminError } from "@/lib/modules/season/service/errors";
-import { EFFECTS, ITEMS } from "@/lib/engine";
 
 import {
   createEventTemplate,
@@ -13,6 +12,7 @@ import {
   updateEventTemplate,
 } from "../repository/events";
 import { getEventUsageByKey } from "../repository/events";
+import { libraryKeys } from "../catalog";
 
 async function requireStaff() {
   const user = await getCurrentUser();
@@ -22,23 +22,27 @@ async function requireStaff() {
 
 /**
  * Reward shape. Kept as three optional scalars rather than free-form JSON —
- * `docs/DESIGN.md` §1.4 forbids raw-JSON admin controls, and the keys must be
- * validated against the hardcoded catalog anyway.
+ * `docs/DESIGN.md` §1.4 forbids raw-JSON admin controls, and the keys are
+ * checked against the library by `assertRewardKeys`.
  */
-export const EventRewardSchema = z
-  .object({
-    points: z.number().int().min(0).max(1000).optional(),
-    itemKey: z.string().optional(),
-    effectKey: z.string().optional(),
-  })
-  .refine((r) => !r.itemKey || Object.hasOwn(ITEMS, r.itemKey), {
-    message: "ieeUnknownItemKey",
-    path: ["itemKey"],
-  })
-  .refine((r) => !r.effectKey || Object.hasOwn(EFFECTS, r.effectKey), {
-    message: "ieeUnknownEffectKey",
-    path: ["effectKey"],
-  });
+export const EventRewardSchema = z.object({
+  points: z.number().int().min(0).max(1000).optional(),
+  itemKey: z.string().optional(),
+  effectKey: z.string().optional(),
+});
+
+/**
+ * A reward names an item or effect by key, which the library must offer. A
+ * template is not tied to a season: a season attaches what its challenges
+ * hand out when it is saved (spec §4.2). Keys only — an entry id would
+ * resolve too, but a template stores what a person can read.
+ */
+export async function assertRewardKeys(reward: z.infer<typeof EventRewardSchema>): Promise<void> {
+  if (!reward.itemKey && !reward.effectKey) return;
+  const keys = await libraryKeys();
+  if (reward.itemKey && !Object.hasOwn(keys.items, reward.itemKey)) throw new AdminError("ieeUnknownItemKey");
+  if (reward.effectKey && !Object.hasOwn(keys.effects, reward.effectKey)) throw new AdminError("ieeUnknownEffectKey");
+}
 
 /** Slug rules match the catalog keys: lowercase, digits, underscore. */
 const KeySchema = z
@@ -64,6 +68,7 @@ export async function createEventTemplateUseCase(
 ): Promise<void> {
   const actor = await requireStaff();
   const parsed = EventTemplateInputSchema.parse(input);
+  await assertRewardKeys(parsed.reward);
 
   if (await getEventTemplateByKey(parsed.key)) {
     throw new AdminError("ieeEventKeyExists", { key: parsed.key });
@@ -95,6 +100,7 @@ export async function updateEventTemplateUseCase(
 ): Promise<void> {
   const actor = await requireStaff();
   const parsed = EventTemplateInputSchema.omit({ key: true }).parse(input);
+  await assertRewardKeys(parsed.reward);
 
   await updateEventTemplate(id, {
     title: parsed.title,

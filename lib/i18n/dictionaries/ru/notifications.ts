@@ -33,6 +33,7 @@ export const notifications = {
     completionApproved: "Результат принят",
     completionRejected: "Результат отклонён",
     adminBroadcast: "Сообщение из консоли",
+    decisionOpened: "Тебя ждёт выбор — {season}",
   },
   body: {
     playerAdded: "Тебя добавили в сезон «{season}». Первую игру можно роллить с дашборда.",
@@ -46,6 +47,8 @@ export const notifications = {
     completionApproved: "Отчёт {outcome} для «{game}» принят.",
     completionRejected: "Отчёт {outcome} для «{game}» отклонён: {adminNote}",
     adminBroadcast: "{note}",
+    decisionOpened:
+      "Предмет или эффект просит тебя сделать выбор. Выбери на дашборде до следующей игры — иначе сработает вариант по умолчанию.",
   },
   actions: {
     openDashboard: "Дашборд",

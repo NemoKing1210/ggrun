@@ -5,6 +5,14 @@
 > answered before implementation starts; §15 is the tracer-bullet trio to build
 > first. Read [`AGENTS.md`](../AGENTS.md) §2 (golden rules) and
 > [`DESIGN.md`](./DESIGN.md) before touching code.
+>
+> **Update 2026-10-06 — partly superseded.** The verdict against a constructor
+> (§2.1) and the storage model (§3–§5) are replaced by
+> [`IEE_CONSTRUCTOR_SPEC.md`](./IEE_CONSTRUCTOR_SPEC.md): items and effects
+> become data written over a closed vocabulary of primitives that stays code,
+> published as immutable revisions and executed by one writer of IEE state.
+> Delivery: [`IEE_CONSTRUCTOR_PLAN.md`](./IEE_CONSTRUCTOR_PLAN.md). Events and
+> everything this document says about them are unchanged.
 
 ---
 
@@ -38,14 +46,19 @@ Terminology used throughout:
 
 ### 2.1 What is right
 
-- **Hardcoding items and effects instead of building a constructor.** Correct,
+- *Superseded 2026-10-06 by [`IEE_CONSTRUCTOR_SPEC.md`](./IEE_CONSTRUCTOR_SPEC.md):
+  the constructor composes primitives that stay code, so behaviour remains
+  unit-tested while its composition becomes data. The original verdict follows.*
+  **Hardcoding items and effects instead of building a constructor.** Correct,
   and not a compromise — it is the better engineering answer. A visual
   rule-builder for game mechanics is a programming language with a worse UI; it
   costs 5× the effort and produces mechanics nobody can unit-test. The codebase
   already proves the pattern works twice over: `CELL_EFFECTS`
   (`lib/engine/board/cell-effects/registry.ts`) and `GAME_POOL_TEMPLATES`
   (`lib/modules/catalog/pool/templates.ts`).
-- **Keeping the catalog out of the database.** Right for the same reason: a
+- *Superseded 2026-10-06 (same spec): definitions live in the database as
+  immutable revisions; the functions they compose stay in code.*
+  **Keeping the catalog out of the database.** Right for the same reason: a
   catalog entry is inseparable from the function that implements it. Splitting
   the two across code and a table guarantees they drift.
 - **A global admin tab for templates, then a per-season selection step.**

@@ -7,6 +7,7 @@ import {
   ClockIcon,
   MegaphoneIcon,
   PlayIcon,
+  ScaleIcon,
   TrophyIcon,
   UserMinusIcon,
   UserPlusIcon,
@@ -26,6 +27,7 @@ const ICONS: Record<string, ComponentType<IconProps>> = {
   ClockIcon,
   MegaphoneIcon,
   TrophyIcon,
+  ScaleIcon,
 };
 
 /** Maps the engine icon key to a Heroicon. Unknown keys fall back to the bell. */

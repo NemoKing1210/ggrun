@@ -180,7 +180,7 @@ export const REALTIME_EVENTS = {
       seasonId: z.string(),
       seasonPlayerId: z.string().nullable(),
       username: z.string().nullable(),
-      kind: z.string().describe("roll | resolve | item | skip | error"),
+      kind: z.string().describe("roll | resolve | item | decide | skip | error"),
       outcome: z.string().nullable().describe("passed | dropped | rerolled, for a resolve"),
       itemKey: z.string().nullable(),
       targetUsername: z.string().nullable(),
@@ -243,6 +243,19 @@ export const REALTIME_EVENTS = {
       readAt: z.iso.datetime().nullable(),
       all: z.boolean(),
       unread: z.number().int(),
+      seq: z.number().int().optional(),
+    }),
+  },
+  "decisions:update": {
+    rooms: ["user:<userId>"],
+    summary:
+      "One of the user's decisions (a victim's choice, a reaction window, a choice of games) opened or was settled — by them, a judge or the default. A refresh hint: what it asks is read from the dashboard, never from the event.",
+    payload: z.object({
+      decisionId: z.string(),
+      seasonId: z.string(),
+      seasonPlayerId: z.string(),
+      kind: z.string().describe("reaction_window | victim_choice | game_choice"),
+      status: z.string().describe("pending | resolved | judged | defaulted"),
       seq: z.number().int().optional(),
     }),
   },

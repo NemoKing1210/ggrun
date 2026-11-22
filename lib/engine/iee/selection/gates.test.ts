@@ -30,8 +30,12 @@ const cfg = (over: Partial<IeeConfig> = {}): IeeConfig => ({
   revealDropsInFeed: true,
   nothingWeight: 0,
   catchUp: { enabled: false, maxMultiplier: 2 },
-  entries: {},
   events: [],
+  maxActiveEffectsPerPlayer: null,
+  tagLimits: {},
+  disabledTags: [],
+  powerCeiling: null,
+  boardObjectsPerPlayer: 2,
   ...over,
 });
 
@@ -235,5 +239,137 @@ describe("gateCandidate — duplicates and inventory", () => {
         "negative",
       ),
     ).toBeNull();
+  });
+});
+
+describe("gateCandidate — season-wide limits (spec §4.5)", () => {
+  const MOVER: PoolCandidate = { ...EFFECT, key: "swamp", stacking: "stack", tags: ["movement"] };
+
+  it("takes an entry with a disabled tag off the wheel, right after its own switch", () => {
+    const tagged = input({ candidate: { ...ITEM, tags: ["directed", "dice"] }, config: cfg({ disabledTags: ["dice"] }) });
+    expect(gateCandidate(tagged, "positive")).toBe("disabled_tag");
+    expect(gateCandidate({ ...tagged, entry: entry({ weight: 0 }) }, "positive")).toBe("zero_weight");
+    expect(gateCandidate(input({ candidate: { ...ITEM, tags: ["directed"] }, config: cfg({ disabledTags: ["dice"] }) }), "positive")).toBeNull();
+    // A disabled tag outranks every counter.
+    expect(
+      gateCandidate({ ...tagged, entry: entry({ maxPerSeason: 0 }) }, "positive"),
+    ).toBe("disabled_tag");
+  });
+
+  it("caps the effects a player carries, and treats null as no cap", () => {
+    const carrying = (n: number, cap: number | null) =>
+      gateCandidate(
+        input({
+          candidate: MOVER,
+          config: cfg({ maxActiveEffectsPerPlayer: cap }),
+          activeEffectKeys: Array.from({ length: n }, (_, i) => `other_${i}`),
+        }),
+        "negative",
+      );
+    expect(carrying(1, 2)).toBeNull();
+    expect(carrying(2, 2)).toBe("effect_limit");
+    expect(carrying(0, 0)).toBe("effect_limit");
+    expect(carrying(50, null)).toBeNull();
+  });
+
+  it("never counts the effect cap against an item", () => {
+    expect(
+      gateCandidate(input({ config: cfg({ maxActiveEffectsPerPlayer: 0 }), activeEffectKeys: ["a", "b"] }), "positive"),
+    ).toBeNull();
+  });
+
+  it("caps a tag by the player's active instances carrying it", () => {
+    const limited = (count: number) =>
+      gateCandidate(
+        input({ candidate: MOVER, config: cfg({ tagLimits: { movement: 2 } }), activeTagCounts: { movement: count } }),
+        "negative",
+      );
+    expect(limited(1)).toBeNull();
+    expect(limited(2)).toBe("tag_limit");
+    // No counts read means none held.
+    expect(gateCandidate(input({ candidate: MOVER, config: cfg({ tagLimits: { movement: 1 } }) }), "negative")).toBeNull();
+    // A limit on another tag does not apply.
+    expect(
+      gateCandidate(input({ candidate: MOVER, config: cfg({ tagLimits: { dice: 0 } }), activeTagCounts: { dice: 5 } }), "negative"),
+    ).toBeNull();
+  });
+
+  it("lets a held refresh effect drop again past both limits — it extends its clock, it adds nothing", () => {
+    const refresh: PoolCandidate = { ...MOVER, stacking: "refresh" };
+    const full = {
+      config: cfg({ maxActiveEffectsPerPlayer: 1, tagLimits: { movement: 1 } }),
+      activeEffectKeys: ["swamp"],
+      activeTagCounts: { movement: 1 },
+    };
+    expect(gateCandidate(input({ candidate: refresh, ...full }), "negative")).toBeNull();
+    // A stacking effect adds an instance, so the limits hold.
+    expect(gateCandidate(input({ candidate: MOVER, ...full }), "negative")).toBe("effect_limit");
+    // Not held yet: a refresh effect would add one too.
+    expect(gateCandidate(input({ candidate: refresh, ...full, activeEffectKeys: ["other"] }), "negative")).toBe("effect_limit");
+  });
+
+  it("checks the effect cap before the tag limits", () => {
+    expect(
+      gateCandidate(
+        input({
+          candidate: MOVER,
+          config: cfg({ maxActiveEffectsPerPlayer: 1, tagLimits: { movement: 1 } }),
+          activeEffectKeys: ["other"],
+          activeTagCounts: { movement: 1 },
+        }),
+        "negative",
+      ),
+    ).toBe("effect_limit");
+  });
+});
+
+describe("gateCandidate — a rival to move (spec §6.9)", () => {
+  const CHASE: PoolCandidate = { ...EFFECT, key: "chase", polarity: "positive", needsBehind: true };
+
+  it("keeps an entry that moves the nearest rival behind off the wheel when nobody is behind", () => {
+    expect(gateCandidate(input({ candidate: CHASE, playersBehind: 0 }), "positive")).toBe("nobody_behind");
+    expect(gateCandidate(input({ candidate: CHASE, playersBehind: 1 }), "positive")).toBeNull();
+  });
+
+  it("treats an unknown count as someone behind — the drop-table preview has no landing cell", () => {
+    expect(gateCandidate(input({ candidate: CHASE }), "positive")).toBeNull();
+  });
+
+  it("never applies to an entry that needs no rival", () => {
+    expect(gateCandidate(input({ candidate: { ...CHASE, needsBehind: false }, playersBehind: 0 }), "positive")).toBeNull();
+  });
+
+  it("comes after the season counters and the board gates", () => {
+    expect(
+      gateCandidate(input({ candidate: CHASE, playersBehind: 0, entry: entry({ minPosition: 99 }) }), "positive"),
+    ).toBe("min_position");
+  });
+});
+
+describe("gateCandidate — cursed and unique items (spec §6.10)", () => {
+  const CURSED: PoolCandidate = { kind: "item", key: "heavy_boots", polarity: "negative", tier: 0, character: "penalty", unique: true };
+
+  it("keeps a unique item off the wheel of a holder who has it", () => {
+    expect(gateCandidate(input({ candidate: CURSED, heldItemKeys: ["heavy_boots"] }), "negative")).toBe("duplicate_unique");
+    expect(gateCandidate(input({ candidate: CURSED, heldItemKeys: ["hex_scroll"] }), "negative")).toBeNull();
+    // Not unique: a second copy may drop.
+    expect(gateCandidate(input({ candidate: { ...ITEM, unique: false }, heldItemKeys: ["hex_scroll"] }), "positive")).toBeNull();
+  });
+
+  it("a full inventory counts bonus items only: a cursed item takes no slot", () => {
+    const full = { config: cfg({ inventorySize: 1 }), heldItemCount: 1 };
+    expect(gateCandidate(input({ candidate: CURSED, ...full }), "negative")).toBeNull();
+    expect(gateCandidate(input({ candidate: { ...ITEM, character: "bonus" }, ...full }), "positive")).toBe("inventory_full");
+  });
+});
+
+describe("gateCandidate — one in the season (wave D, spec §6.19)", () => {
+  const CROWN: PoolCandidate = { kind: "item", key: "crown", polarity: "positive", tier: 2, seasonUnique: true, unique: true };
+
+  it("drops until one has been handed out, then never again — whoever holds it", () => {
+    expect(gateCandidate(input({ candidate: CROWN }), "positive")).toBeNull();
+    expect(gateCandidate(input({ candidate: CROWN, counters: counters({ perSeason: { crown: 1 } }) }), "positive")).toBe("unique_season");
+    // An item one per player only drops again to someone who does not hold it.
+    expect(gateCandidate(input({ candidate: { ...CROWN, seasonUnique: false }, counters: counters({ perSeason: { crown: 1 } }) }), "positive")).toBeNull();
   });
 });

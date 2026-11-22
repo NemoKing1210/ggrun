@@ -89,6 +89,16 @@ pnpm db:setup       # push + seed + admin
 pnpm api:doc        # regenerate docs/API.md from lib/api/ (API reference;
                     # also served as /api-docs, /api/openapi.json, /api/openapi.md)
 
+pnpm iee:import     # load seed/iee/core.ggpack as the system item pack
+                    # (idempotent; `pnpm dev`, the seed and the container run it)
+pnpm iee:import <file>
+                    # load another pack from a .ggpack (the shell stands in
+                    # for the admin; core stays read-only)
+pnpm iee:export <slug> [file] [--history]
+                    # write a pack's published entries and icons to a .ggpack
+pnpm iee:core       # regenerate lib/engine/iee/core-docs/core.generated.ts
+                    # from seed/iee/core.ggpack
+
 pnpm files:migrate  # one-off: move legacy inline base64 avatars/banners from
                     # the users table into the configured storage driver
 ```
@@ -103,7 +113,7 @@ Postgres maps to host port `5433`.
 | --- | --- |
 | `app/(public)/` | Landing, `/board`, `/leaderboard`, `/feed`, `/rules`, `/seasons` + `/seasons/[slug]/{board,leaderboard,feed,rules}`, `/players/[username]`, `/login`, `/register`, `/dashboard`, `/settings` |
 | `app/admin/` | `layout.tsx` (staff guard + nav + moderation-pending badge), dashboard, `seasons` + `seasons/[id]/{board,players}`, `users`, `games`, `files`, `audit`, `moderation`, `settings` |
-| `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings`, `files` — each `repository/ + service/ + actions/ + index.ts` |
+| `lib/modules/` | Vertical slices: `auth`, `season`, `player`, `game`, `catalog`, `moderation`, `site-settings`, `files` — each `repository/ + service/ + actions/ + index.ts`; `iee` — items & effects: `library/` (packs, entries, revisions, `.ggpack`), `catalog/` (what a season attaches, tuned), `registry/`, `executor/` |
 | `lib/api/` | API contract (single source of truth): `contract.ts` (endpoints + Zod body models), `realtime.ts` (Socket.IO rooms/events), `spec.ts` (OpenAPI 3.1 builder), `markdown.ts` (`docs/API.md`) |
 | `lib/engine/` | Pure domain: `types/`, `config/` (Zod `SeasonConfigSchema`), `dice/`, `board/{movement,cell-effects}`, `roll/` (FSM), `index.ts`; colocated `*.test.ts` |
 | `lib/infrastructure/` | `db/` (pg pool + drizzle), `auth/` (`session.ts`, `password.ts` scrypt), `events/` (audit + feed), `storage/` (file drivers `local` + `s3`, keys, signed links, env config), `logger/` |
@@ -111,7 +121,8 @@ Postgres maps to host port `5433`.
 | `components/ui/` | `Input, Select, Textarea, Field, Badge, Chip, Switch, Range, Modal, BackLink, PageContainer, status, DebugError, ImageCropper, breadcrumbs…` |
 | `components/admin/`, `components/seasons/`, `components/game/`, `components/board/`, `components/dice/` | Screen-level components |
 | `db/schema/` | 13 tables, 6 pg enums (split files: users, seasons, players, games, moves, moderation, events, settings, files) |
-| `scripts/` | `seed-demo.ts`, `bootstrap-admin.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts`, `migrate-files.ts` (tsx + dotenv) |
+| `scripts/` | `seed-demo.ts`, `bootstrap-admin.ts`, `db-reset.ts`, `db-status.ts`, `enrich-catalog.ts`, `migrate-files.ts`, `iee-pack.ts`, `iee-core.ts` (tsx + dotenv) |
+| `seed/iee/` | `core.ggpack` — the system item pack, loaded on boot (`pnpm iee:import`) |
 
 Key component/file pointers:
 
@@ -190,18 +201,129 @@ Register in the `CELL_EFFECTS` plugin registry
 `config.target`; unknown keys are no-ops. Add engine unit tests next to the
 file.
 
+### Change the system item pack `core`
+
+Items and effects are data in the library (`iee_packs`, `iee_entries`,
+`iee_entry_revisions`), not code. The system pack `core` ships as
+`seed/iee/core.ggpack` — a zip with `manifest.json` — and is loaded by
+`pnpm iee:import` on every boot. It is read-only unless `IEE_CORE_EDITABLE=1`.
+To change it:
+
+```bash
+# on a development install with IEE_CORE_EDITABLE=1: edit and publish the
+# entries in the constructor (/admin/catalog → Library → core), then write the
+# pack back and regenerate the engine's fixture
+pnpm iee:export core seed/iee/core.ggpack
+pnpm iee:core
+pnpm scenarios:doc   # when a rule, name, duration or scenario changed
+```
+
+Every core entry carries its scenarios in its document; publishing refuses a
+red one, so an edit that breaks a promise shows in the editor's Scenarios
+block before it can reach the pack.
+
+`lib/modules/iee/library/core-pack.test.ts` fails while the fixture and the
+pack disagree. Revision ids are UUID v5 of the entry id and the content hash,
+so every installation that imports the pack gets the same ids. An entry keeps
+its id across renames (`speed_boots` is the stage-1 `lodestone`): instances,
+references and exports point at the id, never at the slug.
+
+### Build an item or effect (the constructor)
+
+Admins build entries in `/admin/catalog` — tabs **Library** (packs and
+entries, new pack, import), **Pack** (metadata, icon, entries and their
+revisions, what publishing would do, publish, export, attach to a season) and
+**Entry** (the editor). Judges keep the browse tabs and the events. The editor
+is forms over the entry document, never JSON (DESIGN.md §1.4):
+
+- `lib/modules/iee/library/draft.ts` — the editor's pure model (client-safe):
+  normalising a stored draft, cleaning it for save, kind switching, default
+  conditions and actions, parameters (declare from a literal, rename, remove),
+  where a check points (`issueSpot`), and `analyzeDraft` — the live checks,
+  rule text, sentences, power and card the right-hand panel shows.
+- What a moment offers comes from `lib/engine/iee/dsl/placement.ts`, which the
+  checks use too: the editor never offers what publishing refuses (a test in
+  `draft.test.ts` holds every offered condition and action against the checks).
+- Checks carry `params` beside their English `message`; the editor translates
+  by code (`ieeEditor.issues` in the dictionaries,
+  `components/admin/constructor/issue-text.ts`).
+- Read models: `lib/modules/iee/library/screens.ts`; actions:
+  `lib/modules/iee/actions/library.ts`; UI: `components/admin/constructor/`.
+- **Scenarios** (spec §5.5) are what an entry promises, as data in its
+  document: Given / When / Then, played in a fixed memory season
+  (`lib/modules/iee/sim/scenarios.ts`). Publishing and importing run them and
+  refuse a red one (`library/scenarios.ts`: `planWithScenarios`,
+  `latestDocs`); a season's registry ignores them. The editor's block builds
+  them with `library/scenario-draft.ts` (client-safe) and runs the draft
+  through `runScenariosAction` — nothing saved. What a step observed is kept,
+  and `scenarioVerdict` re-checks every expectation against it as the author
+  edits (`lib/engine/iee/dsl/scenario-verdict.ts`): only a change to Given,
+  When or the rules needs a new run. Give a new entry at least one scenario
+  that checks its rule text; core's are held to it by
+  `lib/modules/iee/sim/core-scenarios.test.ts`, and `pnpm scenarios:doc`
+  regenerates `docs/ITEMS_EFFECTS_SCENARIOS.md` from them.
+- **Power** (spec §14) is counted in cells: what an entry is worth to its
+  holder over its life. The costs live in `lib/engine/iee/dsl/play-model.ts`
+  and `vocabulary.ts`, calibrated with the simulator (`lib/modules/iee/sim/
+  measure.ts`); `power-calibration.test.ts` holds them together for every
+  primitive and every `core` entry. A new primitive brings its calibration case;
+  change a cost only with that test green. The rarity a power suggests and the
+  `power_above_rarity` warning come from `RARITY_POWER` (common 2.5, rare 4,
+  epic 6). Rarity says how special an entry is, not which strength of one
+  effect it is (spec §14): power guards the strength side only, so nothing
+  flags an entry weaker than its rarity.
+- **The sandbox** (spec §10.5) plays a draft with 2–4 bots in a season kept in
+  memory (`lib/modules/iee/sim/sandbox.ts`, through `simSeason`, the bots'
+  `planBotItemUse` and the item path); a seed repeats a run. The editor's block
+  calls `runSandboxAction`; each run is audited as `iee_sandbox_run`. Use it to
+  see how an entry behaves over many turns — scenarios prove single moves, the
+  sandbox shows the drift.
+
+Switching a season to another revision shows what changes first
+(`lib/modules/iee/catalog/diff.ts`, `components/admin/RevisionDiff.tsx`).
+
+### Give a season its items and effects
+
+A season plays what its **catalog** attaches (`season_catalog`, one row per
+entry: the pinned revision, the pool, the weight and the gates), edited in the
+season wizard's IEE stage and saved with the settings. Only
+`lib/modules/iee/catalog/store.ts` writes the table (an architecture test holds
+it to that). The server checks every save (`normalize.ts`): an entry the
+library no longer offers cannot be attached anew; what an attached revision
+hands out — and what the revisions live instances hold hand out — is attached
+with it, switched off (it plays when handed out and never drops); a challenge
+reward's key is attached the same way. Keys are unique in a season. The
+registry compiles the catalog plus the revisions live instances still hold, so
+pinning a newer revision changes future grants only.
+
+In tests, `catalogRegistry({ key: tuning })` (`lib/modules/iee/registry/catalog.test-helpers.ts`)
+builds a season that attaches exactly those core entries and what they hand
+out; `coreRegistry()` attaches the whole pack.
+
 ### Add artwork for an item or effect
 
-Artwork is **code, not content** — it ships in the repo and is changed only by
-editing the repo. There is no upload in the admin console, on purpose: the app
-container has no persistent volume (`compose.yaml` mounts only `pgdata`), so
-anything written to `public/` at runtime dies on the next deploy.
+Two kinds of picture, one fallback chain (spec §12, `iconSource` in
+`components/iee/IeeIcon.tsx`): the entry's **icon** → the **shipped artwork**
+below (system pack only) → the entry's glyph → the pack's icon → the kind's
+glyph.
+
+- **Icons** belong to library entries and packs of any pack: files of the
+  `iee_icon` category (PNG or WebP, square, 64–512 px, ≤ 256 KB) in the
+  configured storage, set in the constructor (`setEntryIcon` / `setPackIcon`
+  behind it) or carried by a `.ggpack`. A picture is
+  stored once however many rows use it, and removed when none does.
+- **Shipped artwork** is the system pack's, and the rest of this section.
+
+Shipped artwork is **code, not content** — it ships in the repo and is changed
+only by editing the repo, because anything written to `public/` at runtime dies
+on the next deploy (the container keeps only the database and the `storage`
+volume).
 
 **The naming rule — the file name *is* the catalog key.**
 
 ```
 public/iee/items/<item_key>.webp        e.g. public/iee/items/spare_die.webp
-public/iee/effects/<effect_key>.webp    e.g. public/iee/effects/shield.webp
+public/iee/effects/<effect_key>.webp    e.g. public/iee/effects/ward.webp
 ```
 
 Character for character, no transformation. Catalog keys are already
@@ -244,7 +366,7 @@ path itself is always derived from the key, never typed.
 | Deleted the file, forgot `pnpm iee:art` | `every registered <kind> key has its file` |
 | Hand-edited the manifest | `has a manifest that is not stale` |
 | Key is not a real catalog entry | `every registered <kind> key is a real catalog entry` |
-| `HexScroll.webp`, `lodestone.png` | `<kind> files are lowercase .webp named after their key` |
+| `HexScroll.webp`, `speed_boots.png` | `<kind> files are lowercase .webp named after their key` |
 | Not square, > 512 px, > 24 KB, or a renamed PNG | `<kind> files are square webp within the size budget` |
 
 Every one of those failure messages names the fix, usually "run `pnpm iee:art`".
@@ -337,6 +459,12 @@ runs `db:push`, then optional `db:seed` (`SEED_DEMO=true`) and `db:admin`
 - Site languages: `en` (default), `ru`, `uk` — nothing else is registered.
 - All prose goes to dictionaries; only HUD codes / brand names may be
   hardcoded (e.g. `// FILTER`, `ACTIONS`, `RAWG · IGDB`).
+- One deliberate exception: the **rule text of items and effects** is generated
+  from their rules by templates that live with the vocabulary in
+  `lib/engine/iee/dsl` (one `Record<Locale, …>` per primitive, parity enforced
+  by types and tests), and their **names** live in the entry documents — spec
+  `docs/IEE_CONSTRUCTOR_SPEC.md` §13. Neither is in `lib/i18n/dictionaries`:
+  components render the `EntryView` the page passes them (spec §8).
 - Interpolation only via `format("template {x}", { x })`
   (`lib/i18n/format.ts`).
 - Feed event types are rendered by `components/feed/feed-list.tsx` — adding a
@@ -436,6 +564,9 @@ pnpm test:watch        # watch mode; for the inner loop only
 | `docs/RUNBOOK.md` | Host guide for event day |
 | `CHANGELOG.md` | Release history + versioning rules |
 | `docs/ITEMS_EFFECTS_EVENTS.md` | Items / effects / events: concept, contracts, decisions, phase plan |
+| `docs/IEE_CONSTRUCTOR_SPEC.md` | **Normative** spec of the items & effects constructor: data model, entry document (DSL v1), vocabulary, execution rules, `.ggpack` — supersedes ITEMS_EFFECTS_EVENTS §2.1 and §3–§5 |
+| `docs/IEE_CONSTRUCTOR_PLAN.md` | Constructor delivery: stages 0–4 and waves A–D, tasks and gates |
+| `docs/IEE_CONSTRUCTOR_LOG.md` | Constructor journal: stage status and one entry per session |
 | `docs/ITEMS_EFFECTS_SCENARIOS.md` | **Generated** — what every item and effect promises, as executed scenarios (`pnpm scenarios:doc`) |
 | `docs/API.md` | **Generated** — HTTP + realtime API reference: endpoints, error codes, Socket.IO events, models (`pnpm api:doc`; served live at `/api-docs`, `/api/openapi.json`, `/api/openapi.md`) |
 | `docs/WORKLOG.md` | Work journal — what each session did and what to pick up next |

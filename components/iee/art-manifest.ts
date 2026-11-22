@@ -3,7 +3,9 @@
 // Add artwork by dropping <catalog key>.webp into public/iee/items/ or
 // public/iee/effects/ and re-running the script — see AGENTS.md §5.
 
-export const ART_ITEM_KEYS: readonly string[] = [];
+export const ART_ITEM_KEYS: readonly string[] = [
+  "cursed_boots",
+];
 
 export const ART_EFFECT_KEYS: readonly string[] = [
   "heavy_boots",

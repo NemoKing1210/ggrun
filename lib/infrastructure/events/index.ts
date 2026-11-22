@@ -13,7 +13,11 @@ export type EventType =
   | "game_passed"
   | "game_dropped"
   | "game_rerolled"
+  /** A player set their game in flight aside with an item — it comes back a few picks later (wave C, IEE spec §7.12). */
+  | "game_postponed"
   | "moved"
+  /** A position change out of turn — an item or effect moved the player (spec §7.3). */
+  | "moved_out_of_turn"
   | "season_started"
   | "player_joined"
   | "player_left"
@@ -25,6 +29,16 @@ export type EventType =
   | "item_used"
   | "item_expired"
   | "item_revoked"
+  /** A bonus item changed hands — stolen, given or traded (wave B, spec §6.12); on the receiver's line. */
+  | "item_moved"
+  /** A player's entry answered what reached them — blocked, turned back, amplified, replaced (wave B, spec §6.13); on their line. */
+  | "intercepted"
+  /** A player answered a choice their entry put to them — or the default, or a judge, did (wave B, spec §7.6); on their line. */
+  | "decision_made"
+  /** An item placed itself on a cell of the board (wave D, spec §6.18); on its owner's line. */
+  | "object_placed"
+  /** An object on the board acted on the player whose move entered its cell, and is gone (wave D, spec §6.18); on that player's line. */
+  | "object_triggered"
   | "effect_applied"
   | "effect_expired"
   | "effect_cleansed"

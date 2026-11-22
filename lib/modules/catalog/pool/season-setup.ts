@@ -12,6 +12,7 @@
  *    touching the other stages.
  */
 import { DEFAULT_SEASON_CONFIG } from "../../../engine/config/defaults";
+import type { SeasonCatalogEntry } from "../../../engine/types/iee";
 import type { SeasonConfig } from "../../../engine/types/season";
 import type { GamePoolTemplate } from "./templates";
 
@@ -186,14 +187,15 @@ export function resetStage(cfg: SeasonConfig, stage: SeasonStage): SeasonConfig 
         },
       };
     case "iee":
-      // Clears the season's pool and its event list; the catalog itself is
-      // code and cannot be reset from here.
+      // The settings and the event list. The entries a season plays are its
+      // catalog, not config: the wizard clears that draft alongside.
       return {
         ...cfg,
         iee: {
           ...d.iee,
           catchUp: { ...d.iee.catchUp },
-          entries: {},
+          tagLimits: {},
+          disabledTags: [],
           events: [],
         },
       };
@@ -235,11 +237,24 @@ function stableStringify(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
 }
 
+/** What the wizard edits: the config, the manual rules and the season's catalog. */
+export interface WizardSnapshot {
+  config: SeasonConfig;
+  rulesMd?: string;
+  /** The season's catalog rows (spec §4.2) — the IEE stage owns them with `config.iee`. */
+  catalog?: readonly SeasonCatalogEntry[];
+}
+
 /**
  * The part of a config a wizard stage owns — the same split `resetStage` uses,
  * so "this stage was edited" and "reset this stage" always agree on scope.
  */
-export function stageSlice(config: SeasonConfig, stage: SeasonStage, rulesMd = ""): unknown {
+export function stageSlice(
+  config: SeasonConfig,
+  stage: SeasonStage,
+  rulesMd = "",
+  catalog: readonly SeasonCatalogEntry[] = [],
+): unknown {
   switch (stage) {
     case "templates":
       return { templateId: config.gamePool.templateId };
@@ -255,7 +270,8 @@ export function stageSlice(config: SeasonConfig, stage: SeasonStage, rulesMd = "
     case "pool":
       return { gamePool: config.gamePool };
     case "iee":
-      return { iee: config.iee };
+      // Row order is the editor's, not a change.
+      return { iee: config.iee, catalog: [...catalog].sort((a, b) => (a.entryId < b.entryId ? -1 : 1)) };
     case "rules":
       return { mode: config.rules.mode, rulesMd };
     default: {
@@ -266,22 +282,15 @@ export function stageSlice(config: SeasonConfig, stage: SeasonStage, rulesMd = "
 }
 
 /** True when a stage differs from the baseline it was loaded or last saved with. */
-export function stageChanged(
-  baseline: { config: SeasonConfig; rulesMd?: string },
-  current: { config: SeasonConfig; rulesMd?: string },
-  stage: SeasonStage,
-): boolean {
+export function stageChanged(baseline: WizardSnapshot, current: WizardSnapshot, stage: SeasonStage): boolean {
   return (
-    stableStringify(stageSlice(baseline.config, stage, baseline.rulesMd ?? "")) !==
-    stableStringify(stageSlice(current.config, stage, current.rulesMd ?? ""))
+    stableStringify(stageSlice(baseline.config, stage, baseline.rulesMd ?? "", baseline.catalog)) !==
+    stableStringify(stageSlice(current.config, stage, current.rulesMd ?? "", current.catalog))
   );
 }
 
 /** Every stage that differs from the baseline, in wizard order. */
-export function changedStages(
-  baseline: { config: SeasonConfig; rulesMd?: string },
-  current: { config: SeasonConfig; rulesMd?: string },
-): SeasonStage[] {
+export function changedStages(baseline: WizardSnapshot, current: WizardSnapshot): SeasonStage[] {
   return SEASON_STAGES.filter((s) => stageChanged(baseline, current, s));
 }
 
@@ -296,8 +305,8 @@ export function changedStages(
  * go quiet again.
  */
 export function editedStages(
-  baseline: { config: SeasonConfig; rulesMd?: string },
-  current: { config: SeasonConfig; rulesMd?: string },
+  baseline: WizardSnapshot,
+  current: WizardSnapshot,
   touched: readonly SeasonStage[],
 ): SeasonStage[] {
   return SEASON_STAGES.filter((s) => touched.includes(s) && stageChanged(baseline, current, s));

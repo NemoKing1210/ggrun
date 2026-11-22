@@ -62,6 +62,11 @@ export const board = {
     prevCell: "Previous cell",
     nextCell: "Next cell",
     openProfile: "Open profile",
+    object: "Object on the cell",
+    objectHint: "A move that passes through this cell or ends on it meets it first.",
+    objectBy: "Placed by {name}",
+    objectByGone: "Its owner has left the season",
+    objectOn: "{name}, placed by {owner}",
   },
   descriptions: {
     start: "Starting point — every run begins here.",

@@ -3,8 +3,6 @@ import { DEFAULT_SEASON_CONFIG, IeeConfigSchema } from "./config";
 import {
   buildPool,
   buildSlices,
-  catalogCandidates,
-  catalogDefaults,
   catchUpMultiplier,
   dropTable,
   gateCandidate,
@@ -56,7 +54,8 @@ const EFFECT: PoolCandidate = {
 
 const input = (over: Partial<PickInput> = {}): PickInput => ({
   polarity: "positive",
-  config: cfg({ entries: { hex_scroll: entry() } }),
+  config: cfg(),
+  entries: { hex_scroll: entry() },
   catalog: [ITEM, EFFECT],
   catalogDefaults: { hex_scroll: { effectKey: "slowed" }, slowed: { steps: 1 } },
   player: player(),
@@ -186,7 +185,7 @@ describe("buildPool", () => {
 
   it("reports why a candidate was rejected", () => {
     const { debug } = buildPool(
-      input({ config: cfg({ entries: { hex_scroll: entry({ minPosition: 30 }) } }) }),
+      input({ entries: { hex_scroll: entry({ minPosition: 30 }) } }),
     );
     expect(debug.rejected).toEqual({ hex_scroll: "min_position" });
   });
@@ -257,13 +256,13 @@ describe("pickWheelOutcome", () => {
   });
 
   it("falls back on an empty pool instead of throwing", () => {
-    const out = pickWheelOutcome(input({ config: cfg({ entries: {} }) }));
+    const out = pickWheelOutcome(input({ entries: {} }));
     expect(out).toMatchObject({ kind: "fallback", fallbackReason: "empty_pool" });
   });
 
   it("falls back when every candidate is gated out", () => {
     const out = pickWheelOutcome(
-      input({ config: cfg({ entries: { hex_scroll: entry({ minPosition: 99 }) } }) }),
+      input({ entries: { hex_scroll: entry({ minPosition: 99 }) } }),
     );
     expect(out).toMatchObject({ kind: "fallback", fallbackReason: "empty_pool" });
   });
@@ -279,7 +278,7 @@ describe("pickWheelOutcome", () => {
     const out = pickWheelOutcome(
       input({
         polarity: "negative",
-        config: cfg({ entries: { slowed: entry({ paramOverrides: { steps: 3 } }) } }),
+        entries: { slowed: entry({ paramOverrides: { steps: 3 } }) },
       }),
     );
     expect(out.params).toEqual({ steps: 3 });
@@ -287,7 +286,7 @@ describe("pickWheelOutcome", () => {
 
   it("is deterministic for a given rng", () => {
     const seeded = input({
-      config: cfg({ entries: { hex_scroll: entry({ weight: 50 }) }, nothingWeight: 50 }),
+      config: cfg({ nothingWeight: 50 }), entries: { hex_scroll: entry({ weight: 50 }) },
     });
     expect(pickWheelOutcome({ ...seeded, rng: () => 0.1 }).kind).toBe("item");
     expect(pickWheelOutcome({ ...seeded, rng: () => 0.9 }).kind).toBe("nothing");
@@ -299,10 +298,8 @@ describe("pickWheelOutcome", () => {
     const rng = () => (call++ + 0.5) / draws; // sweeps [0,1) uniformly
     const shared = input({
       polarity: "negative",
-      config: cfg({
-        entries: { slowed: entry({ weight: 30 }) },
-        nothingWeight: 70,
-      }),
+      config: cfg({ nothingWeight: 70 }),
+      entries: { slowed: entry({ weight: 30 }) },
       catalog: [{ ...EFFECT, stacking: "refresh" }],
     });
     let effects = 0;
@@ -317,7 +314,7 @@ describe("pickWheelOutcome", () => {
     const draws = 500;
     const rng = () => (call++ + 0.5) / draws;
     const shared = input({
-      config: cfg({ entries: { hex_scroll: entry(), slowed: entry() } }),
+      entries: { hex_scroll: entry(), slowed: entry() },
     });
     for (let i = 0; i < draws; i++) {
       const out = pickWheelOutcome({ ...shared, rng });
@@ -335,7 +332,7 @@ describe("pickWheelOutcome", () => {
 describe("dropTable", () => {
   it("matches what the picker actually draws from", () => {
     const table = dropTable(
-      input({ config: cfg({ entries: { hex_scroll: entry({ weight: 25 }) }, nothingWeight: 75 }) }),
+      input({ config: cfg({ nothingWeight: 75 }), entries: { hex_scroll: entry({ weight: 25 }) } }),
     );
     expect(table.map((s) => [s.key, s.share])).toEqual([
       ["hex_scroll", 0.25],
@@ -344,47 +341,11 @@ describe("dropTable", () => {
   });
 });
 
-// --- catalog ---------------------------------------------------------------
+// --- season defaults -------------------------------------------------------
+// The wheel's candidates and defaults now come from the season registry
+// (`lib/modules/iee/registry/registry.test.ts`).
 
-describe("catalog helpers", () => {
-  it("flattens items and effects into one candidate list", () => {
-    const candidates = catalogCandidates();
-    expect(candidates.find((c) => c.key === "hex_scroll")).toMatchObject({
-      kind: "item",
-      polarity: "positive",
-      tier: 0,
-    });
-    expect(candidates.find((c) => c.key === "slowed")).toMatchObject({
-      kind: "effect",
-      polarity: "negative",
-      stacking: "refresh",
-    });
-  });
-
-  it("exposes catalog defaults per key", () => {
-    // Asserted per entry, not as a snapshot of the whole catalog: an exact
-    // toEqual here breaks every time an item or effect is added.
-    const defaults = catalogDefaults();
-    expect(defaults.hex_scroll).toEqual({ effectKey: "slowed" });
-    expect(defaults.slowed).toEqual({ steps: 1 });
-    for (const key of Object.keys(defaults)) {
-      expect(typeof defaults[key]).toBe("object");
-    }
-  });
-
-  it("gives every catalog entry a defaults entry", () => {
-    const defaults = catalogDefaults();
-    for (const c of catalogCandidates()) {
-      expect(defaults[c.key]).toBeDefined();
-    }
-  });
-
-  it("ships every catalog entry with i18n keys, never literal text", () => {
-    for (const c of catalogCandidates()) {
-      expect(c.key).toMatch(/^[a-z0-9_]+$/);
-    }
-  });
-
+describe("season defaults", () => {
   it("keeps the IEE subsystem off in the default season config", () => {
     expect(DEFAULT_SEASON_CONFIG.iee.enabled).toBe(false);
     expect(DEFAULT_SEASON_CONFIG.iee.allowTargetingOthers).toBe(false);

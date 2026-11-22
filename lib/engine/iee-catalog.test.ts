@@ -1,161 +1,135 @@
 import { describe, expect, it } from "vitest";
-import * as EnIee from "../i18n/dictionaries/en/iee";
-import * as RuIee from "../i18n/dictionaries/ru/iee";
-import * as UkIee from "../i18n/dictionaries/uk/iee";
-import { catalogCandidates, EFFECTS, ITEMS, listEffects, listItems } from "./iee";
-import { RARITY_WEIGHT } from "./types";
-import type { HookName } from "./types";
+import { CORE_DOCS } from "./iee/core-docs";
+import { compileSet } from "./iee/dsl/set";
+import { isEffect, isItem, type CompiledItem, type RuleContext } from "./iee/dsl/runtime";
+import { TURN_HOOKS } from "./iee/resolve/live";
+import { RARITY_WEIGHT, type HookName, type IeeIntent, type IeePlayerSnapshot } from "./types";
 
-/** The hooks resolveGameRoll actually dispatches (see WORKLOG, phase 9). */
-const WIRED_HOOKS: HookName[] = [
-  "beforeMovement",
-  "afterMovement",
-  "beforeCellEffect",
-  "afterCellEffect",
-  "onOutcome",
-  "onTick",
-];
+/**
+ * The core set as a whole — what every season plays in stage 1. Each document
+ * is checked on its own by the compiler (`core-docs/core-docs.test.ts`); these
+ * are the properties of the set that no single entry can promise.
+ */
+const SET = compileSet(CORE_DOCS);
+const all = SET.entries;
+const items = all.filter(isItem);
+const effects = all.filter(isEffect);
 
-const dict = (root: Record<string, unknown>, path: string): unknown => {
-  let node: unknown = { iee: root };
-  for (const part of path.split(".")) {
-    if (typeof node !== "object" || node === null) return undefined;
-    node = (node as Record<string, unknown>)[part];
-  }
-  return node;
-};
+const player = (seasonPlayerId: string): IeePlayerSnapshot => ({
+  seasonPlayerId,
+  position: 10,
+  balancePoints: 5,
+  rollSeq: 1,
+  moveCount: 1,
+  rank: 1,
+  status: "active",
+});
 
-const LOCALES: Array<[string, Record<string, unknown>]> = [
-  ["en", EnIee.iee as unknown as Record<string, unknown>],
-  ["ru", RuIee.iee as unknown as Record<string, unknown>],
-  ["uk", UkIee.iee as unknown as Record<string, unknown>],
-];
+/** What using an item asks for, aimed at `target` (null = nobody). */
+const activate = (item: CompiledItem, target: IeePlayerSnapshot | null) =>
+  item.use({
+    params: item.defaults,
+    actor: player("sp-actor"),
+    target,
+    actorEntries: [],
+    targetEntries: [],
+    rng: () => 0,
+  });
 
-describe("catalog — structural invariants", () => {
-  const all = [...listItems(), ...listEffects()];
+/** Every intent an item produces when used the way it is meant to be. */
+const intentsOf = (item: CompiledItem): IeeIntent[] =>
+  activate(item, item.usage.target === "self" || item.usage.target === "none" ? null : player("sp-target")).intents;
+
+describe("core set — structural invariants", () => {
+  it("compiles whole: every entry plays", () => {
+    expect(SET.failures).toEqual([]);
+    expect(all).toHaveLength(CORE_DOCS.length);
+  });
 
   it("has entries of both polarities", () => {
-    expect(all.some((d) => d.polarity === "positive")).toBe(true);
-    expect(all.some((d) => d.polarity === "negative")).toBe(true);
+    expect(all.some((e) => e.polarity === "positive")).toBe(true);
+    expect(all.some((e) => e.polarity === "negative")).toBe(true);
   });
 
   it("every key is a stable snake_case identifier", () => {
-    for (const def of all) expect(def.key).toMatch(/^[a-z][a-z0-9_]*$/);
+    for (const e of all) expect(e.key).toMatch(/^[a-z][a-z0-9_]*$/);
   });
 
   it("keys are unique across items and effects", () => {
-    const keys = all.map((d) => d.key);
-    expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it("the registry key always matches the definition's own key", () => {
-    for (const [key, def] of Object.entries(ITEMS)) expect(def.key).toBe(key);
-    for (const [key, def] of Object.entries(EFFECTS)) expect(def.key).toBe(key);
+    expect(SET.byKey.size).toBe(all.length);
   });
 
   it("every rarity is one the weight table knows", () => {
-    for (const def of all) expect(RARITY_WEIGHT[def.rarity]).toBeGreaterThan(0);
+    for (const e of all) expect(RARITY_WEIGHT[e.rarity]).toBeGreaterThan(0);
   });
 
-  it("every entry names a Heroicon rather than a file nobody drew", () => {
-    for (const def of all) expect(def.heroIcon).toMatch(/^[A-Z][A-Za-z0-9]*Icon$/);
-  });
-
-  it("catalogCandidates covers the whole catalog", () => {
-    expect(catalogCandidates()).toHaveLength(all.length);
+  it("every entry names a glyph the art table knows, rather than a file nobody drew", () => {
+    // The compiler drops an unknown glyph to null (the kind's fallback), so a
+    // non-null glyph is a known one.
+    for (const e of all) expect(e.glyph, e.key).toMatch(/^[A-Z][A-Za-z0-9]*Icon$/);
   });
 });
 
-describe("catalog — i18n", () => {
-  const all = [...listItems(), ...listEffects()];
-
-  it("stores dictionary keys, never literal text", () => {
-    for (const def of all) {
-      expect(def.i18n.name).toMatch(/^iee\.(items|effects)\.[A-Za-z0-9]+\.name$/);
-      expect(def.i18n.description).toMatch(/^iee\.(items|effects)\.[A-Za-z0-9]+\.description$/);
-    }
-  });
-
-  it.each(LOCALES)("%s resolves a name and a description for every entry", (_loc, root) => {
-    for (const def of all) {
-      const name = dict(root, def.i18n.name);
-      const description = dict(root, def.i18n.description);
-      expect(typeof name).toBe("string");
-      expect((name as string).length).toBeGreaterThan(0);
-      expect(typeof description).toBe("string");
-      expect((description as string).length).toBeGreaterThan(0);
-    }
-  });
-
-  it("the three languages never share the same string for a name", () => {
-    for (const def of all) {
-      const names = LOCALES.map(([, root]) => dict(root, def.i18n.name) as string);
-      // ru and uk may legitimately coincide; en should differ from at least one.
-      expect(new Set(names).size).toBeGreaterThan(1);
-    }
-  });
-});
-
-describe("catalog — effects", () => {
-  it("every effect implements at least one hook", () => {
-    for (const def of listEffects()) {
-      expect(Object.keys(def.hooks).length).toBeGreaterThan(0);
+describe("core set — effects", () => {
+  it("every effect has at least one rule", () => {
+    for (const e of effects) {
+      // An answer to what arrives and a standing state are rules too (wave B, spec §6.13);
+      // so are the next game's — its pick and the conditions it gets (wave C, spec §6.16, §6.17).
+      const rules =
+        Object.values(e.hooks).flat().length +
+        e.onApply.length +
+        e.onExpire.length +
+        e.incoming.length +
+        e.standing.length +
+        e.pool.length +
+        e.rollCreated.length;
+      expect(rules, e.key).toBeGreaterThan(0);
     }
   });
 
   it("no effect relies on a hook the loop does not dispatch", () => {
-    for (const def of listEffects()) {
-      for (const hook of Object.keys(def.hooks) as HookName[]) {
-        expect(WIRED_HOOKS).toContain(hook);
-      }
+    for (const e of effects) {
+      for (const hook of Object.keys(e.hooks)) expect(TURN_HOOKS as readonly string[]).toContain(hook);
     }
   });
 
-  it("a charge-based effect always starts with at least one", () => {
-    for (const def of listEffects()) {
-      if (def.duration.kind === "charges") expect(def.duration.value).toBeGreaterThan(0);
-    }
-  });
-
-  it("a roll-based effect always lasts at least one roll", () => {
-    for (const def of listEffects()) {
-      if (def.duration.kind === "rolls") expect(def.duration.value).toBeGreaterThan(0);
+  it("a counted effect always starts with at least one", () => {
+    for (const e of effects) {
+      // Permanent ones never run out; instant ones act as they arrive (wave A).
+      if (e.duration.unit !== "permanent" && e.duration.unit !== "instant") expect(e.duration.count, e.key).toBeGreaterThan(0);
     }
   });
 });
 
-describe("catalog — items", () => {
-  it("every item is active: a passive one would need a hook table it cannot have", () => {
-    for (const def of listItems()) expect(def.usage.mode).toBe("active");
+describe("core set — items", () => {
+  it("every item is used, held or cursed — held: the protections (wave B, spec §6.13) and «Корона» (wave D, §6.19)", () => {
+    expect(items.filter((i) => i.usage.activation === "passive").map((i) => i.key).sort()).toEqual(["crown", "mirror_shield", "phoenix", "shield"]);
+    // Every penalty item is cursed, and every cursed item a penalty (D3, wave A).
+    for (const item of items) expect(item.usage.activation === "cursed", item.key).toBe(item.character === "penalty");
   });
 
-  it("every item starts with at least one charge", () => {
-    for (const def of listItems()) expect(def.usage.charges).toBeGreaterThan(0);
+  it("every item starts with at least one charge — but «Корона», held until a rival takes it (wave D, §6.19)", () => {
+    expect(items.filter((i) => i.usage.charges === null).map((i) => i.key)).toEqual(["crown"]);
+    for (const item of items) if (item.usage.charges !== null) expect(item.usage.charges, item.key).toBeGreaterThan(0);
   });
 
-  it("an item that grants an effect names one that exists", () => {
-    for (const def of listItems()) {
-      const key = def.defaults.effectKey;
-      if (typeof key === "string") expect(EFFECTS[key]).toBeDefined();
+  it("an item that grants an entry names one the set plays", () => {
+    for (const item of items) {
+      for (const intent of intentsOf(item)) {
+        if (intent.kind === "grant") expect(SET.byEntryId.get(intent.entryId)?.key, item.key).toBe(intent.key);
+      }
     }
   });
 
-  it("items are all in the positive pool — a tool is a reward (§12 B7)", () => {
-    for (const def of listItems()) expect(def.polarity).toBe("positive");
+  it("a tool is a reward and a curse a punishment: each item drops from its own wheel (§12 B7)", () => {
+    for (const item of items) expect(item.polarity, item.key).toBe(item.usage.activation === "cursed" ? "negative" : "positive");
   });
 
   it("an item aimed at others refuses a missing or self target", () => {
-    const actor = {
-      seasonPlayerId: "a", position: 0, balancePoints: 0, rollSeq: 0,
-      moveCount: 0, rank: 1, status: "active" as const,
-    };
-    for (const def of listItems()) {
-      if (def.usage.target !== "other") continue;
-      expect(def.apply({ itemKey: def.key, params: def.defaults, actor, target: null }).rejected)
-        .toBe("ieeTargetRequired");
-      expect(
-        def.apply({ itemKey: def.key, params: def.defaults, actor, target: actor }).rejected,
-      ).toBe("ieeTargetSelfNotAllowed");
+    for (const item of items) {
+      if (item.usage.target !== "other") continue;
+      expect(activate(item, null).rejected, item.key).toBe("ieeTargetRequired");
+      expect(activate(item, player("sp-actor")).rejected, item.key).toBe("ieeTargetSelfNotAllowed");
     }
   });
 });
@@ -165,28 +139,19 @@ describe("catalog — items", () => {
  * with no answer is a frustration generator, so this is an invariant, not a
  * style note — it fails the build if someone adds a curse with no cure.
  */
-describe("catalog — counter-play (§8.3)", () => {
-  const negatives = listEffects().filter((d) => d.polarity === "negative");
+describe("core set — counter-play (§8.3)", () => {
+  const negatives = effects.filter((e) => e.polarity === "negative");
 
   it("there is at least one negative effect to answer", () => {
     expect(negatives.length).toBeGreaterThan(0);
   });
 
   it("a universal cleanse exists and clears negatives", () => {
-    const cleansers = listItems().filter((def) => {
-      const out = def.apply({
-        itemKey: def.key,
-        params: def.defaults,
-        actor: {
-          seasonPlayerId: "a", position: 0, balancePoints: 0, rollSeq: 0,
-          moveCount: 0, rank: 1, status: "active",
-        },
-        target: null,
-      });
-      return (out.cleanse ?? []).some(
-        (c) => c.effectKeys === "all" && c.polarity === "negative",
-      );
-    });
+    const cleansers = items.filter((item) =>
+      intentsOf(item).some(
+        (i) => i.kind === "cleanse" && i.count === "all" && i.character === "penalty" && i.tags.length === 0,
+      ),
+    );
     expect(cleansers.length).toBeGreaterThan(0);
   });
 
@@ -197,47 +162,33 @@ describe("catalog — counter-play (§8.3)", () => {
    * blanket claim, so it says something real.
    */
   it("every movement-shaping negative has a positive on the same hook", () => {
-    const positives = listEffects().filter((d) => d.polarity === "positive");
+    const positives = effects.filter((e) => e.polarity === "positive");
     for (const negative of negatives) {
       for (const hook of Object.keys(negative.hooks) as HookName[]) {
         if (hook !== "beforeMovement" && hook !== "afterMovement") continue;
-        const opposite = positives.some((d) => hook in d.hooks);
-        expect(
-          opposite,
-          `no positive effect answers ${negative.key} on ${hook}`,
-        ).toBe(true);
+        const opposite = positives.some((e) => (e.hooks[hook]?.length ?? 0) > 0);
+        expect(opposite, `no positive effect answers ${negative.key} on ${hook}`).toBe(true);
       }
     }
   });
 
   it("a penalty landing can be prevented outright", () => {
-    // This asserted only that *some* effect declares a `beforeCellEffect`
-    // hook, and it passed happily while the shield was absorbing half a
-    // landing: the cell's balance penalty was vetoed, and the wheel handed the
-    // player the negative status anyway. Declaring a hook is not counter-play;
-    // returning a veto is. The end-to-end half — that the veto actually stops
-    // the drop — is `probe/shield.mjs`, because that wiring lives in the
-    // service layer, not here.
-    const vetoes = listEffects().filter((def) => {
-      const hook = def.hooks.beforeCellEffect;
-      if (!hook) return false;
-      const patch = hook({
-        hook: "beforeCellEffect",
-        effectKey: def.key,
-        params: def.defaults,
-        self: {
-          seasonPlayerId: "sp",
-          position: 10,
-          balancePoints: 5,
-          rollSeq: 1,
-          moveCount: 1,
-          rank: 1,
-          status: "active",
-        },
-        turn: { rollSeq: 1, outcome: "passed", cellType: "penalty" },
-      });
-      return patch.skipCellEffect === true;
+    // Declaring a `beforeCellEffect` rule is not counter-play; returning a
+    // veto for a penalty cell is. The end-to-end half — that the veto also
+    // stops the wheel's drop — is the SC-SHIELD scenarios, run on the executor.
+    const ctx = (params: RuleContext["params"]): RuleContext => ({
+      trigger: "beforeCellEffect",
+      params,
+      self: player("sp"),
+      target: null,
+      turn: { rollSeq: 1, outcome: "passed", cellType: "penalty" },
+      selfEntries: [],
+      targetEntries: [],
+      rng: () => 0,
     });
-    expect(vetoes.map((d) => d.key)).not.toEqual([]);
+    const vetoes = effects.filter((e) =>
+      (e.hooks.beforeCellEffect ?? []).some((rule) => rule.run(ctx(e.defaults))?.skipCellEffect === true),
+    );
+    expect(vetoes.map((e) => e.key)).not.toEqual([]);
   });
 });
