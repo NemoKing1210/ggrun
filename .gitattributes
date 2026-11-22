@@ -13,3 +13,7 @@ compose.yaml text eol=lf
 
 # Item packs are zip archives: their bytes are never touched.
 *.ggpack binary
+
+# Preserve artwork bytes and the line endings emitted by pnpm iee:art.
+*.webp binary
+components/iee/art-manifest.ts text eol=lf
